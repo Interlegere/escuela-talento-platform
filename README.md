@@ -1,0 +1,1 @@
+# escuela-talento-platform
