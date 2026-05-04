@@ -24,6 +24,11 @@ const fraunces = Fraunces({
 export const metadata: Metadata = {
   title: "Entheos",
   description: "Escuela de trabajo, proceso y creación compartida",
+  icons: {
+    icon: "/icon.jpg",
+    shortcut: "/icon.jpg",
+    apple: "/icon.jpg",
+  },
 }
 
 export default function RootLayout({
