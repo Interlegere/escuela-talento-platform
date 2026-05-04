@@ -223,7 +223,9 @@ export default function PagoMensualCard({
     const file = e.target.files?.[0]
     if (!file) return
     setArchivoPendiente(file)
-    setMensaje("Archivo listo para enviar. Confirmá con “Enviar comprobante”.")
+    setMensaje(
+      "Archivo listo para enviar. Tocá “Enviar comprobante” para terminar de cargarlo."
+    )
     e.target.value = ""
   }
 
@@ -293,7 +295,7 @@ export default function PagoMensualCard({
           <input
             ref={inputRef}
             type="file"
-            accept=".jpg,.jpeg,.png,.webp,.pdf"
+            accept=".jpg,.jpeg,.png,.webp,.heic,.heif,.pdf"
             className="hidden"
             onChange={onSeleccionarArchivo}
           />
@@ -345,7 +347,8 @@ export default function PagoMensualCard({
 
           {archivoPendiente && (
             <p className="workspace-inline-note">
-              Archivo seleccionado: <strong>{archivoPendiente.name}</strong>
+              Archivo seleccionado: <strong>{archivoPendiente.name}</strong>. Falta
+              tocar <strong>Enviar comprobante</strong>.
             </p>
           )}
         </div>

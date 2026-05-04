@@ -160,13 +160,15 @@ export default function PagoReservaTerapiaCard({
       <input
         ref={inputRef}
         type="file"
-        accept=".jpg,.jpeg,.png,.webp,.pdf"
+        accept=".jpg,.jpeg,.png,.webp,.heic,.heif,.pdf"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0] || null
           setArchivoPendiente(file)
           if (file) {
-            setMensaje(`Comprobante listo para enviar: ${file.name}`)
+            setMensaje(
+              `Comprobante listo para enviar: ${file.name}. Tocá “Enviar comprobante” para terminar la carga.`
+            )
           }
           e.currentTarget.value = ""
         }}

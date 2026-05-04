@@ -2,6 +2,25 @@ import { NextResponse } from "next/server"
 import { requireAuthenticatedActor } from "@/lib/authz"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
+const TIPOS_PERMITIDOS = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "application/pdf",
+])
+
+const EXTENSIONES_PERMITIDAS = new Set([
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "heic",
+  "heif",
+  "pdf",
+])
+
 export async function POST(req: Request) {
   try {
     const auth = await requireAuthenticatedActor()
@@ -29,17 +48,18 @@ export async function POST(req: Request) {
       )
     }
 
-    const tiposPermitidos = [
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-      "application/pdf",
-    ]
+    const extension = archivo.name.includes(".")
+      ? archivo.name.split(".").pop()?.toLowerCase() || ""
+      : ""
+    const tipoValido =
+      TIPOS_PERMITIDOS.has(archivo.type) ||
+      (!!extension && EXTENSIONES_PERMITIDAS.has(extension))
 
-    if (!tiposPermitidos.includes(archivo.type)) {
+    if (!tipoValido) {
       return NextResponse.json(
         {
-          error: "Tipo de archivo no permitido. Usa JPG, PNG, WEBP o PDF.",
+          error:
+            "Tipo de archivo no permitido. Usa JPG, PNG, WEBP, HEIC, HEIF o PDF.",
         },
         { status: 400 }
       )
@@ -81,9 +101,9 @@ export async function POST(req: Request) {
       )
     }
 
-    const extension = archivo.name.split(".").pop() || "bin"
+    const extensionFinal = extension || "bin"
     const safeEmail = auth.actor.email.replace(/[^a-zA-Z0-9@._-]/g, "_")
-    const nombreArchivo = `${Date.now()}-${safeEmail}.${extension}`
+    const nombreArchivo = `${Date.now()}-${safeEmail}.${extensionFinal}`
     const path = `${pago.anio}/${String(pago.mes).padStart(2, "0")}/pago-${pagoMensualId}/${nombreArchivo}`
 
     const arrayBuffer = await archivo.arrayBuffer()
