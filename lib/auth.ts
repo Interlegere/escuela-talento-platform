@@ -2,7 +2,7 @@ import type { AuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { autenticarUsuarioPlataforma } from "@/lib/usuarios-plataforma"
 
-const users = [
+const legacyTestUsers = [
   {
     id: "1",
     name: "Administrador",
@@ -25,6 +25,10 @@ const users = [
     role: "participante",
   },
 ]
+
+function allowLegacyTestUsers() {
+  return process.env.NODE_ENV !== "production"
+}
 
 export const authOptions: AuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
@@ -59,10 +63,12 @@ export const authOptions: AuthOptions = {
           }
         }
 
-        const user = users.find(
-          (u) =>
-            u.email === email &&
-            u.password === password
+        if (!allowLegacyTestUsers()) {
+          return null
+        }
+
+        const user = legacyTestUsers.find(
+          (u) => u.email === email && u.password === password
         )
 
         if (!user) return null
