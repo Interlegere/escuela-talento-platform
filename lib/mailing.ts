@@ -156,40 +156,6 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
     ? `Acceso directo a la videollamada: ${meetUrl}`
     : "El acceso a la videollamada estará disponible dentro de Campus."
 
-  const text = [
-    `Hola ${nombre},`,
-    "",
-    "¡Bienvenido/a a Entheos!",
-    subtitulo,
-    "",
-    "Si estás recibiendo este mail es porque te inscribiste a la charla introductoria gratuita:",
-    "",
-    tituloCharla,
-    subtituloCharla,
-    "",
-    "¡Tu lugar ya está confirmado!",
-    "",
-    `Para ingresar a la charla, entrá a la plataforma desde ${url}/login con tu usuario ${params.email} y la clave de acceso ${params.password}.`,
-    textoFecha,
-    textoMeet,
-    "",
-    'Antes de ingresar, quiero que tengas algo presente: "el problema no es que te falte tiempo, es qué te sobra"...',
-    "Lo profundizaremos con otras claves que te ayudarán a mover los hilos no evidentes que transforman todo en tu vida.",
-    "",
-    "Y una pregunta para desde antes ir resignificando las estructuras:",
-    "",
-    "¿Qué es lo que hoy estás dejando de lado por sentir que no tenés tiempo?",
-    "",
-    "Si te dan ganas, podés responder este mail con tu respuesta. Voy a leerlas.",
-    "",
-    "¡Nos vemos pronto!",
-    "",
-    "Atentamente,",
-    "Nicolás Busico.",
-  ]
-    .filter(Boolean)
-    .join("\n")
-
   const bloqueMeet = meetUrl
     ? `
           <p style="margin: 0 0 10px;"><strong>Videollamada:</strong> <a href="${meetUrl}">${meetUrl}</a></p>
@@ -203,6 +169,40 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
           <p style="margin: 0 0 10px;"><strong>Fecha y horario:</strong> ${escapeHtml(fechaCharla)}</p>
         `
     : ""
+
+  const text = [
+    `Hola ${nombre},`,
+    "",
+    "¡Bienvenido/a a Entheos!",
+    subtitulo,
+    "",
+    "Si estás recibiendo este mail es porque te inscribiste a la charla introductoria gratuita:",
+    "",
+    tituloCharla,
+    subtituloCharla,
+    "",
+    "¡Tu lugar ya está confirmado!",
+    "",
+    'Antes de ingresar, quiero que tengas algo presente: "el problema no es que te falte tiempo, es qué te sobra"...',
+    "Lo profundizaremos con otras claves que te ayudarán a mover los hilos no evidentes que transforman todo en tu vida.",
+    "",
+    "Y una pregunta para desde antes ir resignificando las estructuras:",
+    "",
+    "¿Qué es lo que hoy estás dejando de lado por sentir que no tenés tiempo?",
+    "",
+    "Si te dan ganas, podés responder este mail con tu respuesta. Voy a leerlas.",
+    "",
+    `Para ingresar a la charla, entrá a la plataforma desde ${url}/login con tu usuario ${params.email} y la clave de acceso ${params.password}.`,
+    textoFecha,
+    textoMeet,
+    "",
+    "¡Nos vemos pronto!",
+    "",
+    "Atentamente,",
+    "Nicolás Busico.",
+  ]
+    .filter(Boolean)
+    .join("\n")
 
   const html = `
     <div style="margin: 0; padding: 32px 16px; background: #f6efe2; font-family: Arial, sans-serif; color: #1f2933;">
@@ -232,6 +232,22 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
 
           <p style="margin: 0 0 18px; font-weight: 700;">¡Tu lugar ya está confirmado!</p>
 
+          <p style="margin: 0 0 16px;">
+            Antes de ingresar, quiero que tengas algo presente:<br />
+            <span style="font-style: italic;">"el problema no es que te falte tiempo, es qué te sobra"...</span>
+          </p>
+
+          <p style="margin: 0 0 16px;">
+            Lo profundizaremos con otras claves que te ayudarán a mover los hilos no evidentes que transforman todo en tu vida.
+          </p>
+
+          <p style="margin: 0 0 10px;">Y una pregunta para desde antes ir resignificando las estructuras:</p>
+          <p style="margin: 0 0 18px; font-weight: 700;">¿Qué es lo que hoy estás dejando de lado por sentir que no tenés tiempo?</p>
+
+          <p style="margin: 0 0 24px;">
+            Si te dan ganas, podés responder este mail con tu respuesta. Voy a leerlas.
+          </p>
+
           <p style="margin: 0 0 18px;">
             Para ingresar a la charla, entrá a la plataforma con tu usuario y tu clave de acceso. Una vez dentro de Campus vas a encontrar el acceso a la videollamada.
           </p>
@@ -254,22 +270,6 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
             ${bloqueFecha}
             ${bloqueMeet}
           </div>
-
-          <p style="margin: 0 0 16px;">
-            Antes de ingresar, quiero que tengas algo presente:<br />
-            <span style="font-style: italic;">"el problema no es que te falte tiempo, es qué te sobra"...</span>
-          </p>
-
-          <p style="margin: 0 0 16px;">
-            Lo profundizaremos con otras claves que te ayudarán a mover los hilos no evidentes que transforman todo en tu vida.
-          </p>
-
-          <p style="margin: 0 0 10px;">Y una pregunta para desde antes ir resignificando las estructuras:</p>
-          <p style="margin: 0 0 18px; font-weight: 700;">¿Qué es lo que hoy estás dejando de lado por sentir que no tenés tiempo?</p>
-
-          <p style="margin: 0 0 16px;">
-            Si te dan ganas, podés responder este mail con tu respuesta. Voy a leerlas.
-          </p>
 
           <p style="margin: 0 0 10px;">¡Nos vemos pronto!</p>
           <p style="margin: 0;">Atentamente,<br />Nicolás Busico.</p>
