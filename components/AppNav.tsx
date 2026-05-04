@@ -50,7 +50,10 @@ export default function AppNav() {
   return (
     <nav className="app-main-nav relative z-40 px-3 pt-3 sm:px-5">
       <div className="mx-auto flex max-w-7xl flex-col gap-4 rounded-[1.6rem] border border-[var(--line)] bg-[rgba(253,247,236,0.78)] px-3 py-3 shadow-[0_18px_40px_rgba(55,42,28,0.08)] backdrop-blur-2xl sm:px-4 lg:flex-row lg:items-center lg:justify-between">
-        <Link href="/" className="group flex items-center gap-3 rounded-[1.2rem] px-1 py-1">
+        <Link
+          href="/landing"
+          className="group flex items-center gap-3 rounded-[1.2rem] px-1 py-1"
+        >
           <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-[1.15rem] border border-[rgba(205,147,58,0.28)] bg-[rgba(255,252,245,0.72)] shadow-[0_12px_28px_rgba(55,42,28,0.1)] transition group-hover:-translate-y-0.5">
             <Image
               src="/interlegere-icono.png"
