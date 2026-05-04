@@ -41,11 +41,16 @@ function crearContenidoBienvenida(params: BienvenidaParams) {
   const url = appUrl()
   const nombre = params.nombre.trim() || "bienvenida/o"
   const role = textoRol(params.role)
+  const subtitulo =
+    "Escuela Nodo para el THalento, el Entusiasmo y el Orden de los Sentidos"
 
   const text = [
     `Hola ${nombre},`,
     "",
-    "Te damos la bienvenida a la plataforma de la Escuela.",
+    "Bienvenido/a a Entheos.",
+    subtitulo,
+    "",
+    "Te damos la bienvenida a la plataforma.",
     "",
     `Acceso: ${url}/login`,
     `Usuario: ${params.email}`,
@@ -59,9 +64,12 @@ function crearContenidoBienvenida(params: BienvenidaParams) {
 
   const html = `
     <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2933;">
-      <h1 style="font-size: 24px; margin: 0 0 16px;">Bienvenida/o a la Escuela</h1>
+      <h1 style="font-size: 24px; margin: 0 0 8px;">Bienvenido/a a Entheos</h1>
+      <p style="margin: 0 0 18px; color: #6b7280; font-size: 15px;">
+        ${escapeHtml(subtitulo)}
+      </p>
       <p>Hola ${escapeHtml(nombre)},</p>
-      <p>Te damos la bienvenida a la plataforma de la Escuela.</p>
+      <p>Te damos la bienvenida a la plataforma.</p>
       <div style="border: 1px solid #e5dccb; border-radius: 16px; padding: 16px; margin: 20px 0; background: #fffaf2;">
         <p><strong>Acceso:</strong> <a href="${url}/login">${url}/login</a></p>
         <p><strong>Usuario:</strong> ${escapeHtml(params.email)}</p>
@@ -74,7 +82,7 @@ function crearContenidoBienvenida(params: BienvenidaParams) {
   `
 
   return {
-    subject: "Bienvenida/o a la plataforma de la Escuela",
+    subject: "Bienvenido/a a Entheos",
     text,
     html,
   }
@@ -125,4 +133,3 @@ export async function enviarBienvenidaUsuario(
     proveedor: "resend",
   }
 }
-
