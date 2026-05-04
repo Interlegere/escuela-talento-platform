@@ -6,6 +6,13 @@ import {
   resolveActivityAccess,
   type ActivitySlug,
 } from "@/lib/authz"
+import { createAdminSupabaseClient } from "@/lib/supabase-admin"
+import {
+  charlaIntroFechaTexto,
+  charlaIntroMeetUrl,
+  charlaIntroSubtitulo,
+  charlaIntroTitulo,
+} from "@/lib/mailing"
 
 const actividades: ActivitySlug[] = [
   "casatalentos",
@@ -59,6 +66,17 @@ export async function GET() {
       })
     )
 
+    const supabase = createAdminSupabaseClient()
+    const { data: usuarioData } = await supabase
+      .from("usuarios_plataforma")
+      .select("charla_intro_habilitada")
+      .eq("email", auth.actor.email)
+      .maybeSingle()
+
+    const charlaIntroHabilitada =
+      usuarioData?.charla_intro_habilitada === true &&
+      auth.actor.role !== "admin"
+
     return NextResponse.json({
       ok: true,
       actor: {
@@ -67,6 +85,16 @@ export async function GET() {
         role: auth.actor.role,
       },
       permissions: listPermissionsForRole(auth.actor.role),
+      usuario: {
+        charlaIntroHabilitada,
+      },
+      charlaIntro: {
+        habilitada: charlaIntroHabilitada,
+        titulo: charlaIntroTitulo(),
+        subtitulo: charlaIntroSubtitulo(),
+        fechaTexto: charlaIntroFechaTexto() || null,
+        meetUrl: charlaIntroMeetUrl() || null,
+      },
       accesos,
     })
   } catch (error) {

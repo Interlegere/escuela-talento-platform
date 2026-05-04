@@ -29,6 +29,27 @@ type ResumenEspacio = {
   }>
 }
 
+type ResumenAccesos = {
+  actor?: {
+    role?: string
+  }
+  usuario?: {
+    charlaIntroHabilitada?: boolean
+  }
+  charlaIntro?: {
+    habilitada?: boolean
+    titulo?: string
+    subtitulo?: string
+    fechaTexto?: string | null
+    meetUrl?: string | null
+  }
+  accesos?: Array<{
+    slug: string
+    acceso: boolean
+    motivo?: string | null
+  }>
+}
+
 function siguienteSemanaDiaHora(diaSemana: number, hora: number, minuto: number) {
   const ahora = new Date()
   const base = new Date(ahora)
@@ -116,23 +137,63 @@ function RecordatorioCard({
   )
 }
 
+function CharlaIntroCard({
+  titulo,
+  subtitulo,
+  fechaTexto,
+  meetUrl,
+}: {
+  titulo: string
+  subtitulo: string
+  fechaTexto?: string | null
+  meetUrl?: string | null
+}) {
+  return (
+    <section className="workspace-card-link !rounded-[1.7rem] !p-6">
+      <div className="space-y-3">
+        <p className="workspace-eyebrow !text-[0.7rem] !tracking-[0.22em]">
+          Charla introductoria
+        </p>
+        <h3 className="text-[1.8rem] font-semibold tracking-[-0.04em] text-[var(--foreground)]">
+          {titulo}
+        </h3>
+        <p className="max-w-3xl text-base leading-7 text-[var(--muted)]">
+          {subtitulo}
+        </p>
+        {fechaTexto && (
+          <p className="text-sm font-semibold text-[var(--sea)]">
+            Fecha y horario: {fechaTexto}
+          </p>
+        )}
+        <div className="flex flex-wrap gap-3 pt-2">
+          {meetUrl ? (
+            <a
+              href={meetUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="workspace-button-primary"
+            >
+              Ingresar a la charla
+            </a>
+          ) : (
+            <span className="workspace-inline-note">
+              El acceso a la videollamada va a aparecer acá cuando quede listo.
+            </span>
+          )}
+          <a href="/perfil" className="workspace-button-secondary">
+            Ver tu perfil
+          </a>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export default function CampusPage() {
   const { data: session, status, error } = useAppSession()
   const router = useRouter()
   const [sesionDemorada, setSesionDemorada] = useState(false)
-  const [resumen, setResumen] = useState<
-    | {
-        actor?: {
-          role?: string
-        }
-        accesos?: Array<{
-          slug: string
-          acceso: boolean
-          motivo?: string | null
-        }>
-      }
-    | null
-  >(null)
+  const [resumen, setResumen] = useState<ResumenAccesos | null>(null)
   const [cargandoResumen, setCargandoResumen] = useState(false)
   const [recordatoriosEspacios, setRecordatoriosEspacios] = useState<
     Array<{ actividad: string; texto: string; href: string }>
@@ -151,6 +212,7 @@ export default function CampusPage() {
   const accesoTerapia = accesos.some(
     (item) => item.slug === "terapia" && item.acceso
   )
+  const accesoCharlaIntro = resumen?.charlaIntro?.habilitada === true
   const mostrarRecordatorioCasaTalentos =
     accesoCasaTalentos || VISTA_PREVIA_DESARROLLO
   const mostrarRecordatorioConectando =
@@ -368,6 +430,13 @@ export default function CampusPage() {
   const nombre = session?.user?.name || "Participante"
   const role = session?.user?.role || "participante"
   const esAdmin = role === "admin"
+  const totalActividades = [
+    accesoCasaTalentos,
+    accesoConectando,
+    accesoMentorias,
+    accesoTerapia,
+  ].filter(Boolean).length
+  const modoSoloCharla = accesoCharlaIntro && totalActividades === 0
 
   if (esAdmin) {
     return (
@@ -425,16 +494,30 @@ export default function CampusPage() {
   return (
       <main className="workspace-page space-y-8">
         <WorkspaceHero
-        eyebrow=""
-        title={`¡Bienvenido ${nombre}!`}
-        subtitle={fraseOraculo}
-        subtitleClassName="workspace-subtitle-oracle"
-        logoClassName="!h-36 !w-36"
-      >
-        <div className="flex flex-wrap gap-3">
-          <span className="workspace-chip">Actividades</span>
-        </div>
-      </WorkspaceHero>
+          eyebrow=""
+          title={`¡Bienvenido ${nombre}!`}
+          subtitle={fraseOraculo}
+          subtitleClassName="workspace-subtitle-oracle"
+          logoClassName="!h-36 !w-36"
+        >
+          <div className="flex flex-wrap gap-3">
+            <span className="workspace-chip">
+              {modoSoloCharla ? "Charla introductoria" : "Actividades"}
+            </span>
+          </div>
+        </WorkspaceHero>
+
+      {modoSoloCharla && resumen?.charlaIntro && (
+        <CharlaIntroCard
+          titulo={resumen.charlaIntro.titulo || "Charla introductoria"}
+          subtitulo={
+            resumen.charlaIntro.subtitulo ||
+            "Tu acceso a la charla está habilitado desde este campus."
+          }
+          fechaTexto={resumen.charlaIntro.fechaTexto}
+          meetUrl={resumen.charlaIntro.meetUrl}
+        />
+      )}
 
       <section className="workspace-panel campus-priority-panel space-y-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -442,7 +525,7 @@ export default function CampusPage() {
             <h2 className="workspace-title-sm">Tus actividades</h2>
           </div>
           <span className="workspace-chip">
-            {[accesoCasaTalentos, accesoConectando, accesoMentorias, accesoTerapia].filter(Boolean).length} activas
+            {modoSoloCharla ? "1 acceso activo" : `${totalActividades} activas`}
           </span>
         </div>
 
@@ -495,11 +578,18 @@ export default function CampusPage() {
           !accesoCasaTalentos &&
           !accesoConectando &&
           !accesoMentorias &&
-          !accesoTerapia && (
+          !accesoTerapia &&
+          !accesoCharlaIntro && (
             <p className="workspace-inline-note">
               Todavía no tenés accesos activos a módulos de participantes.
             </p>
           )}
+
+        {modoSoloCharla && (
+          <p className="workspace-inline-note">
+            Tu acceso actual está orientado a la charla introductoria. Desde acá vas a encontrar el ingreso a la videollamada.
+          </p>
+        )}
       </section>
 
       {recordatoriosEspacios.length > 0 && (
@@ -515,6 +605,25 @@ export default function CampusPage() {
               />
             ))}
           </div>
+        </section>
+      )}
+
+      {modoSoloCharla && resumen?.charlaIntro?.meetUrl && (
+        <section className="workspace-panel-soft flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <p className="workspace-eyebrow">Acceso a la charla</p>
+            <p className="workspace-inline-note">
+              Cuando llegue el momento, ingresá desde este botón a la videollamada.
+            </p>
+          </div>
+          <a
+            href={resumen.charlaIntro.meetUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="workspace-button-primary"
+          >
+            Ir a la videollamada
+          </a>
         </section>
       )}
 

@@ -10,6 +10,9 @@ export default function AppNav() {
   const { data: session } = useAppSession()
   const pathname = usePathname()
   const [mounted, setMounted] = useState(false)
+  const [campusMode, setCampusMode] = useState<"default" | "charla-only">(
+    "default"
+  )
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -23,6 +26,55 @@ export default function AppNav() {
 
   const role = session?.user?.role || "participante"
   const esAdmin = role === "admin"
+
+  useEffect(() => {
+    if (!session || esAdmin) {
+      return
+    }
+
+    let cancelado = false
+
+    const cargarResumen = async () => {
+      try {
+        const res = await fetch("/api/me/resumen-accesos", {
+          cache: "no-store",
+        })
+
+        if (!res.ok) return
+
+        const data = (await res.json()) as {
+          usuario?: { charlaIntroHabilitada?: boolean }
+          accesos?: Array<{ slug: string; acceso: boolean }>
+        }
+
+        if (cancelado) return
+
+        const tieneActividades = (data.accesos || []).some(
+          (item) => item.acceso === true
+        )
+
+        setCampusMode(
+          data.usuario?.charlaIntroHabilitada === true && !tieneActividades
+            ? "charla-only"
+            : "default"
+        )
+      } catch {
+        if (!cancelado) {
+          setCampusMode("default")
+        }
+      }
+    }
+
+    void cargarResumen()
+
+    return () => {
+      cancelado = true
+    }
+  }, [esAdmin, session])
+
+  const campusModeActivo =
+    !session || esAdmin ? "default" : campusMode
+
   const links = esAdmin
     ? [
         { href: "/agenda", label: "Agenda" },
@@ -36,6 +88,12 @@ export default function AppNav() {
         { href: "/perfil", label: "Perfil" },
         { href: "/login", label: "Login" },
       ]
+    : campusModeActivo === "charla-only"
+      ? [
+          { href: "/campus", label: "Campus" },
+          { href: "/perfil", label: "Perfil" },
+          { href: "/login", label: "Login" },
+        ]
     : [
         { href: "/campus", label: "Campus" },
         { href: "/casatalentos", label: "CasaTalentos" },

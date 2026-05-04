@@ -43,25 +43,25 @@ function textoRol(role: string) {
   }
 }
 
-function charlaIntroTitulo() {
+export function charlaIntroTitulo() {
   return (
     process.env.CHARLA_INTRO_TITULO ||
     "Las claves no evidentes para gestionar eficazmente tu tiempo"
   ).trim()
 }
 
-function charlaIntroSubtitulo() {
+export function charlaIntroSubtitulo() {
   return (
     process.env.CHARLA_INTRO_SUBTITULO ||
     "¿Que es lo que genera falta de tiempo?"
   ).trim()
 }
 
-function charlaIntroFechaTexto() {
+export function charlaIntroFechaTexto() {
   return (process.env.CHARLA_INTRO_FECHA_TEXTO || "").trim()
 }
 
-function charlaIntroMeetUrl() {
+export function charlaIntroMeetUrl() {
   return (process.env.CHARLA_INTRO_MEET_URL || "").trim()
 }
 
