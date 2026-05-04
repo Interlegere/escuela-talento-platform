@@ -174,6 +174,7 @@ export async function POST(req: Request) {
             ...disponibilidad,
             estado: "confirmada",
           },
+          googleOwnerEmail: process.env.GOOGLE_CALENDAR_OWNER_EMAIL,
         })
       } catch (googleError: unknown) {
         const message =

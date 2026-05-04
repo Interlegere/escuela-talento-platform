@@ -43,10 +43,23 @@ function getSupabaseAdmin() {
   return createClient(supabaseUrl, supabaseServiceRoleKey)
 }
 
+function getConfiguredGoogleCalendarOwnerEmail() {
+  return String(process.env.GOOGLE_CALENDAR_OWNER_EMAIL || "")
+    .trim()
+    .toLowerCase()
+}
+
 async function obtenerTokenGoogleCalendar(userEmail?: string) {
   const supabase = getSupabaseAdmin()
 
-  const emailNormalizado = userEmail?.trim().toLowerCase()
+  const configuredOwnerEmail = getConfiguredGoogleCalendarOwnerEmail()
+  const emailNormalizado = (
+    configuredOwnerEmail ||
+    userEmail ||
+    ""
+  )
+    .trim()
+    .toLowerCase()
 
   const consultaBase = supabase
     .from("google_calendar_tokens")
@@ -66,22 +79,28 @@ async function obtenerTokenGoogleCalendar(userEmail?: string) {
     return tokenPreferido
   }
 
-  if (emailNormalizado) {
-    const { data: tokenFallback, error: tokenFallbackError } = await supabase
-      .from("google_calendar_tokens")
-      .select("*")
-      .order("id", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (tokenFallbackError) {
-      throw tokenFallbackError
-    }
-
-    return tokenFallback || null
+  if (configuredOwnerEmail) {
+    throw new Error(
+      `No se encontró token de Google Calendar para la cuenta configurada: ${configuredOwnerEmail}`
+    )
   }
 
-  return null
+  if (emailNormalizado) {
+    return null
+  }
+
+  const { data: tokenFallback, error: tokenFallbackError } = await supabase
+    .from("google_calendar_tokens")
+    .select("*")
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (tokenFallbackError) {
+    throw tokenFallbackError
+  }
+
+  return tokenFallback || null
 }
 
 export async function getGoogleCalendarClient(userEmail?: string) {

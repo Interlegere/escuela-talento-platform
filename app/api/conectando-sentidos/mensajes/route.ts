@@ -27,8 +27,35 @@ type Body = {
   previewEnabled?: boolean
 }
 
+const EMAILS_MENSAJES_PRUEBA = new Set([
+  "preview@escuela.local",
+  "participante@escuela.com",
+  "admin@escuela.com",
+  "colaborador@escuela.com",
+])
+
+const NOMBRES_MENSAJES_PRUEBA = new Set([
+  "modo prueba",
+  "participante",
+  "administrador",
+  "admin",
+])
+
 function permitePreview(valor?: boolean) {
   return allowRequestedPreview(valor)
+}
+
+function esMensajeDePrueba(mensaje: MensajeRow) {
+  const email = String(mensaje.autor_email || "")
+    .trim()
+    .toLowerCase()
+  const nombre = String(mensaje.autor_nombre || "")
+    .trim()
+    .toLowerCase()
+
+  return (
+    EMAILS_MENSAJES_PRUEBA.has(email) || NOMBRES_MENSAJES_PRUEBA.has(nombre)
+  )
 }
 
 export async function GET(req: Request) {
@@ -61,9 +88,17 @@ export async function GET(req: Request) {
       )
     }
 
+    const mensajes = ((data || []) as MensajeRow[]).filter((mensaje) => {
+      if (preview || process.env.NODE_ENV !== "production") {
+        return true
+      }
+
+      return !esMensajeDePrueba(mensaje)
+    })
+
     return NextResponse.json({
       ok: true,
-      mensajes: (data || []) as MensajeRow[],
+      mensajes,
     })
   } catch (error) {
     return NextResponse.json(

@@ -38,6 +38,50 @@ type Props = {
   modalidadPago?: BillingMode
 }
 
+function extraerDetalleMercadoPago(detalle: unknown) {
+  if (!detalle || typeof detalle !== "object") {
+    return typeof detalle === "string" ? detalle : ""
+  }
+
+  const detalleRecord = detalle as Record<string, unknown>
+  const message =
+    typeof detalleRecord.message === "string" ? detalleRecord.message : ""
+
+  const cause = Array.isArray(detalleRecord.cause)
+    ? detalleRecord.cause.find(
+        (item) =>
+          item &&
+          typeof item === "object" &&
+          typeof (item as Record<string, unknown>).description === "string"
+      )
+    : null
+
+  const causeDescription =
+    cause && typeof cause === "object"
+      ? String((cause as Record<string, unknown>).description || "")
+      : ""
+
+  const status =
+    typeof detalleRecord.status === "number" ||
+    typeof detalleRecord.status === "string"
+      ? String(detalleRecord.status)
+      : ""
+
+  const fragments = [message, causeDescription, status ? `Código ${status}` : ""]
+    .map((value) => value.trim())
+    .filter(Boolean)
+
+  if (fragments.length > 0) {
+    return fragments.join(" · ")
+  }
+
+  try {
+    return JSON.stringify(detalleRecord)
+  } catch {
+    return ""
+  }
+}
+
 export default function PagoMensualCard({
   actividadSlug,
   participanteNombre,
@@ -115,7 +159,12 @@ export default function PagoMensualCard({
       const data = await res.json()
 
       if (!res.ok) {
-        setMensaje(data.error || "No se pudo iniciar el pago mensual")
+        const detalle = extraerDetalleMercadoPago(data.detalle)
+        setMensaje(
+          [data.error || "No se pudo iniciar el pago mensual", detalle]
+            .filter(Boolean)
+            .join(": ")
+        )
         return
       }
 
