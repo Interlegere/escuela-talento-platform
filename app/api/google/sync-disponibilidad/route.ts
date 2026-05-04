@@ -2,6 +2,45 @@ import { NextRequest, NextResponse } from "next/server"
 import { requirePermission } from "@/lib/authz"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 import { getGoogleCalendarClient } from "@/lib/google-calendar"
+import { calendar_v3 } from "googleapis"
+
+function buildMeetConferenceData(
+  existingConferenceData?: calendar_v3.Schema$ConferenceData | null
+) {
+  if (existingConferenceData) {
+    return existingConferenceData
+  }
+
+  return {
+    createRequest: {
+      requestId: crypto.randomUUID(),
+      conferenceSolutionKey: {
+        type: "hangoutsMeet",
+      },
+    },
+  }
+}
+
+function extractMeetLink(
+  event?: calendar_v3.Schema$Event | null,
+  fallback?: string | null
+) {
+  const byHangoutLink = event?.hangoutLink?.trim()
+
+  if (byHangoutLink) {
+    return byHangoutLink
+  }
+
+  const byEntryPoint = event?.conferenceData?.entryPoints?.find(
+    (entry) => entry.entryPointType === "video" && entry.uri
+  )?.uri
+
+  if (byEntryPoint?.trim()) {
+    return byEntryPoint.trim()
+  }
+
+  return fallback || null
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -76,19 +115,41 @@ export async function POST(req: NextRequest) {
     let googleEventId = disponibilidad.google_event_id || null
     const calendarId = disponibilidad.google_calendar_id || "primary"
 
+    let meetLink = disponibilidad.meet_link || null
+
     if (!googleEventId) {
       const insertRes = await calendar.events.insert({
         calendarId,
-        requestBody,
+        conferenceDataVersion: 1,
+        requestBody: {
+          ...requestBody,
+          conferenceData: buildMeetConferenceData(),
+        },
       })
 
       googleEventId = insertRes.data.id || null
+      meetLink = extractMeetLink(insertRes.data, meetLink)
     } else {
-      await calendar.events.update({
+      const existingEvent = await calendar.events.get({
         calendarId,
         eventId: googleEventId,
-        requestBody,
       })
+
+      const updateRes = await calendar.events.update({
+        calendarId,
+        eventId: googleEventId,
+        conferenceDataVersion: 1,
+        requestBody: {
+          ...requestBody,
+          conferenceData: buildMeetConferenceData(
+            existingEvent.data.conferenceData
+          ),
+        },
+      })
+
+      meetLink =
+        extractMeetLink(updateRes.data) ||
+        extractMeetLink(existingEvent.data, meetLink)
     }
 
     const ahora = new Date().toISOString()
@@ -96,6 +157,7 @@ export async function POST(req: NextRequest) {
     const { error: updateError } = await supabase
       .from("disponibilidades")
       .update({
+        meet_link: meetLink,
         google_event_id: googleEventId,
         google_calendar_id: calendarId,
         sync_status: "sincronizado",
@@ -116,6 +178,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       disponibilidadId,
+      meet_link: meetLink,
       google_event_id: googleEventId,
       sync_status: "sincronizado",
     })

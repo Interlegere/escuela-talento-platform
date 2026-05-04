@@ -1,4 +1,4 @@
-import { google } from "googleapis"
+import { calendar_v3, google } from "googleapis"
 import { createClient } from "@supabase/supabase-js"
 
 type Disponibilidad = {
@@ -138,6 +138,44 @@ function buildStartEnd(fecha: string, hora: string, duracion: string) {
   }
 }
 
+function buildMeetConferenceData(
+  existingConferenceData?: calendar_v3.Schema$ConferenceData | null
+) {
+  if (existingConferenceData) {
+    return existingConferenceData
+  }
+
+  return {
+    createRequest: {
+      requestId: crypto.randomUUID(),
+      conferenceSolutionKey: {
+        type: "hangoutsMeet",
+      },
+    },
+  }
+}
+
+function extractMeetLink(
+  event?: calendar_v3.Schema$Event | null,
+  fallback?: string | null
+) {
+  const byHangoutLink = event?.hangoutLink?.trim()
+
+  if (byHangoutLink) {
+    return byHangoutLink
+  }
+
+  const byEntryPoint = event?.conferenceData?.entryPoints?.find(
+    (entry) => entry.entryPointType === "video" && entry.uri
+  )?.uri
+
+  if (byEntryPoint?.trim()) {
+    return byEntryPoint.trim()
+  }
+
+  return fallback || null
+}
+
 export async function crearEventoGoogleDesdeReserva(params: {
   reserva: Reserva
   disponibilidad: Disponibilidad
@@ -199,19 +237,41 @@ export async function crearEventoGoogleDesdeReserva(params: {
     disponibilidad.google_calendar_id ||
     "primary"
 
+  let meetLink = disponibilidad.meet_link || null
+
   if (!googleEventId) {
     const insertRes = await calendar.events.insert({
       calendarId,
-      requestBody,
+      conferenceDataVersion: 1,
+      requestBody: {
+        ...requestBody,
+        conferenceData: buildMeetConferenceData(),
+      },
     })
 
     googleEventId = insertRes.data.id || null
+    meetLink = extractMeetLink(insertRes.data, meetLink)
   } else {
-    await calendar.events.update({
+    const existingEvent = await calendar.events.get({
       calendarId,
       eventId: googleEventId,
-      requestBody,
     })
+
+    const updateRes = await calendar.events.update({
+      calendarId,
+      eventId: googleEventId,
+      conferenceDataVersion: 1,
+      requestBody: {
+        ...requestBody,
+        conferenceData: buildMeetConferenceData(
+          existingEvent.data.conferenceData
+        ),
+      },
+    })
+
+    meetLink =
+      extractMeetLink(updateRes.data) ||
+      extractMeetLink(existingEvent.data, meetLink)
   }
 
   const ahora = new Date().toISOString()
@@ -232,6 +292,7 @@ export async function crearEventoGoogleDesdeReserva(params: {
   const { error: disponibilidadUpdateError } = await supabase
     .from("disponibilidades")
     .update({
+      meet_link: meetLink,
       google_event_id: googleEventId,
       google_calendar_id: calendarId,
       sync_status: "sincronizado",
@@ -244,6 +305,7 @@ export async function crearEventoGoogleDesdeReserva(params: {
   }
 
   return {
+    meet_link: meetLink,
     google_event_id: googleEventId,
     google_calendar_id: calendarId,
   }

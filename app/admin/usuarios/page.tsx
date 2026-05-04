@@ -17,6 +17,7 @@ type Usuario = {
   whatsapp?: string | null
   fecha_cumpleanos?: string | null
   notas_documentos?: unknown
+  charla_intro_habilitada?: boolean | null
   role: "admin" | "colaborador" | "participante"
   activo: boolean
   created_at?: string | null
@@ -30,6 +31,7 @@ type FormState = {
   whatsapp: string
   fechaCumpleanos: string
   notasDocumentos: string
+  charlaIntroHabilitada: boolean
   role: Usuario["role"]
   activo: boolean
   password: string
@@ -44,6 +46,7 @@ const FORM_INICIAL: FormState = {
   whatsapp: "",
   fechaCumpleanos: "",
   notasDocumentos: "",
+  charlaIntroHabilitada: false,
   role: "participante",
   activo: true,
   password: "",
@@ -111,16 +114,19 @@ export default function AdminUsuariosPage() {
   const usuariosFiltrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase()
 
-    if (!q) {
-      return usuarios
-    }
+    if (!q) return usuarios
 
     return usuarios.filter((usuario) => {
+      const charlaTexto = usuario.charla_intro_habilitada
+        ? "charla introductoria charla tiempo"
+        : ""
+
       return (
         usuario.nombre.toLowerCase().includes(q) ||
         String(usuario.apellido || "").toLowerCase().includes(q) ||
         usuario.email.toLowerCase().includes(q) ||
-        usuario.role.toLowerCase().includes(q)
+        usuario.role.toLowerCase().includes(q) ||
+        charlaTexto.includes(q)
       )
     })
   }, [busqueda, usuarios])
@@ -138,6 +144,7 @@ export default function AdminUsuariosPage() {
       whatsapp: usuario.whatsapp || "",
       fechaCumpleanos: usuario.fecha_cumpleanos || "",
       notasDocumentos: serializarDocumentosNotas(usuario.notas_documentos),
+      charlaIntroHabilitada: usuario.charla_intro_habilitada === true,
       role: usuario.role,
       activo: usuario.activo,
       password: "",
@@ -158,6 +165,7 @@ export default function AdminUsuariosPage() {
         },
         body: JSON.stringify(payload),
       })
+
       const data = await res.json()
 
       if (!res.ok) {
@@ -169,15 +177,19 @@ export default function AdminUsuariosPage() {
         | { enviado?: boolean; motivo?: string }
         | null
         | undefined
+
       const mailingMensaje = mailing
         ? mailing.enviado
-          ? " Email de bienvenida enviado."
-          : ` ${mailing.motivo || "Email de bienvenida no enviado."}`
+          ? payload.charlaIntroHabilitada
+            ? " Email de invitación a la charla enviado."
+            : " Email de bienvenida enviado."
+          : ` ${mailing.motivo || "Email no enviado."}`
         : ""
 
       setMensaje(
         `${payload.id ? "Usuario actualizado." : "Usuario creado."}${mailingMensaje}`
       )
+
       limpiarForm()
       await cargarUsuarios()
     } catch {
@@ -362,30 +374,56 @@ export default function AdminUsuariosPage() {
           </label>
         </div>
 
-        <label className="inline-flex items-center gap-3 text-sm font-medium text-gray-700">
-          <input
-            type="checkbox"
-            checked={form.activo}
-            onChange={(e) =>
-              setForm((prev) => ({ ...prev, activo: e.target.checked }))
-            }
-          />
-          Usuario activo
-        </label>
+        <div className="rounded-2xl border border-[var(--line)] bg-[rgba(255,250,242,0.68)] p-4 space-y-3">
+          <label className="inline-flex items-center gap-3 text-sm font-medium text-gray-700">
+            <input
+              type="checkbox"
+              checked={form.activo}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, activo: e.target.checked }))
+              }
+            />
+            Usuario activo
+          </label>
 
-        <label className="inline-flex items-center gap-3 text-sm font-medium text-gray-700">
-          <input
-            type="checkbox"
-            checked={form.enviarBienvenida}
-            onChange={(e) =>
-              setForm((prev) => ({
-                ...prev,
-                enviarBienvenida: e.target.checked,
-              }))
-            }
-          />
-          Enviar email de bienvenida si hay contraseña cargada
-        </label>
+          <label className="flex items-start gap-3 text-sm font-medium text-gray-700">
+            <input
+              type="checkbox"
+              checked={form.charlaIntroHabilitada}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  charlaIntroHabilitada: e.target.checked,
+                }))
+              }
+              className="mt-1"
+            />
+            <span>
+              Usuario sólo charla introductoria
+              <span className="block text-xs font-normal text-gray-500">
+                Al crear el usuario con esta opción y una contraseña cargada, se
+                enviará el mail especial de la charla. El acceso visible se
+                completará luego desde Campus.
+              </span>
+            </span>
+          </label>
+
+          <label className="inline-flex items-center gap-3 text-sm font-medium text-gray-700">
+            <input
+              type="checkbox"
+              checked={form.enviarBienvenida}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  enviarBienvenida: e.target.checked,
+                }))
+              }
+            />
+            {form.charlaIntroHabilitada
+              ? "Enviar email de invitación a la charla si hay contraseña cargada"
+              : "Enviar email de bienvenida si hay contraseña cargada"}
+          </label>
+        </div>
 
         <div className="flex flex-wrap gap-3">
           <button
@@ -425,7 +463,7 @@ export default function AdminUsuariosPage() {
               className="workspace-field"
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Nombre, email o rol"
+              placeholder="Nombre, email, rol o charla"
             />
           </label>
         </div>
@@ -453,6 +491,13 @@ export default function AdminUsuariosPage() {
                     <span className="workspace-chip">
                       {etiquetaRol(usuario.role)}
                     </span>
+
+                    {usuario.charla_intro_habilitada && (
+                      <span className="rounded-full border border-[rgba(201,139,27,0.28)] bg-[rgba(201,139,27,0.12)] px-3 py-1 text-xs font-medium text-[rgb(154,101,21)]">
+                        Charla introductoria
+                      </span>
+                    )}
+
                     <span
                       className={`rounded-full border px-3 py-1 text-xs font-medium ${
                         usuario.activo
@@ -463,7 +508,9 @@ export default function AdminUsuariosPage() {
                       {usuario.activo ? "Activo" : "Inactivo"}
                     </span>
                   </div>
+
                   <p className="workspace-inline-note">{usuario.email}</p>
+
                   {(usuario.whatsapp || usuario.fecha_cumpleanos) && (
                     <p className="workspace-inline-note">
                       {usuario.whatsapp ? `WhatsApp: ${usuario.whatsapp}` : ""}
@@ -473,6 +520,7 @@ export default function AdminUsuariosPage() {
                         : ""}
                     </p>
                   )}
+
                   {normalizarDocumentosNotas(usuario.notas_documentos).length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {normalizarDocumentosNotas(usuario.notas_documentos).map(
@@ -514,6 +562,8 @@ export default function AdminUsuariosPage() {
                         notasDocumentos: serializarDocumentosNotas(
                           usuario.notas_documentos
                         ),
+                        charlaIntroHabilitada:
+                          usuario.charla_intro_habilitada === true,
                         role: usuario.role,
                         activo: !usuario.activo,
                         password: "",

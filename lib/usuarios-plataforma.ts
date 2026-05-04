@@ -11,6 +11,7 @@ export type UsuarioPlataforma = {
   whatsapp?: string | null
   fecha_cumpleanos?: string | null
   notas_documentos?: unknown
+  charla_intro_habilitada?: boolean | null
   role: UsuarioPlataformaRole
   activo: boolean
   created_at?: string | null
@@ -70,6 +71,7 @@ function mapearUsuario(row: UsuarioPlataformaRow): UsuarioPlataforma {
     whatsapp: row.whatsapp || null,
     fecha_cumpleanos: row.fecha_cumpleanos || null,
     notas_documentos: row.notas_documentos || [],
+    charla_intro_habilitada: row.charla_intro_habilitada === true,
     role: normalizarUsuarioRole(row.role),
     activo: row.activo === true,
     created_at: row.created_at,
@@ -134,7 +136,7 @@ export async function listarUsuariosPlataforma() {
   const { data, error } = await supabase
     .from("usuarios_plataforma")
     .select(
-      "id, nombre, apellido, email, whatsapp, fecha_cumpleanos, notas_documentos, role, activo, created_at, updated_at"
+      "id, nombre, apellido, email, whatsapp, fecha_cumpleanos, notas_documentos, charla_intro_habilitada, role, activo, created_at, updated_at"
     )
     .order("created_at", { ascending: false })
 

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server"
 import { requirePermission } from "@/lib/authz"
-import { enviarBienvenidaUsuario } from "@/lib/mailing"
+import {
+  enviarBienvenidaUsuario,
+  enviarInvitacionCharlaIntro,
+} from "@/lib/mailing"
 import {
   normalizarDocumentosNotas,
   parsearDocumentosNotasDesdeTexto,
@@ -21,6 +24,7 @@ type Body = {
   whatsapp?: string
   fechaCumpleanos?: string
   notasDocumentos?: string | unknown[]
+  charlaIntroHabilitada?: boolean
   role?: UsuarioPlataformaRole
   activo?: boolean
   password?: string
@@ -87,6 +91,7 @@ export async function POST(req: Request) {
       typeof body.notasDocumentos === "string"
         ? parsearDocumentosNotasDesdeTexto(body.notasDocumentos)
         : normalizarDocumentosNotas(body.notasDocumentos)
+    const charlaIntroHabilitada = body.charlaIntroHabilitada === true
     const role = normalizarUsuarioRole(body.role)
     const activo = body.activo !== false
     const password = String(body.password || "")
@@ -114,6 +119,7 @@ export async function POST(req: Request) {
       whatsapp: whatsapp || null,
       fecha_cumpleanos: fechaCumpleanos || null,
       notas_documentos: notasDocumentos,
+      charla_intro_habilitada: charlaIntroHabilitada,
       role,
       activo,
       updated_at: new Date().toISOString(),
@@ -130,7 +136,7 @@ export async function POST(req: Request) {
         .from("usuarios_plataforma")
         .insert(payload)
         .select(
-          "id, nombre, apellido, email, whatsapp, fecha_cumpleanos, notas_documentos, role, activo, created_at, updated_at"
+          "id, nombre, apellido, email, whatsapp, fecha_cumpleanos, notas_documentos, charla_intro_habilitada, role, activo, created_at, updated_at"
         )
         .single()
 
@@ -149,12 +155,18 @@ export async function POST(req: Request) {
 
       const mailing =
         enviarBienvenida && password
-          ? await enviarBienvenidaUsuario({
-              nombre,
-              email,
-              password,
-              role,
-            })
+          ? charlaIntroHabilitada
+            ? await enviarInvitacionCharlaIntro({
+                nombre,
+                email,
+                password,
+              })
+            : await enviarBienvenidaUsuario({
+                nombre,
+                email,
+                password,
+                role,
+              })
           : {
               enviado: false as const,
               motivo: "Bienvenida por email omitida.",
@@ -168,7 +180,7 @@ export async function POST(req: Request) {
       .update(payload)
       .eq("id", id)
       .select(
-        "id, nombre, apellido, email, whatsapp, fecha_cumpleanos, notas_documentos, role, activo, created_at, updated_at"
+        "id, nombre, apellido, email, whatsapp, fecha_cumpleanos, notas_documentos, charla_intro_habilitada, role, activo, created_at, updated_at"
       )
       .single()
 
@@ -184,12 +196,18 @@ export async function POST(req: Request) {
 
     const mailing =
       enviarBienvenida && password
-        ? await enviarBienvenidaUsuario({
-            nombre,
-            email,
-            password,
-            role,
-          })
+        ? charlaIntroHabilitada
+          ? await enviarInvitacionCharlaIntro({
+              nombre,
+              email,
+              password,
+            })
+          : await enviarBienvenidaUsuario({
+              nombre,
+              email,
+              password,
+              role,
+            })
         : null
 
     return NextResponse.json({ ok: true, usuario: data, mailing })
