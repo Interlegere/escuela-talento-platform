@@ -192,9 +192,12 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
     "",
     "Si te dan ganas, podés responder este mail con tu respuesta. Voy a leerlas.",
     "",
-    `Para ingresar a la charla, entrá a la plataforma desde ${url}/login con tu usuario ${params.email} y la clave de acceso ${params.password}.`,
+    "Para ingresar a la charla, entrá a la plataforma con tu usuario y tu clave de acceso. Una vez dentro de Campus vas a encontrar el acceso a la videollamada.",
     textoFecha,
     textoMeet,
+    `Acceso: ${url}/login`,
+    `Usuario: ${params.email}`,
+    `Clave de acceso: ${params.password}`,
     "",
     "¡Nos vemos pronto!",
     "",
@@ -252,15 +255,6 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
             Para ingresar a la charla, entrá a la plataforma con tu usuario y tu clave de acceso. Una vez dentro de Campus vas a encontrar el acceso a la videollamada.
           </p>
 
-          <div style="margin: 24px 0 28px;">
-            <a
-              href="${url}/login"
-              style="display: inline-block; padding: 14px 22px; border-radius: 999px; background: #c98b1b; color: #ffffff; font-weight: 700; text-decoration: none;"
-            >
-              Ingresar a Entheos
-            </a>
-          </div>
-
           <div style="border: 1px solid #e5dccb; border-radius: 18px; padding: 18px 20px; margin: 0 0 24px; background: #fffaf2;">
             <p style="margin: 0 0 10px;"><strong>Acceso:</strong> <a href="${url}/login">${url}/login</a></p>
             <p style="margin: 0 0 10px;"><strong>Usuario:</strong> ${escapeHtml(params.email)}</p>
@@ -269,6 +263,15 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
             )}</p>
             ${bloqueFecha}
             ${bloqueMeet}
+          </div>
+
+          <div style="margin: 24px 0 28px;">
+            <a
+              href="${url}/login"
+              style="display: inline-block; padding: 14px 22px; border-radius: 999px; background: #c98b1b; color: #ffffff; font-weight: 700; text-decoration: none;"
+            >
+              Ingresar a Entheos
+            </a>
           </div>
 
           <p style="margin: 0 0 10px;">¡Nos vemos pronto!</p>
