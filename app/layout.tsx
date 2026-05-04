@@ -25,9 +25,9 @@ export const metadata: Metadata = {
   title: "Entheos",
   description: "Escuela de trabajo, proceso y creación compartida",
   icons: {
-    icon: "/icon.jpg",
-    shortcut: "/icon.jpg",
-    apple: "/icon.jpg",
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png",
   },
 }
 
