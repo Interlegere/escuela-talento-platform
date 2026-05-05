@@ -173,8 +173,8 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
   const text = [
     `Hola ${nombre},`,
     "",
-    "¡Bienvenido/a a Entheos!",
     subtitulo,
+    "¡Bienvenido/a!",
     "",
     "Si estás recibiendo este mail es porque te inscribiste a la charla introductoria gratuita:",
     "",
@@ -210,10 +210,10 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
       <div style="max-width: 680px; margin: 0 auto; background: #fffdf8; border: 1px solid #eadfc9; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(77, 54, 18, 0.08);">
         <div style="padding: 32px 32px 20px; background: linear-gradient(135deg, rgba(250,244,229,1) 0%, rgba(255,250,240,1) 55%, rgba(248,237,210,1) 100%);">
           <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: #8a6a2f; font-weight: 700;">Entheos</p>
-          <h1 style="margin: 0 0 10px; font-family: Georgia, 'Times New Roman', serif; font-size: 30px; font-weight: 600; line-height: 1.08; color: #18202a;">¡Bienvenido/a!</h1>
-          <p style="margin: 0; color: #6b7280; font-size: 16px; line-height: 1.5;">
+          <p style="margin: 0 0 10px; color: #6b7280; font-size: 16px; line-height: 1.5;">
             ${escapeHtml(subtitulo)}
           </p>
+          <h1 style="margin: 0; font-family: Georgia, 'Times New Roman', serif; font-size: 30px; font-weight: 600; line-height: 1.08; color: #18202a;">¡Bienvenido/a!</h1>
         </div>
 
         <div style="padding: 28px 32px 32px; line-height: 1.75;">
@@ -233,23 +233,17 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
 
           <p style="margin: 0 0 18px; font-weight: 700;">¡Tu lugar ya está confirmado!</p>
 
-          <p style="margin: 0 0 16px;">
-            Antes de ingresar, quiero que tengas algo presente:<br />
-            <span style="display: inline-block; margin-top: 6px; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 12.5px; line-height: 1.55; color: #7a6540;">
-              "el problema no es que te falte tiempo, es qué te sobra... que te falta tiempo"
-            </span>
-          </p>
+          <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.7; color: #1f2933; font-weight: 400;">Antes de ingresar, quiero que tengas algo presente:</p>
+          <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.7; color: #1f2933; font-weight: 400;"><strong>el problema no es que te falte tiempo, es qué te sobra... que te falta tiempo</strong></p>
 
-          <p style="margin: 0 0 16px;">
+          <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.7; color: #1f2933; font-weight: 400;">
             Lo profundizaremos con otras claves que te ayudarán a mover los hilos no evidentes que transforman todo en tu vida.
           </p>
 
-          <p style="margin: 0 0 10px;">Y una pregunta para desde antes ir resignificando la estructura:</p>
-          <p style="margin: 0 0 20px; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 21px; line-height: 1.45; color: #6a4d22;">
-            ¿Qué es lo que hoy estás dejando de lado por sentir que no tenés tiempo?
-          </p>
+          <p style="margin: 0 0 10px; font-size: 16px; line-height: 1.7; color: #1f2933; font-weight: 400;">Y una pregunta para desde antes ir resignificando la estructura:</p>
+          <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.7; color: #1f2933; font-weight: 400;"><strong>¿Qué es lo que hoy estás dejando de lado por sentir que no tenés tiempo?</strong></p>
 
-          <p style="margin: 0 0 18px;">
+          <p style="margin: 0 0 18px; font-size: 16px; line-height: 1.7; color: #1f2933; font-weight: 400;">
             Para ingresar a la charla, entrá a la plataforma con tu usuario y tu clave de acceso. Una vez dentro de Campus vas a encontrar el acceso a la videollamada.
           </p>
 
