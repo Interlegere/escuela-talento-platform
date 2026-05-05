@@ -225,10 +225,10 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
           </p>
 
           <div style="margin: 0 0 22px; padding: 20px 22px; border-radius: 22px; background: #fff7ea; border: 1px solid #ead9b4;">
-            <h2 style="margin: 0 0 10px; font-family: Georgia, 'Times New Roman', serif; font-size: 24px; font-weight: 600; line-height: 1.2; color: #18202a;">${escapeHtml(
+            <h2 style="margin: 0 0 10px; font-family: Georgia, 'Times New Roman', serif; font-size: 18px; font-weight: 600; line-height: 1.35; color: #18202a;">${escapeHtml(
               tituloCharla
             )}</h2>
-            <p style="margin: 0; color: #6b7280; font-size: 18px; line-height: 1.45;">${escapeHtml(
+            <p style="margin: 0; color: #7f5d1f; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 17px; line-height: 1.45;">${escapeHtml(
               subtituloCharla
             )}</p>
           </div>
@@ -237,7 +237,7 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
 
           <p style="margin: 0 0 16px;">
             Antes de ingresar, quiero que tengas algo presente:<br />
-            <span style="display: inline-block; margin-top: 8px; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 21px; line-height: 1.45; color: #7f5d1f;">
+            <span style="display: inline-block; margin-top: 8px; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 18px; line-height: 1.55; color: #7f5d1f;">
               "el problema no es que te falte tiempo, es qué te sobra... que te falta tiempo"
             </span>
           </p>
@@ -247,7 +247,7 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
           </p>
 
           <p style="margin: 0 0 10px;">Y una pregunta para desde antes ir resignificando la estructura:</p>
-          <p style="margin: 0 0 20px; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 26px; line-height: 1.4; color: #5d4523;">
+          <p style="margin: 0 0 20px; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 21px; line-height: 1.45; color: #6a4d22;">
             ¿Qué es lo que hoy estás dejando de lado por sentir que no tenés tiempo?
           </p>
 
