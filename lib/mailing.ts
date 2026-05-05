@@ -145,7 +145,7 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
   const url = appUrl()
   const nombre = params.nombre.trim() || "bienvenida/o"
   const subtitulo =
-    "Escuela Nodo para el THalento, el Entusiasmo y el Orden de los Sentidos"
+    "Escuela Nodo para el Thalento, el Entusiasmo y el Orden de los Sentidos"
   const tituloCharla = charlaIntroTitulo()
   const subtituloCharla = charlaIntroSubtitulo()
   const fechaCharla = charlaIntroFechaTexto()
@@ -183,14 +183,14 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
     "",
     "¡Tu lugar ya está confirmado!",
     "",
-    'Antes de ingresar, quiero que tengas algo presente: "el problema no es que te falte tiempo, es qué te sobra"...',
+    'Antes de ingresar, quiero que tengas algo presente: "el problema no es que te falte tiempo, es qué te sobra... que te falta tiempo"',
     "Lo profundizaremos con otras claves que te ayudarán a mover los hilos no evidentes que transforman todo en tu vida.",
     "",
-    "Y una pregunta para desde antes ir resignificando las estructuras:",
+    "Y una pregunta para desde antes ir resignificando la estructura:",
     "",
     "¿Qué es lo que hoy estás dejando de lado por sentir que no tenés tiempo?",
     "",
-    "Si te dan ganas, podés responder este mail con tu respuesta. Voy a leerlas.",
+    "Si te dan ganas, podés responder este mail con tu respuesta. Voy a hacerme el tiempo de leerte.",
     "",
     "Para ingresar a la charla, entrá a la plataforma con tu usuario y tu clave de acceso. Una vez dentro de Campus vas a encontrar el acceso a la videollamada.",
     textoFecha,
@@ -212,7 +212,7 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
       <div style="max-width: 680px; margin: 0 auto; background: #fffdf8; border: 1px solid #eadfc9; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(77, 54, 18, 0.08);">
         <div style="padding: 32px 32px 20px; background: linear-gradient(135deg, rgba(250,244,229,1) 0%, rgba(255,250,240,1) 55%, rgba(248,237,210,1) 100%);">
           <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: #8a6a2f; font-weight: 700;">Entheos</p>
-          <h1 style="margin: 0 0 10px; font-size: 32px; line-height: 1.15; color: #18202a;">¡Bienvenido/a!</h1>
+          <h1 style="margin: 0 0 10px; font-family: Georgia, 'Times New Roman', serif; font-size: 30px; font-weight: 600; line-height: 1.08; color: #18202a;">¡Bienvenido/a!</h1>
           <p style="margin: 0; color: #6b7280; font-size: 16px; line-height: 1.5;">
             ${escapeHtml(subtitulo)}
           </p>
@@ -225,10 +225,10 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
           </p>
 
           <div style="margin: 0 0 22px; padding: 20px 22px; border-radius: 22px; background: #fff7ea; border: 1px solid #ead9b4;">
-            <h2 style="margin: 0 0 8px; font-size: 30px; line-height: 1.18; color: #18202a;">${escapeHtml(
+            <h2 style="margin: 0 0 10px; font-family: Georgia, 'Times New Roman', serif; font-size: 24px; font-weight: 600; line-height: 1.2; color: #18202a;">${escapeHtml(
               tituloCharla
             )}</h2>
-            <p style="margin: 0; color: #6b7280; font-size: 18px;">${escapeHtml(
+            <p style="margin: 0; color: #6b7280; font-size: 18px; line-height: 1.45;">${escapeHtml(
               subtituloCharla
             )}</p>
           </div>
@@ -237,18 +237,22 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
 
           <p style="margin: 0 0 16px;">
             Antes de ingresar, quiero que tengas algo presente:<br />
-            <span style="font-style: italic;">"el problema no es que te falte tiempo, es qué te sobra"...</span>
+            <span style="display: inline-block; margin-top: 8px; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 21px; line-height: 1.45; color: #7f5d1f;">
+              "el problema no es que te falte tiempo, es qué te sobra... que te falta tiempo"
+            </span>
           </p>
 
           <p style="margin: 0 0 16px;">
             Lo profundizaremos con otras claves que te ayudarán a mover los hilos no evidentes que transforman todo en tu vida.
           </p>
 
-          <p style="margin: 0 0 10px;">Y una pregunta para desde antes ir resignificando las estructuras:</p>
-          <p style="margin: 0 0 18px; font-weight: 700;">¿Qué es lo que hoy estás dejando de lado por sentir que no tenés tiempo?</p>
+          <p style="margin: 0 0 10px;">Y una pregunta para desde antes ir resignificando la estructura:</p>
+          <p style="margin: 0 0 20px; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 26px; line-height: 1.4; color: #5d4523;">
+            ¿Qué es lo que hoy estás dejando de lado por sentir que no tenés tiempo?
+          </p>
 
           <p style="margin: 0 0 24px;">
-            Si te dan ganas, podés responder este mail con tu respuesta. Voy a leerlas.
+            Si te dan ganas, podés responder este mail con tu respuesta. Voy a hacerme el tiempo de leerte.
           </p>
 
           <p style="margin: 0 0 18px;">
@@ -282,7 +286,7 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
   `
 
   return {
-    subject: "Invitación a la charla introductoria de Entheos",
+    subject: "Bienvenido/a a Entheos",
     text,
     html,
   }
