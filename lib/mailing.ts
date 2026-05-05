@@ -235,7 +235,7 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
 
           <p style="margin: 0 0 16px;">
             Antes de ingresar, quiero que tengas algo presente:<br />
-            <span style="display: inline-block; margin-top: 8px; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 14px; line-height: 1.7; color: #7a6540;">
+            <span style="display: inline-block; margin-top: 6px; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 12.5px; line-height: 1.55; color: #7a6540;">
               "el problema no es que te falte tiempo, es qué te sobra... que te falta tiempo"
             </span>
           </p>
@@ -266,7 +266,7 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
           <div style="margin: 24px 0 28px;">
             <a
               href="${url}/login"
-              style="display: inline-block; padding: 14px 22px; border-radius: 999px; background: #c98b1b; color: #ffffff; font-weight: 700; text-decoration: none;"
+              style="display: inline-block; padding: 14px 22px; border-radius: 999px; background: #dfad57; color: #ffffff; font-weight: 700; text-decoration: none;"
             >
               Ingresar a Entheos
             </a>
@@ -280,7 +280,8 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
   `
 
   return {
-    subject: "Bienvenido/a a Entheos",
+    subject:
+      "Datos de Acceso a la Charla Introductoria: Las Claves no evidentes para gestionar eficazmente tu tiempo.",
     text,
     html,
   }

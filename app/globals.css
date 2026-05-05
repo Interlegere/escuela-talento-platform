@@ -269,8 +269,8 @@ a {
   }
 
 .workspace-button-primary-soft {
-  background: linear-gradient(135deg, #dfad57, #ecc36f);
-  box-shadow: 0 14px 26px rgba(199, 151, 58, 0.16);
+  background: linear-gradient(135deg, #e6ba68, #f0cb82);
+  box-shadow: 0 14px 26px rgba(210, 167, 83, 0.12);
 }
 
   .workspace-button-secondary {
