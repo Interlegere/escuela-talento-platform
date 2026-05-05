@@ -235,7 +235,7 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
 
           <p style="margin: 0 0 16px;">
             Antes de ingresar, quiero que tengas algo presente:<br />
-            <span style="display: inline-block; margin-top: 8px; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 16px; line-height: 1.65; color: #7a6540;">
+            <span style="display: inline-block; margin-top: 8px; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 14px; line-height: 1.7; color: #7a6540;">
               "el problema no es que te falte tiempo, es qué te sobra... que te falta tiempo"
             </span>
           </p>

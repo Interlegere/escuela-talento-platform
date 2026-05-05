@@ -268,10 +268,10 @@ a {
     transform: translateY(-1px);
   }
 
-  .workspace-button-primary-soft {
-    background: linear-gradient(135deg, #d9a247, #e4b256);
-    box-shadow: 0 14px 26px rgba(190, 132, 39, 0.18);
-  }
+.workspace-button-primary-soft {
+  background: linear-gradient(135deg, #dfad57, #ecc36f);
+  box-shadow: 0 14px 26px rgba(199, 151, 58, 0.16);
+}
 
   .workspace-button-secondary {
     border: 1px solid var(--line);
