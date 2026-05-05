@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
+import ConsentimientoMeetButton from "@/components/consentimientos/ConsentimientoMeetButton"
 import { isDevelopmentPreviewEnabled } from "@/lib/dev-flags"
 import WorkspaceHero from "@/components/ui/WorkspaceHero"
 
@@ -167,14 +168,13 @@ function CharlaIntroCard({
         )}
         <div className="flex flex-wrap gap-3 pt-2">
           {meetUrl ? (
-            <a
+            <ConsentimientoMeetButton
+              actividad="charla-introductoria"
               href={meetUrl}
-              target="_blank"
-              rel="noreferrer"
               className="workspace-button-primary workspace-button-primary-soft"
             >
               Ingresar a la charla
-            </a>
+            </ConsentimientoMeetButton>
           ) : (
             <span className="workspace-inline-note">
               El acceso a la videollamada va a aparecer acá cuando quede listo.
@@ -616,14 +616,13 @@ export default function CampusPage() {
               Cuando llegue el momento, ingresá desde este botón a la videollamada.
             </p>
           </div>
-          <a
+          <ConsentimientoMeetButton
+            actividad="charla-introductoria"
             href={resumen.charlaIntro.meetUrl}
-            target="_blank"
-            rel="noreferrer"
             className="workspace-button-primary"
           >
             Ir a la videollamada
-          </a>
+          </ConsentimientoMeetButton>
         </section>
       )}
 

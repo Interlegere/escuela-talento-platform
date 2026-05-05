@@ -5,6 +5,7 @@ export type ConsentimientoActividadSlug =
   | "conectando-sentidos"
   | "mentorias"
   | "terapia"
+  | "charla-introductoria"
 
 type ConsentimientoActividadMeta = {
   slug: ConsentimientoActividadSlug
@@ -30,6 +31,10 @@ const ACTIVIDADES: Record<
   terapia: {
     slug: "terapia",
     nombre: "Terapia",
+  },
+  "charla-introductoria": {
+    slug: "charla-introductoria",
+    nombre: "Charla introductoria",
   },
 }
 
