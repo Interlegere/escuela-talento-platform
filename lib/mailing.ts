@@ -190,8 +190,6 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
     "",
     "¿Qué es lo que hoy estás dejando de lado por sentir que no tenés tiempo?",
     "",
-    "Si te dan ganas, podés responder este mail con tu respuesta. Voy a hacerme el tiempo de leerte.",
-    "",
     "Para ingresar a la charla, entrá a la plataforma con tu usuario y tu clave de acceso. Una vez dentro de Campus vas a encontrar el acceso a la videollamada.",
     textoFecha,
     textoMeet,
@@ -237,7 +235,7 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
 
           <p style="margin: 0 0 16px;">
             Antes de ingresar, quiero que tengas algo presente:<br />
-            <span style="display: inline-block; margin-top: 8px; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 18px; line-height: 1.55; color: #7f5d1f;">
+            <span style="display: inline-block; margin-top: 8px; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 16px; line-height: 1.65; color: #7a6540;">
               "el problema no es que te falte tiempo, es qué te sobra... que te falta tiempo"
             </span>
           </p>
@@ -249,10 +247,6 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
           <p style="margin: 0 0 10px;">Y una pregunta para desde antes ir resignificando la estructura:</p>
           <p style="margin: 0 0 20px; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 21px; line-height: 1.45; color: #6a4d22;">
             ¿Qué es lo que hoy estás dejando de lado por sentir que no tenés tiempo?
-          </p>
-
-          <p style="margin: 0 0 24px;">
-            Si te dan ganas, podés responder este mail con tu respuesta. Voy a hacerme el tiempo de leerte.
           </p>
 
           <p style="margin: 0 0 18px;">

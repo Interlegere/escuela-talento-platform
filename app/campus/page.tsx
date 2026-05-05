@@ -171,7 +171,7 @@ function CharlaIntroCard({
               href={meetUrl}
               target="_blank"
               rel="noreferrer"
-              className="workspace-button-primary"
+              className="workspace-button-primary workspace-button-primary-soft"
             >
               Ingresar a la charla
             </a>
