@@ -619,7 +619,7 @@ export default function CampusPage() {
           <ConsentimientoMeetButton
             actividad="charla-introductoria"
             href={resumen.charlaIntro.meetUrl}
-            className="workspace-button-primary"
+            className="workspace-button-primary workspace-button-primary-soft"
           >
             Ir a la videollamada
           </ConsentimientoMeetButton>
