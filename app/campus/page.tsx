@@ -43,6 +43,7 @@ type ResumenAccesos = {
     subtitulo?: string
     fechaTexto?: string | null
     meetUrl?: string | null
+    grabacionDisponible?: boolean
     grabacionUrl?: string | null
   }
   accesos?: Array<{
@@ -143,12 +144,14 @@ function CharlaIntroCard({
   titulo,
   subtitulo,
   fechaTexto,
-  meetUrl,
+  grabacionDisponible,
+  grabacionUrl,
 }: {
   titulo: string
   subtitulo: string
   fechaTexto?: string | null
-  meetUrl?: string | null
+  grabacionDisponible?: boolean
+  grabacionUrl?: string | null
 }) {
   return (
     <section className="workspace-card-link !rounded-[1.7rem] !p-6">
@@ -168,17 +171,21 @@ function CharlaIntroCard({
           </p>
         )}
         <div className="flex flex-wrap gap-3 pt-2">
-          {meetUrl ? (
+          {grabacionUrl ? (
             <ConsentimientoMeetButton
               actividad="charla-introductoria"
-              href={meetUrl}
-              className="workspace-button-primary workspace-button-primary-soft"
+              href={grabacionUrl}
+              className="workspace-button-primary workspace-button-primary-soft !bg-[#e0b15c] hover:!bg-[#e8c37b] !text-white !border-transparent"
             >
-              Ingresar a la charla
+              Acceso a la grabación
             </ConsentimientoMeetButton>
+          ) : grabacionDisponible === false ? (
+            <span className="workspace-inline-note">
+              La grabación está disponible sólo viernes, sábado y domingo de esta misma semana.
+            </span>
           ) : (
             <span className="workspace-inline-note">
-              El acceso a la videollamada va a aparecer acá cuando quede listo.
+              El acceso a la grabación va a aparecer acá cuando quede habilitado.
             </span>
           )}
           <a href="/perfil" className="workspace-button-secondary">
@@ -513,10 +520,11 @@ export default function CampusPage() {
           titulo={resumen.charlaIntro.titulo || "Charla introductoria"}
           subtitulo={
             resumen.charlaIntro.subtitulo ||
-            "Tu acceso a la charla está habilitado desde este campus."
+            "Tu acceso a la grabación está habilitado desde este campus."
           }
           fechaTexto={resumen.charlaIntro.fechaTexto}
-          meetUrl={resumen.charlaIntro.meetUrl}
+          grabacionDisponible={resumen.charlaIntro.grabacionDisponible}
+          grabacionUrl={resumen.charlaIntro.grabacionUrl}
         />
       )}
 
@@ -606,25 +614,6 @@ export default function CampusPage() {
               />
             ))}
           </div>
-        </section>
-      )}
-
-      {modoSoloCharla && resumen?.charlaIntro?.grabacionUrl && (
-        <section className="workspace-panel-soft flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <p className="workspace-eyebrow">Grabación de la charla</p>
-            <p className="workspace-inline-note">
-              Desde este botón vas a poder volver a recorrer la charla introductoria.
-            </p>
-          </div>
-          <a
-            href={resumen.charlaIntro.grabacionUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="workspace-button-primary workspace-button-primary-soft"
-          >
-            Ver grabación
-          </a>
         </section>
       )}
 

@@ -63,11 +63,18 @@ export function getConsentimientoTexto(
       ? formatearEncuentro(encuentro?.fecha, encuentro?.hora)
       : ""
 
-  const parrafos = [
-    `Al ingresar a esta videollamada de la Escuela (${actividadNombre}), confirmás que leíste y aceptás los Términos y Condiciones vigentes de la plataforma, disponibles para su consulta.`,
-    "Tu participación es voluntaria y se rige por dichas condiciones, incluyendo el posible registro de imagen, voz y contenidos generados durante la actividad.",
-    "Al continuar, Ud. confirma su aceptación plena.",
-  ].filter((item): item is string => Boolean(item))
+  const parrafos =
+    actividad === "charla-introductoria"
+      ? [
+          `Al ingresar a esta grabación de la Escuela (${actividadNombre}), confirmás que leíste y aceptás los Términos y Condiciones vigentes de la plataforma, disponibles para su consulta.`,
+          "El acceso a este contenido es personal y estará disponible únicamente durante el período informado dentro de Campus.",
+          "Al continuar, Ud. confirma su aceptación plena.",
+        ].filter((item): item is string => Boolean(item))
+      : [
+          `Al ingresar a esta videollamada de la Escuela (${actividadNombre}), confirmás que leíste y aceptás los Términos y Condiciones vigentes de la plataforma, disponibles para su consulta.`,
+          "Tu participación es voluntaria y se rige por dichas condiciones, incluyendo el posible registro de imagen, voz y contenidos generados durante la actividad.",
+          "Al continuar, Ud. confirma su aceptación plena.",
+        ].filter((item): item is string => Boolean(item))
 
   const textosAdicionales: string[] = []
 

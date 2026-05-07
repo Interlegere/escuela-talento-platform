@@ -6,6 +6,7 @@ import {
   resolveActivityAccess,
   type ActivitySlug,
 } from "@/lib/authz"
+import { obtenerPartesArgentina } from "@/lib/fechas"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 import {
   charlaIntroFechaTexto,
@@ -77,6 +78,10 @@ export async function GET() {
     const charlaIntroHabilitada =
       usuarioData?.charla_intro_habilitada === true &&
       auth.actor.role !== "admin"
+    const partesArgentina = obtenerPartesArgentina()
+    const charlaIntroGrabacionDisponible =
+      charlaIntroHabilitada &&
+      ["Fri", "Sat", "Sun"].includes(partesArgentina.weekdayShort)
 
     return NextResponse.json({
       ok: true,
@@ -95,7 +100,10 @@ export async function GET() {
         subtitulo: charlaIntroSubtitulo(),
         fechaTexto: charlaIntroFechaTexto() || null,
         meetUrl: charlaIntroMeetUrl() || null,
-        grabacionUrl: charlaIntroGrabacionUrl() || null,
+        grabacionDisponible: charlaIntroGrabacionDisponible,
+        grabacionUrl: charlaIntroGrabacionDisponible
+          ? charlaIntroGrabacionUrl() || null
+          : null,
       },
       accesos,
     })
