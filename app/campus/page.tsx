@@ -587,7 +587,7 @@ export default function CampusPage() {
 
         {modoSoloCharla && (
           <p className="workspace-inline-note">
-            Tu acceso actual está orientado a la charla introductoria. Desde acá vas a encontrar el ingreso a la videollamada.
+            Tu acceso actual está orientado a la charla introductoria. Desde acá vas a encontrar el acceso a la grabación.
           </p>
         )}
       </section>
@@ -608,21 +608,22 @@ export default function CampusPage() {
         </section>
       )}
 
-      {modoSoloCharla && resumen?.charlaIntro?.meetUrl && (
+      {modoSoloCharla && resumen?.charlaIntro?.grabacionUrl && (
         <section className="workspace-panel-soft flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <p className="workspace-eyebrow">Acceso a la charla</p>
+            <p className="workspace-eyebrow">Grabación de la charla</p>
             <p className="workspace-inline-note">
-              Cuando llegue el momento, ingresá desde este botón a la videollamada.
+              Desde este botón vas a poder volver a recorrer la charla introductoria.
             </p>
           </div>
-          <ConsentimientoMeetButton
-            actividad="charla-introductoria"
-            href={resumen.charlaIntro.meetUrl}
+          <a
+            href={resumen.charlaIntro.grabacionUrl}
+            target="_blank"
+            rel="noreferrer"
             className="workspace-button-primary workspace-button-primary-soft"
           >
-            Ir a la videollamada
-          </ConsentimientoMeetButton>
+            Ver grabación
+          </a>
         </section>
       )}
 

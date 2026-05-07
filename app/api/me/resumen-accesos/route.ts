@@ -9,6 +9,7 @@ import {
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 import {
   charlaIntroFechaTexto,
+  charlaIntroGrabacionUrl,
   charlaIntroMeetUrl,
   charlaIntroSubtitulo,
   charlaIntroTitulo,
@@ -94,6 +95,7 @@ export async function GET() {
         subtitulo: charlaIntroSubtitulo(),
         fechaTexto: charlaIntroFechaTexto() || null,
         meetUrl: charlaIntroMeetUrl() || null,
+        grabacionUrl: charlaIntroGrabacionUrl() || null,
       },
       accesos,
     })

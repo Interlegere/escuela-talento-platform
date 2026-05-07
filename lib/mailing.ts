@@ -65,6 +65,13 @@ export function charlaIntroMeetUrl() {
   return (process.env.CHARLA_INTRO_MEET_URL || "").trim()
 }
 
+export function charlaIntroGrabacionUrl() {
+  return (
+    process.env.CHARLA_INTRO_GRABACION_URL ||
+    "https://drive.google.com/file/d/1NSKHVju719fJZg7re48NrSpty04g3ej2/view?usp=sharing"
+  ).trim()
+}
+
 function crearContenidoBienvenida(params: BienvenidaParams) {
   const url = appUrl()
   const nombre = params.nombre.trim() || "bienvenida/o"
@@ -147,21 +154,20 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
   const subtitulo =
     "Escuela Nodo para el Thalento, el Entusiasmo y el Orden de los Sentidos"
   const tituloCharla = charlaIntroTitulo()
-  const subtituloCharla = charlaIntroSubtitulo()
   const fechaCharla = charlaIntroFechaTexto()
-  const meetUrl = charlaIntroMeetUrl()
+  const grabacionUrl = charlaIntroGrabacionUrl()
 
   const textoFecha = fechaCharla ? `Fecha y horario: ${fechaCharla}` : ""
-  const textoMeet = meetUrl
-    ? `Acceso directo a la videollamada: ${meetUrl}`
-    : "El acceso a la videollamada estará disponible dentro de Campus."
+  const textoGrabacion = grabacionUrl
+    ? `Grabación: ${grabacionUrl}`
+    : "La grabación va a estar disponible dentro de Campus."
 
-  const bloqueMeet = meetUrl
+  const bloqueGrabacion = grabacionUrl
     ? `
-          <p style="margin: 0 0 10px;"><strong>Videollamada:</strong> <a href="${meetUrl}">${meetUrl}</a></p>
+          <p style="margin: 0 0 10px;"><strong>Grabación:</strong> <a href="${grabacionUrl}">${grabacionUrl}</a></p>
         `
     : `
-          <p style="margin: 0 0 10px;"><strong>Videollamada:</strong> el acceso va a estar disponible dentro de Campus.</p>
+          <p style="margin: 0 0 10px;"><strong>Grabación:</strong> el acceso va a estar disponible dentro de Campus.</p>
         `
 
   const bloqueFecha = fechaCharla
@@ -173,32 +179,20 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
   const text = [
     `Hola ${nombre},`,
     "",
-    subtitulo,
-    "¡Bienvenido/a!",
+    "¡Ojalá estés teniendo un lindo día!",
     "",
-    "Si estás recibiendo este mail es porque te inscribiste a la charla introductoria gratuita:",
+    "Hemos tenido una charla totalmente transformadora, con muchas claves y herramientas para hacer del tiempo, tu propio tiempo.",
     "",
-    tituloCharla,
-    subtituloCharla,
+    "¡Que la disfrutes y la aproveches!",
     "",
-    "¡Tu lugar ya está confirmado!",
+    "El ingreso a la grabación es por la misma vía que te enviamos antes: entrando con tu login a la plataforma.",
     "",
-    "Antes de ingresar, quiero que tengas algo presente:",
-    '"el problema no es que te falte tiempo, es qué te sobra... que te falta tiempo"',
-    "Lo profundizaremos con otras claves que te ayudarán a mover los hilos no evidentes que transforman todo en tu vida.",
-    "",
-    "Y una pregunta para desde antes ir resignificando la estructura:",
-    "",
-    "¿Qué es lo que hoy estás dejando de lado por sentir que no tenés tiempo?",
-    "",
-    "Para ingresar a la charla, entrá a la plataforma con tu usuario y tu clave de acceso. Una vez dentro de Campus vas a encontrar el acceso a la videollamada.",
+    "Estamos atentos a cualquier duda que tengas y a cualquier cuestión que quieras continuar conversando.",
     textoFecha,
-    textoMeet,
+    textoGrabacion,
     `Acceso: ${url}/login`,
     `Usuario: ${params.email}`,
     `Clave de acceso: ${params.password}`,
-    "",
-    "¡Nos vemos pronto!",
     "",
     "Atentamente,",
     "Nicolás Busico.",
@@ -214,38 +208,35 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
           <p style="margin: 0 0 10px; color: #6b7280; font-size: 16px; line-height: 1.5;">
             ${escapeHtml(subtitulo)}
           </p>
-          <h1 style="margin: 0; font-family: Georgia, 'Times New Roman', serif; font-size: 30px; font-weight: 600; line-height: 1.08; color: #18202a;">¡Bienvenido/a!</h1>
+          <h1 style="margin: 0; font-family: Georgia, 'Times New Roman', serif; font-size: 30px; font-weight: 600; line-height: 1.08; color: #18202a;">Grabación disponible</h1>
         </div>
 
         <div style="padding: 28px 32px 32px; line-height: 1.75;">
           <p style="margin: 0 0 14px;">Hola ${escapeHtml(nombre)},</p>
           <p style="margin: 0 0 16px;">
-            Si estás recibiendo este mail es porque te inscribiste a la charla introductoria gratuita:
+            ¡Ojalá estés teniendo un lindo día!
+          </p>
+          <p style="margin: 0 0 16px;">
+            Hemos tenido una charla totalmente transformadora, con muchas claves y herramientas para hacer del tiempo, tu propio tiempo.
           </p>
 
           <div style="margin: 0 0 22px; padding: 20px 22px; border-radius: 22px; background: #fff7ea; border: 1px solid #ead9b4;">
             <h2 style="margin: 0 0 10px; font-family: Georgia, 'Times New Roman', serif; font-size: 18px; font-weight: 600; line-height: 1.35; color: #18202a;">${escapeHtml(
               tituloCharla
             )}</h2>
-            <p style="margin: 0; color: #7f5d1f; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 17px; line-height: 1.45;">${escapeHtml(
-              subtituloCharla
-            )}</p>
+            <p style="margin: 0; color: #6b7280; font-size: 15px; line-height: 1.6;">La grabación ya está disponible para volver a recorrerla con tiempo.</p>
           </div>
 
-          <p style="margin: 0 0 18px; font-weight: 700;">¡Tu lugar ya está confirmado!</p>
-
-          <p style="margin: 0 0 14px; font-size: 15px; line-height: 1.72; color: #1f2933; font-weight: 400; font-family: Arial, sans-serif;">Antes de ingresar, quiero que tengas algo presente:</p>
-          <p style="margin: 0 0 14px; font-size: 15px; line-height: 1.72; color: #1f2933; font-weight: 400; font-family: Arial, sans-serif;"><strong>el problema no es que te falte tiempo, es qué te sobra... que te falta tiempo</strong></p>
-
           <p style="margin: 0 0 14px; font-size: 15px; line-height: 1.72; color: #1f2933; font-weight: 400; font-family: Arial, sans-serif;">
-            Lo profundizaremos con otras claves que te ayudarán a mover los hilos no evidentes que transforman todo en tu vida.
+            ¡Que la disfrutes y la aproveches!
           </p>
 
-          <p style="margin: 0 0 10px; font-size: 15px; line-height: 1.72; color: #1f2933; font-weight: 400; font-family: Arial, sans-serif;">Y una pregunta para desde antes ir resignificando la estructura:</p>
-          <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.72; color: #1f2933; font-weight: 400; font-family: Arial, sans-serif;"><strong>¿Qué es lo que hoy estás dejando de lado por sentir que no tenés tiempo?</strong></p>
+          <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.72; color: #1f2933; font-weight: 400; font-family: Arial, sans-serif;">
+            El ingreso a la grabación es por la misma vía que te enviamos antes: entrando con tu login a la plataforma.
+          </p>
 
           <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.72; color: #1f2933; font-weight: 400; font-family: Arial, sans-serif;">
-            Para ingresar a la charla, entrá a la plataforma con tu usuario y tu clave de acceso. Una vez dentro de Campus vas a encontrar el acceso a la videollamada.
+            Estamos atentos a cualquier duda que tengas y a cualquier cuestión que quieras continuar conversando.
           </p>
 
           <div style="border: 1px solid #e5dccb; border-radius: 18px; padding: 18px 20px; margin: 0 0 24px; background: #fffaf2;">
@@ -255,7 +246,7 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
               params.password
             )}</p>
             ${bloqueFecha}
-            ${bloqueMeet}
+            ${bloqueGrabacion}
           </div>
 
           <div style="margin: 24px 0 28px;">
@@ -267,7 +258,6 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
             </a>
           </div>
 
-          <p style="margin: 0 0 10px;">¡Nos vemos pronto!</p>
           <p style="margin: 0;">Atentamente,<br />Nicolás Busico.</p>
         </div>
       </div>
@@ -276,7 +266,7 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
 
   return {
     subject:
-      "Datos de Acceso a la Charla Introductoria: Las Claves no evidentes para gestionar eficazmente tu tiempo.",
+      "Grabación de charla: Las Claves no evidentes para gestionar eficazmente tu tiempo.",
     text,
     html,
   }
