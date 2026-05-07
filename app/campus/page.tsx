@@ -143,13 +143,11 @@ function RecordatorioCard({
 function CharlaIntroCard({
   titulo,
   subtitulo,
-  fechaTexto,
   grabacionDisponible,
   grabacionUrl,
 }: {
   titulo: string
   subtitulo: string
-  fechaTexto?: string | null
   grabacionDisponible?: boolean
   grabacionUrl?: string | null
 }) {
@@ -165,11 +163,6 @@ function CharlaIntroCard({
         <p className="max-w-3xl text-base leading-7 text-[var(--muted)]">
           {subtitulo}
         </p>
-        {fechaTexto && (
-          <p className="text-sm font-semibold text-[var(--sea)]">
-            Fecha y horario: {fechaTexto}
-          </p>
-        )}
         <div className="flex flex-wrap gap-3 pt-2">
           {grabacionUrl ? (
             <ConsentimientoMeetButton
@@ -516,17 +509,16 @@ export default function CampusPage() {
         </WorkspaceHero>
 
       {modoSoloCharla && resumen?.charlaIntro && (
-        <CharlaIntroCard
-          titulo={resumen.charlaIntro.titulo || "Charla introductoria"}
-          subtitulo={
-            resumen.charlaIntro.subtitulo ||
-            "Tu acceso a la grabación está habilitado desde este campus."
-          }
-          fechaTexto={resumen.charlaIntro.fechaTexto}
-          grabacionDisponible={resumen.charlaIntro.grabacionDisponible}
-          grabacionUrl={resumen.charlaIntro.grabacionUrl}
-        />
-      )}
+      <CharlaIntroCard
+        titulo={resumen.charlaIntro.titulo || "Charla introductoria"}
+        subtitulo={
+          resumen.charlaIntro.subtitulo ||
+          "Tu acceso a la grabación está habilitado desde este campus."
+        }
+        grabacionDisponible={resumen.charlaIntro.grabacionDisponible}
+        grabacionUrl={resumen.charlaIntro.grabacionUrl}
+      />
+    )}
 
       <section className="workspace-panel campus-priority-panel space-y-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">

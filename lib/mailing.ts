@@ -155,20 +155,8 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
     "Escuela Nodo para el Thalento, el Entusiasmo y el Orden de los Sentidos"
   const tituloCharla = charlaIntroTitulo()
   const fechaCharla = charlaIntroFechaTexto()
-  const grabacionUrl = charlaIntroGrabacionUrl()
 
   const textoFecha = fechaCharla ? `Fecha y horario: ${fechaCharla}` : ""
-  const textoGrabacion = grabacionUrl
-    ? `Grabación: ${grabacionUrl}`
-    : "La grabación va a estar disponible dentro de Campus."
-
-  const bloqueGrabacion = grabacionUrl
-    ? `
-          <p style="margin: 0 0 10px;"><strong>Grabación:</strong> <a href="${grabacionUrl}">${grabacionUrl}</a></p>
-        `
-    : `
-          <p style="margin: 0 0 10px;"><strong>Grabación:</strong> el acceso va a estar disponible dentro de Campus.</p>
-        `
 
   const bloqueFecha = fechaCharla
     ? `
@@ -181,18 +169,20 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
     "",
     "¡Ojalá estés teniendo un lindo día!",
     "",
-    "Hemos tenido una charla totalmente transformadora, con muchas claves y herramientas para hacer del tiempo, tu propio tiempo.",
+    "En breve estarás recorriendo lógicas totalmente transformadoras y herramientas para apropiarte de todo eso que postergás, dejás esperando, te apurás o simplemente no creés posibles.",
     "",
     "¡Que la disfrutes y la aproveches!",
     "",
     "El ingreso a la grabación es por la misma vía que te enviamos antes: entrando con tu login a la plataforma.",
     "",
+    "Disponibilidad limitada: desde el viernes 08 al domingo 10 de mayo",
+    "",
     "Estamos atentos a cualquier duda que tengas y a cualquier cuestión que quieras continuar conversando.",
-    textoFecha,
-    textoGrabacion,
+    "",
     `Acceso: ${url}/login`,
     `Usuario: ${params.email}`,
     `Clave de acceso: ${params.password}`,
+    textoFecha,
     "",
     "Atentamente,",
     "Nicolás Busico.",
@@ -217,14 +207,14 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
             ¡Ojalá estés teniendo un lindo día!
           </p>
           <p style="margin: 0 0 16px;">
-            Hemos tenido una charla totalmente transformadora, con muchas claves y herramientas para hacer del tiempo, tu propio tiempo.
+            En breve estarás recorriendo lógicas totalmente transformadoras y herramientas para apropiarte de todo eso que postergás, dejás esperando, te apurás o simplemente no creés posibles.
           </p>
 
           <div style="margin: 0 0 22px; padding: 20px 22px; border-radius: 22px; background: #fff7ea; border: 1px solid #ead9b4;">
             <h2 style="margin: 0 0 10px; font-family: Georgia, 'Times New Roman', serif; font-size: 18px; font-weight: 600; line-height: 1.35; color: #18202a;">${escapeHtml(
               tituloCharla
             )}</h2>
-            <p style="margin: 0; color: #6b7280; font-size: 15px; line-height: 1.6;">La grabación ya está disponible para volver a recorrerla con tiempo.</p>
+            <p style="margin: 0; color: #6b7280; font-size: 15px; line-height: 1.6;">Disponibilidad limitada: desde el viernes 08 al domingo 10 de mayo</p>
           </div>
 
           <p style="margin: 0 0 14px; font-size: 15px; line-height: 1.72; color: #1f2933; font-weight: 400; font-family: Arial, sans-serif;">
@@ -233,6 +223,10 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
 
           <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.72; color: #1f2933; font-weight: 400; font-family: Arial, sans-serif;">
             El ingreso a la grabación es por la misma vía que te enviamos antes: entrando con tu login a la plataforma.
+          </p>
+
+          <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.72; color: #1f2933; font-weight: 400; font-family: Arial, sans-serif;">
+            Disponibilidad limitada: desde el viernes 08 al domingo 10 de mayo.
           </p>
 
           <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.72; color: #1f2933; font-weight: 400; font-family: Arial, sans-serif;">
@@ -246,7 +240,6 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
               params.password
             )}</p>
             ${bloqueFecha}
-            ${bloqueGrabacion}
           </div>
 
           <div style="margin: 24px 0 28px;">
@@ -266,7 +259,7 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
 
   return {
     subject:
-      "Grabación de charla: Las Claves no evidentes para gestionar eficazmente tu tiempo.",
+      "Grabación charla introductoria: Las Claves no evidentes para gestionar eficazmente tu tiempo.",
     text,
     html,
   }
