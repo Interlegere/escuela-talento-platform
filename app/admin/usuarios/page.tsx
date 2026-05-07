@@ -8,6 +8,7 @@ import {
   normalizarDocumentosNotas,
   serializarDocumentosNotas,
 } from "@/lib/documentos-notas"
+import { etiquetaModalidadPago, type BillingMode } from "@/lib/billing"
 
 type Usuario = {
   id: string
@@ -21,6 +22,29 @@ type Usuario = {
   role: "admin" | "colaborador" | "participante"
   activo: boolean
   created_at?: string | null
+}
+
+type HonorarioAsignado = {
+  id: number
+  actividad_id: number
+  actividad_slug: string
+  actividad_nombre: string
+  participante_email: string
+  participante_nombre: string
+  honorario_mensual: string | number
+  modalidad_pago: BillingMode
+  moneda: string
+  activo: boolean
+  updated_at?: string
+  ultimo_pago?: {
+    id: number
+    estado: string
+    monto: string | number
+    moneda: string
+    anio?: number | null
+    mes?: number | null
+    created_at?: string | null
+  } | null
 }
 
 type FormState = {
@@ -64,11 +88,27 @@ function etiquetaRol(role: Usuario["role"]) {
   }
 }
 
+function estadoPagoLabel(estado?: string | null) {
+  switch (estado) {
+    case "pagado":
+      return "Pagado"
+    case "en_revision":
+      return "En revisión"
+    case "pendiente":
+      return "Pendiente"
+    case "rechazado":
+      return "Rechazado"
+    default:
+      return estado || "Sin pago"
+  }
+}
+
 export default function AdminUsuariosPage() {
   const { data: session, status } = useAppSession()
   const router = useRouter()
 
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
+  const [honorarios, setHonorarios] = useState<HonorarioAsignado[]>([])
   const [form, setForm] = useState<FormState>(FORM_INICIAL)
   const [mensaje, setMensaje] = useState("")
   const [cargando, setCargando] = useState(true)
@@ -105,11 +145,45 @@ export default function AdminUsuariosPage() {
     }
   }, [])
 
+  const cargarHonorarios = useCallback(async () => {
+    try {
+      const res = await fetch("/admin/pagos-mensuales/honorarios", {
+        cache: "no-store",
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setMensaje(data.error || "No se pudieron cargar las actividades asignadas.")
+        return
+      }
+
+      setHonorarios(data.honorarios || [])
+    } catch {
+      setMensaje("Error cargando actividades asignadas.")
+    }
+  }, [])
+
   useEffect(() => {
     if (status === "authenticated" && esAdmin) {
       void cargarUsuarios()
+      void cargarHonorarios()
     }
-  }, [cargarUsuarios, esAdmin, status])
+  }, [cargarHonorarios, cargarUsuarios, esAdmin, status])
+
+  const honorariosPorEmail = useMemo(() => {
+    const mapa = new Map<string, HonorarioAsignado[]>()
+
+    for (const item of honorarios) {
+      const email = String(item.participante_email || "").trim().toLowerCase()
+      if (!email) continue
+
+      const existentes = mapa.get(email) || []
+      existentes.push(item)
+      mapa.set(email, existentes)
+    }
+
+    return mapa
+  }, [honorarios])
 
   const usuariosFiltrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase()
@@ -117,6 +191,13 @@ export default function AdminUsuariosPage() {
     if (!q) return usuarios
 
     return usuarios.filter((usuario) => {
+      const email = usuario.email.trim().toLowerCase()
+      const actividadesUsuario = honorariosPorEmail.get(email) || []
+      const actividadesTexto = actividadesUsuario
+        .map((item) => `${item.actividad_nombre} ${item.actividad_slug}`)
+        .join(" ")
+        .toLowerCase()
+
       const charlaTexto = usuario.charla_intro_habilitada
         ? "charla introductoria charla tiempo"
         : ""
@@ -126,10 +207,11 @@ export default function AdminUsuariosPage() {
         String(usuario.apellido || "").toLowerCase().includes(q) ||
         usuario.email.toLowerCase().includes(q) ||
         usuario.role.toLowerCase().includes(q) ||
-        charlaTexto.includes(q)
+        charlaTexto.includes(q) ||
+        actividadesTexto.includes(q)
       )
     })
-  }, [busqueda, usuarios])
+  }, [busqueda, honorariosPorEmail, usuarios])
 
   const limpiarForm = () => {
     setForm(FORM_INICIAL)
@@ -192,6 +274,7 @@ export default function AdminUsuariosPage() {
 
       limpiarForm()
       await cargarUsuarios()
+      await cargarHonorarios()
     } catch {
       setMensaje("Error guardando usuario.")
     } finally {
@@ -220,9 +303,9 @@ export default function AdminUsuariosPage() {
           <p className="workspace-eyebrow">Administración</p>
           <h1 className="workspace-title">Usuarios</h1>
           <p className="workspace-subtitle">
-            Creá participantes, colaboradores o administradores. Después podés
-            asignar actividades, honorarios y agenda desde las secciones
-            correspondientes.
+            Creá participantes, colaboradores o administradores. Esta vista
+            empieza a funcionar como ficha central de cada persona: datos,
+            estado, charla introductoria y actividades configuradas.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link href="/admin/pagos" className="workspace-button-secondary">
@@ -246,9 +329,9 @@ export default function AdminUsuariosPage() {
             {editando ? form.email : "Crear acceso a la plataforma"}
           </h2>
           <p className="workspace-inline-note">
-            Crear el usuario habilita el login. Si el mailing está configurado,
-            puede recibir la bienvenida con link y credenciales. El acceso a
-            actividades se define aparte desde honorarios, agenda o accesos.
+            Crear el usuario habilita el login. El acceso a actividades se
+            configura desde Admin Pagos, pero debajo vas a poder ver el resumen
+            por persona.
           </p>
         </div>
 
@@ -402,8 +485,7 @@ export default function AdminUsuariosPage() {
               Usuario sólo charla introductoria
               <span className="block text-xs font-normal text-gray-500">
                 Al crear el usuario con esta opción y una contraseña cargada, se
-                enviará el mail especial de la charla. El acceso visible se
-                completará luego desde Campus.
+                enviará el mail especial de la charla.
               </span>
             </span>
           </label>
@@ -463,7 +545,7 @@ export default function AdminUsuariosPage() {
               className="workspace-field"
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Nombre, email, rol o charla"
+              placeholder="Nombre, email, rol, charla o actividad"
             />
           </label>
         </div>
@@ -477,109 +559,180 @@ export default function AdminUsuariosPage() {
         )}
 
         <div className="grid gap-3">
-          {usuariosFiltrados.map((usuario) => (
-            <article
-              key={usuario.id}
-              className="rounded-[1.4rem] border border-[var(--line)] bg-[rgba(255,250,242,0.68)] p-4"
-            >
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-lg font-semibold tracking-[-0.03em]">
-                      {usuario.nombre}
-                    </h3>
-                    <span className="workspace-chip">
-                      {etiquetaRol(usuario.role)}
-                    </span>
+          {usuariosFiltrados.map((usuario) => {
+            const email = usuario.email.trim().toLowerCase()
+            const actividadesUsuario = honorariosPorEmail.get(email) || []
 
-                    {usuario.charla_intro_habilitada && (
-                      <span className="rounded-full border border-[rgba(201,139,27,0.28)] bg-[rgba(201,139,27,0.12)] px-3 py-1 text-xs font-medium text-[rgb(154,101,21)]">
-                        Charla introductoria
+            return (
+              <article
+                key={usuario.id}
+                className="rounded-[1.4rem] border border-[var(--line)] bg-[rgba(255,250,242,0.68)] p-4"
+              >
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-lg font-semibold tracking-[-0.03em]">
+                        {[usuario.nombre, usuario.apellido].filter(Boolean).join(" ") ||
+                          usuario.email}
+                      </h3>
+
+                      <span className="workspace-chip">
+                        {etiquetaRol(usuario.role)}
                       </span>
-                    )}
 
-                    <span
-                      className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                        usuario.activo
-                          ? "border-[rgba(52,125,89,0.2)] bg-[rgba(52,125,89,0.1)] text-[rgb(52,125,89)]"
-                          : "border-[rgba(156,69,59,0.2)] bg-[rgba(156,69,59,0.1)] text-[rgb(156,69,59)]"
-                      }`}
-                    >
-                      {usuario.activo ? "Activo" : "Inactivo"}
-                    </span>
-                  </div>
+                      {usuario.charla_intro_habilitada && (
+                        <span className="rounded-full border border-[rgba(201,139,27,0.28)] bg-[rgba(201,139,27,0.12)] px-3 py-1 text-xs font-medium text-[rgb(154,101,21)]">
+                          Charla introductoria
+                        </span>
+                      )}
 
-                  <p className="workspace-inline-note">{usuario.email}</p>
+                      <span
+                        className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                          usuario.activo
+                            ? "border-[rgba(52,125,89,0.2)] bg-[rgba(52,125,89,0.1)] text-[rgb(52,125,89)]"
+                            : "border-[rgba(156,69,59,0.2)] bg-[rgba(156,69,59,0.1)] text-[rgb(156,69,59)]"
+                        }`}
+                      >
+                        {usuario.activo ? "Activo" : "Inactivo"}
+                      </span>
+                    </div>
 
-                  {(usuario.whatsapp || usuario.fecha_cumpleanos) && (
-                    <p className="workspace-inline-note">
-                      {usuario.whatsapp ? `WhatsApp: ${usuario.whatsapp}` : ""}
-                      {usuario.whatsapp && usuario.fecha_cumpleanos ? " · " : ""}
-                      {usuario.fecha_cumpleanos
-                        ? `Cumpleaños: ${usuario.fecha_cumpleanos}`
-                        : ""}
-                    </p>
-                  )}
+                    <div>
+                      <p className="workspace-inline-note">{usuario.email}</p>
 
-                  {normalizarDocumentosNotas(usuario.notas_documentos).length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {normalizarDocumentosNotas(usuario.notas_documentos).map(
-                        (documento) => (
-                          <a
-                            key={`${usuario.id}-${documento.url}`}
-                            href={documento.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="workspace-button-secondary !px-3 !py-1.5 text-xs"
-                          >
-                            {documento.titulo}
-                          </a>
-                        )
+                      {(usuario.whatsapp || usuario.fecha_cumpleanos) && (
+                        <p className="workspace-inline-note">
+                          {usuario.whatsapp ? `WhatsApp: ${usuario.whatsapp}` : ""}
+                          {usuario.whatsapp && usuario.fecha_cumpleanos ? " · " : ""}
+                          {usuario.fecha_cumpleanos
+                            ? `Cumpleaños: ${usuario.fecha_cumpleanos}`
+                            : ""}
+                        </p>
                       )}
                     </div>
-                  )}
+
+                    {normalizarDocumentosNotas(usuario.notas_documentos).length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {normalizarDocumentosNotas(usuario.notas_documentos).map(
+                          (documento) => (
+                            <a
+                              key={`${usuario.id}-${documento.url}`}
+                              href={documento.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="workspace-button-secondary !px-3 !py-1.5 text-xs"
+                            >
+                              {documento.titulo}
+                            </a>
+                          )
+                        )}
+                      </div>
+                    )}
+
+                    <div className="rounded-2xl border border-[var(--line)] bg-white/60 p-3">
+                      <p className="text-sm font-semibold text-gray-900">
+                        Actividades configuradas
+                      </p>
+
+                      {actividadesUsuario.length === 0 ? (
+                        <p className="mt-1 text-sm text-gray-500">
+                          No tiene actividades configuradas desde Admin Pagos.
+                        </p>
+                      ) : (
+                        <div className="mt-3 grid gap-2">
+                          {actividadesUsuario.map((item) => (
+                            <div
+                              key={item.id}
+                              className="rounded-xl border border-[var(--line)] bg-[rgba(255,250,242,0.74)] p-3 text-sm"
+                            >
+                              <div className="flex flex-wrap items-center gap-2">
+                                <strong>{item.actividad_nombre}</strong>
+                                <span
+                                  className={`rounded-full border px-2 py-0.5 text-xs ${
+                                    item.activo
+                                      ? "border-green-200 bg-green-50 text-green-800"
+                                      : "border-red-200 bg-red-50 text-red-800"
+                                  }`}
+                                >
+                                  {item.activo ? "Activa" : "Inactiva"}
+                                </span>
+                              </div>
+
+                              <p className="mt-1 text-gray-600">
+                                {etiquetaModalidadPago(
+                                  item.modalidad_pago,
+                                  item.actividad_slug
+                                )}{" "}
+                                · {item.moneda} {item.honorario_mensual}
+                              </p>
+
+                              <p className="mt-1 text-gray-500">
+                                Último pago:{" "}
+                                <strong>{estadoPagoLabel(item.ultimo_pago?.estado)}</strong>
+                                {item.ultimo_pago?.monto
+                                  ? ` · ${item.ultimo_pago.moneda} ${item.ultimo_pago.monto}`
+                                  : ""}
+                                {item.ultimo_pago?.mes && item.ultimo_pago?.anio
+                                  ? ` · ${item.ultimo_pago.mes}/${item.ultimo_pago.anio}`
+                                  : ""}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 lg:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => editarUsuario(usuario)}
+                      className="workspace-button-secondary"
+                    >
+                      Editar
+                    </button>
+
+                    <Link
+                      href={`/admin/pagos?participante=${encodeURIComponent(
+                        usuario.email
+                      )}`}
+                      className="workspace-button-secondary"
+                    >
+                      Ver pagos
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const payload: FormState = {
+                          id: usuario.id,
+                          nombre: usuario.nombre,
+                          apellido: usuario.apellido || "",
+                          email: usuario.email,
+                          whatsapp: usuario.whatsapp || "",
+                          fechaCumpleanos: usuario.fecha_cumpleanos || "",
+                          notasDocumentos: serializarDocumentosNotas(
+                            usuario.notas_documentos
+                          ),
+                          charlaIntroHabilitada:
+                            usuario.charla_intro_habilitada === true,
+                          role: usuario.role,
+                          activo: !usuario.activo,
+                          password: "",
+                          enviarBienvenida: false,
+                        }
+
+                        void guardarUsuario(payload)
+                      }}
+                      className="workspace-button-secondary"
+                    >
+                      {usuario.activo ? "Desactivar" : "Reactivar"}
+                    </button>
+                  </div>
                 </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => editarUsuario(usuario)}
-                    className="workspace-button-secondary"
-                  >
-                    Editar
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const payload: FormState = {
-                        id: usuario.id,
-                        nombre: usuario.nombre,
-                        apellido: usuario.apellido || "",
-                        email: usuario.email,
-                        whatsapp: usuario.whatsapp || "",
-                        fechaCumpleanos: usuario.fecha_cumpleanos || "",
-                        notasDocumentos: serializarDocumentosNotas(
-                          usuario.notas_documentos
-                        ),
-                        charlaIntroHabilitada:
-                          usuario.charla_intro_habilitada === true,
-                        role: usuario.role,
-                        activo: !usuario.activo,
-                        password: "",
-                        enviarBienvenida: false,
-                      }
-
-                      void guardarUsuario(payload)
-                    }}
-                    className="workspace-button-secondary"
-                  >
-                    {usuario.activo ? "Desactivar" : "Reactivar"}
-                  </button>
-                </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            )
+          })}
         </div>
       </section>
     </main>

@@ -86,40 +86,28 @@ type UsuarioOption = {
 }
 
 function tituloCobroPorModalidad(modalidad: BillingMode, actividadSlug: string) {
-  if (modalidad === "sesion") {
-    return "Cobro por sesión"
-  }
-
+  if (modalidad === "sesion") return "Cobro por sesión"
   if (modalidad === "proceso") {
     return actividadSlug === "terapia" ? "Cobro por proceso" : "Cobro único"
   }
-
   return "Cobro mensual"
 }
 
 function etiquetaHonorario(modalidad: BillingMode, actividadSlug: string) {
-  if (modalidad === "sesion") {
-    return "Honorario por sesión"
-  }
-
+  if (modalidad === "sesion") return "Honorario por sesión"
   if (modalidad === "proceso") {
     return actividadSlug === "terapia"
       ? "Honorario del proceso terapéutico"
       : "Honorario del proceso"
   }
-
   return "Honorario mensual"
 }
 
 function placeholderHonorario(modalidad: BillingMode, actividadSlug: string) {
-  if (modalidad === "sesion") {
-    return "Ej: 65000"
-  }
-
+  if (modalidad === "sesion") return "Ej: 65000"
   if (modalidad === "proceso") {
     return actividadSlug === "terapia" ? "Ej: 240000" : "Ej: 120000"
   }
-
   return "Ej: 45000"
 }
 
@@ -142,7 +130,9 @@ function AdminPagosPageFallback() {
     <main className="p-10 space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Administración de pagos</h1>
-        <p className="text-gray-600 mt-2">Preparando acceso de administración...</p>
+        <p className="text-gray-600 mt-2">
+          Preparando acceso de administración...
+        </p>
       </div>
 
       <section className="border rounded-xl p-4">
@@ -156,6 +146,7 @@ function AdminPagosPageContent() {
   const { data: session, status } = useAppSession()
   const router = useRouter()
   const searchParams = useSearchParams()
+
   const [pagos, setPagos] = useState<PagoPendiente[]>([])
   const [reservasPendientes, setReservasPendientes] = useState<ReservaPendiente[]>([])
   const [actividades, setActividades] = useState<ActividadOption[]>([])
@@ -274,9 +265,7 @@ function AdminPagosPageContent() {
   }, [cargarConfiguracionPagos, cargarHonorarios, cargarUsuarios, esAdmin, status])
 
   useEffect(() => {
-    if (!filtroParticipante || participanteEmail) {
-      return
-    }
+    if (!filtroParticipante || participanteEmail) return
 
     const usuario = usuarios.find(
       (item) => item.email.trim().toLowerCase() === filtroParticipante
@@ -297,41 +286,6 @@ function AdminPagosPageContent() {
       setModalidadPago("proceso")
     }
   }, [actividadSlug, modalidadPago])
-
-  if (status === "loading") {
-    return (
-      <main className="p-10 space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Administración de pagos</h1>
-          <p className="text-gray-600 mt-2">Preparando acceso de administración...</p>
-        </div>
-
-        <section className="border rounded-xl p-4">
-          <p>Cargando sesión...</p>
-        </section>
-      </main>
-    )
-  }
-
-  if (!session) {
-    return (
-      <main className="p-10 space-y-6">
-        <section className="border rounded-xl p-4">
-          <p>Necesitás iniciar sesión para continuar.</p>
-        </section>
-      </main>
-    )
-  }
-
-  if (!esAdmin) {
-    return (
-      <main className="p-10 space-y-6">
-        <section className="border rounded-xl p-4">
-          <p>No tenés permisos para acceder a esta sección.</p>
-        </section>
-      </main>
-    )
-  }
 
   const resolver = async (pagoId: number, accion: "aprobar" | "rechazar") => {
     try {
@@ -536,17 +490,6 @@ function AdminPagosPageContent() {
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
-  const usuariosActivos = usuarios.filter((usuario) => usuario.activo)
-  const usuarioSeleccionado = usuarios.find(
-    (usuario) =>
-      usuario.email.trim().toLowerCase() === participanteEmail.trim().toLowerCase()
-  )
-  const usuariosSelect = usuarioSeleccionado
-    ? usuariosActivos.some((usuario) => usuario.email === usuarioSeleccionado.email)
-      ? usuariosActivos
-      : [usuarioSeleccionado, ...usuariosActivos]
-    : usuariosActivos
-
   const generarCobro = async (item: HonorarioAsignado) => {
     try {
       setGenerandoCobroId(item.id)
@@ -590,6 +533,54 @@ function AdminPagosPageContent() {
     }
   }
 
+  if (status === "loading") {
+    return (
+      <main className="p-10 space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">Administración de pagos</h1>
+          <p className="text-gray-600 mt-2">
+            Preparando acceso de administración...
+          </p>
+        </div>
+
+        <section className="border rounded-xl p-4">
+          <p>Cargando sesión...</p>
+        </section>
+      </main>
+    )
+  }
+
+  if (!session) {
+    return (
+      <main className="p-10 space-y-6">
+        <section className="border rounded-xl p-4">
+          <p>Necesitás iniciar sesión para continuar.</p>
+        </section>
+      </main>
+    )
+  }
+
+  if (!esAdmin) {
+    return (
+      <main className="p-10 space-y-6">
+        <section className="border rounded-xl p-4">
+          <p>No tenés permisos para acceder a esta sección.</p>
+        </section>
+      </main>
+    )
+  }
+
+  const usuariosActivos = usuarios.filter((usuario) => usuario.activo)
+  const usuarioSeleccionado = usuarios.find(
+    (usuario) =>
+      usuario.email.trim().toLowerCase() === participanteEmail.trim().toLowerCase()
+  )
+  const usuariosSelect = usuarioSeleccionado
+    ? usuariosActivos.some((usuario) => usuario.email === usuarioSeleccionado.email)
+      ? usuariosActivos
+      : [usuarioSeleccionado, ...usuariosActivos]
+    : usuariosActivos
+
   const modalidadOptions =
     actividadSlug === "terapia"
       ? [
@@ -601,6 +592,7 @@ function AdminPagosPageContent() {
   const tituloHonorario = etiquetaHonorario(modalidadPago, actividadSlug)
   const placeholderMonto = placeholderHonorario(modalidadPago, actividadSlug)
   const ayudaMonto = ayudaHonorario(modalidadPago, actividadSlug)
+
   const pagosFiltrados = pagos.filter((pago) => {
     const coincideActividad =
       !filtroActividad ||
@@ -612,6 +604,7 @@ function AdminPagosPageContent() {
 
     return coincideActividad && coincideParticipante
   })
+
   const reservasPendientesFiltradas = reservasPendientes.filter((reserva) => {
     const coincideActividad =
       !filtroActividad ||
@@ -623,6 +616,75 @@ function AdminPagosPageContent() {
 
     return coincideActividad && coincideParticipante
   })
+
+  const honorariosFiltrados = honorarios.filter((item) => {
+    const coincideActividad =
+      !filtroActividad ||
+      String(item.actividad_slug || "").trim().toLowerCase() === filtroActividad
+    const coincideParticipante =
+      !filtroParticipante ||
+      String(item.participante_email || "").trim().toLowerCase() ===
+        filtroParticipante
+
+    return coincideActividad && coincideParticipante
+  })
+
+  const participantesAgrupados = (() => {
+    const mapa = new Map<
+      string,
+      {
+        email: string
+        nombre: string
+        honorarios: HonorarioAsignado[]
+        pagos: PagoPendiente[]
+        reservas: ReservaPendiente[]
+      }
+    >()
+
+    const asegurar = (emailRaw?: string | null, nombreRaw?: string | null) => {
+      const email = String(emailRaw || "sin-email").trim().toLowerCase()
+      const nombre = String(nombreRaw || "").trim() || email
+
+      if (!mapa.has(email)) {
+        mapa.set(email, {
+          email,
+          nombre,
+          honorarios: [],
+          pagos: [],
+          reservas: [],
+        })
+      }
+
+      const grupo = mapa.get(email)!
+
+      if ((!grupo.nombre || grupo.nombre === grupo.email) && nombre) {
+        grupo.nombre = nombre
+      }
+
+      return grupo
+    }
+
+    for (const item of honorariosFiltrados) {
+      asegurar(item.participante_email, item.participante_nombre).honorarios.push(
+        item
+      )
+    }
+
+    for (const pago of pagosFiltrados) {
+      asegurar(pago.participante_email, pago.participante_nombre).pagos.push(pago)
+    }
+
+    for (const reserva of reservasPendientesFiltradas) {
+      asegurar(reserva.participante_email, reserva.participante_nombre).reservas.push(
+        reserva
+      )
+    }
+
+    return Array.from(mapa.values()).sort((a, b) =>
+      a.nombre.localeCompare(b.nombre)
+    )
+  })()
+
   const hayFiltroActivo = Boolean(filtroActividad || filtroParticipante)
 
   return (
@@ -630,7 +692,8 @@ function AdminPagosPageContent() {
       <div>
         <h1 className="text-3xl font-bold">Administración de pagos</h1>
         <p className="text-gray-600 mt-2">
-          Asigná honorarios, generá cobros y revisá comprobantes de cada participante.
+          Asigná honorarios, generá cobros y revisá comprobantes de cada
+          participante.
         </p>
       </div>
 
@@ -639,7 +702,7 @@ function AdminPagosPageContent() {
       {hayFiltroActivo && (
         <section className="border rounded-2xl p-4 space-y-2 bg-[rgba(255,251,244,0.86)]">
           <p className="text-sm font-medium text-gray-900">
-            Vista filtrada desde la agenda
+            Vista filtrada desde la agenda o usuarios
           </p>
           <p className="text-sm text-gray-600">
             {filtroActividad
@@ -661,7 +724,8 @@ function AdminPagosPageContent() {
         <div>
           <h2 className="text-xl font-semibold">Configuración de recargo MP</h2>
           <p className="text-gray-600 mt-1">
-            Este porcentaje se suma al monto base cuando la persona elige pagar con Mercado Pago.
+            Este porcentaje se suma al monto base cuando la persona elige pagar
+            con Mercado Pago.
           </p>
         </div>
 
@@ -692,9 +756,10 @@ function AdminPagosPageContent() {
 
       <section className="border rounded-2xl p-5 space-y-4">
         <div>
-          <h2 className="text-xl font-semibold">Honorarios por participante</h2>
+          <h2 className="text-xl font-semibold">Asignar actividad y honorario</h2>
           <p className="text-gray-600 mt-1">
-            Desde acá definís qué actividad paga cada persona, con qué modalidad, con qué honorario y, cuando corresponde, podés generar el cobro.
+            Desde acá definís qué actividad paga cada persona, con qué modalidad,
+            con qué honorario y, cuando corresponde, podés generar el cobro.
           </p>
         </div>
 
@@ -715,9 +780,7 @@ function AdminPagosPageContent() {
           </label>
 
           <label className="space-y-2">
-            <span className="text-sm font-medium text-gray-700">
-              Usuario
-            </span>
+            <span className="text-sm font-medium text-gray-700">Usuario</span>
             <select
               className="w-full border rounded-xl p-3"
               value={participanteEmail}
@@ -841,338 +904,313 @@ function AdminPagosPageContent() {
             Limpiar formulario
           </button>
         </div>
+      </section>
+
+      {cargando && participantesAgrupados.length === 0 && <p>Cargando...</p>}
+
+      <section className="border rounded-2xl p-5 space-y-4">
+        <div>
+          <h2 className="text-xl font-semibold">Tablero por participante</h2>
+          <p className="text-gray-600 mt-1">
+            Cada participante aparece en un desplegable. Dentro ves actividades,
+            cobros y reservas pendientes sin mezclar todo en una sola lista.
+          </p>
+        </div>
+
+        {participantesAgrupados.length === 0 && !cargando && (
+          <div className="border rounded-xl p-4">
+            {hayFiltroActivo
+              ? "No hay datos para este filtro."
+              : "Todavía no hay honorarios, pagos o reservas pendientes."}
+          </div>
+        )}
 
         <div className="space-y-3">
-          {honorarios.length === 0 && (
-            <div className="border rounded-xl p-4">
-              Todavía no hay honorarios asignados.
-            </div>
-          )}
+          {participantesAgrupados.map((grupo) => (
+            <details
+              key={grupo.email}
+              className="border rounded-2xl p-4 bg-[rgba(255,250,242,0.68)]"
+            >
+              <summary className="cursor-pointer list-none">
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="font-semibold">{grupo.nombre}</p>
+                    <p className="text-sm text-gray-600">{grupo.email}</p>
+                  </div>
 
-          {honorarios.map((item) => (
-            <div key={item.id} className="border rounded-xl p-4 space-y-2">
-              <p>
-                <strong>Actividad:</strong> {item.actividad_nombre}
-              </p>
-              <p>
-                <strong>Participante:</strong> {item.participante_nombre || "Sin nombre"}
-              </p>
-              <p>
-                <strong>Email:</strong> {item.participante_email}
-              </p>
-              <p>
-                <strong>Honorario:</strong> {item.moneda} {item.honorario_mensual}
-              </p>
-              <p>
-                <strong>Modalidad:</strong>{" "}
-                {etiquetaModalidadPago(item.modalidad_pago, item.actividad_slug)}
-              </p>
-              <p>
-                <strong>Tipo de cobro:</strong>{" "}
-                {tituloCobroPorModalidad(item.modalidad_pago, item.actividad_slug)}
-              </p>
-              <p>
-                <strong>Estado:</strong> {item.activo ? "activo" : "inactivo"}
-              </p>
-
-              {item.modalidad_pago === "sesion" ? (
-                <div className="rounded-xl border bg-gray-50 p-3 text-sm text-gray-700">
-                  Este caso no genera un cobro general desde Admin Pagos: el cobro se dispara al reservar cada sesión confirmable.
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <span className="rounded-full border px-3 py-1 bg-white/70">
+                      {grupo.honorarios.length} actividad/es
+                    </span>
+                    <span className="rounded-full border px-3 py-1 bg-white/70">
+                      {grupo.pagos.length} pago/s pendiente/s
+                    </span>
+                    <span className="rounded-full border px-3 py-1 bg-white/70">
+                      {grupo.reservas.length} reserva/s pendiente/s
+                    </span>
+                  </div>
                 </div>
-              ) : item.ultimo_pago ? (
-                <div className="space-y-3 rounded-xl border bg-gray-50 p-3 text-sm text-gray-700">
-                  <p>
-                    <strong>Último cobro:</strong> {item.ultimo_pago.estado || "pendiente"}
-                  </p>
-                  <p>
-                    <strong>Monto:</strong> {item.ultimo_pago.moneda} {item.ultimo_pago.monto}
-                  </p>
-                  {item.ultimo_pago.mes && item.ultimo_pago.anio ? (
-                    <p>
-                      <strong>Período:</strong> {item.ultimo_pago.mes}/{item.ultimo_pago.anio}
-                    </p>
-                  ) : null}
+              </summary>
 
-                  {item.ultimo_pago.estado === "en_revision" ? (
-                    <div className="space-y-3 border-t pt-3">
-                      <p className="font-medium text-gray-900">
-                        Este cobro está en revisión. Desde acá podés aprobarlo para habilitar la actividad.
+              <div className="pt-5 space-y-5">
+                <section className="space-y-3">
+                  <h3 className="font-semibold">Actividades y honorarios</h3>
+
+                  {grupo.honorarios.length === 0 && (
+                    <div className="border rounded-xl p-4 text-sm text-gray-600 bg-white/70">
+                      No tiene actividades configuradas.
+                    </div>
+                  )}
+
+                  {grupo.honorarios.map((item) => (
+                    <div key={item.id} className="border rounded-xl p-4 space-y-2 bg-white/70">
+                      <p>
+                        <strong>Actividad:</strong> {item.actividad_nombre}
+                      </p>
+                      <p>
+                        <strong>Honorario:</strong> {item.moneda}{" "}
+                        {item.honorario_mensual}
+                      </p>
+                      <p>
+                        <strong>Modalidad:</strong>{" "}
+                        {etiquetaModalidadPago(
+                          item.modalidad_pago,
+                          item.actividad_slug
+                        )}
+                      </p>
+                      <p>
+                        <strong>Tipo de cobro:</strong>{" "}
+                        {tituloCobroPorModalidad(
+                          item.modalidad_pago,
+                          item.actividad_slug
+                        )}
+                      </p>
+                      <p>
+                        <strong>Estado:</strong>{" "}
+                        {item.activo ? "activo" : "inactivo"}
                       </p>
 
+                      <div className="flex gap-3 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => editarHonorario(item)}
+                          className="border px-4 py-2 rounded-xl"
+                        >
+                          Editar
+                        </button>
+
+                        {item.activo && item.modalidad_pago !== "sesion" && (
+                          <button
+                            type="button"
+                            onClick={() => void generarCobro(item)}
+                            disabled={generandoCobroId === item.id}
+                            className="bg-black text-white px-4 py-2 rounded-xl disabled:opacity-60"
+                          >
+                            {generandoCobroId === item.id
+                              ? "Generando..."
+                              : item.ultimo_pago
+                                ? "Ver o actualizar cobro"
+                                : "Generar cobro"}
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void guardarHonorario(!item.activo, {
+                              actividadSlug: item.actividad_slug,
+                              participanteNombre: item.participante_nombre || "",
+                              participanteEmail: item.participante_email,
+                              honorarioMensual: String(
+                                item.honorario_mensual || ""
+                              ),
+                              modalidadPago: item.modalidad_pago,
+                              moneda: item.moneda || "ARS",
+                            })
+                          }
+                          className="border px-4 py-2 rounded-xl"
+                        >
+                          {item.activo ? "Desactivar" : "Reactivar"}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </section>
+
+                <section className="space-y-3">
+                  <h3 className="font-semibold">Pagos mensuales pendientes</h3>
+
+                  {grupo.pagos.length === 0 && (
+                    <div className="border rounded-xl p-4 text-sm text-gray-600 bg-white/70">
+                      No tiene pagos mensuales pendientes de revisión.
+                    </div>
+                  )}
+
+                  {grupo.pagos.map((pago) => (
+                    <div key={pago.id} className="border rounded-xl p-4 space-y-3 bg-white/70">
+                      <p>
+                        <strong>Actividad:</strong> {pago.actividad_nombre}
+                      </p>
+                      <p>
+                        <strong>Período:</strong> {pago.mes}/{pago.anio}
+                      </p>
+                      <p>
+                        <strong>Monto:</strong> {pago.moneda} {pago.monto}
+                      </p>
+                      <p>
+                        <strong>Estado:</strong> {pago.estado}
+                      </p>
+                      <p>
+                        <strong>Medio:</strong> {pago.medio_pago}
+                      </p>
+                      <p>
+                        <strong>Archivo:</strong>{" "}
+                        {pago.comprobante_nombre_archivo || "Sin nombre"}
+                      </p>
+
+                      {pago.comprobante_url && (
+                        <a
+                          href={`/admin/pagos-mensuales/comprobante?pagoMensualId=${pago.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-600 underline"
+                        >
+                          Ver comprobante
+                        </a>
+                      )}
+
                       <textarea
-                        className="w-full rounded-xl border bg-white p-3"
+                        className="w-full border rounded-xl p-3 min-h-[100px]"
                         placeholder="Observación opcional"
-                        value={observaciones[item.ultimo_pago.id] || ""}
+                        value={observaciones[pago.id] || ""}
                         onChange={(e) =>
                           setObservaciones((prev) => ({
                             ...prev,
-                            [item.ultimo_pago!.id]: e.target.value,
+                            [pago.id]: e.target.value,
                           }))
                         }
                       />
 
-                      <div className="flex flex-wrap gap-3">
+                      <div className="flex gap-3 flex-wrap">
                         <button
-                          type="button"
-                          onClick={() => resolver(item.ultimo_pago!.id, "aprobar")}
+                          onClick={() => resolver(pago.id, "aprobar")}
                           disabled={cargando}
-                          className="rounded-xl bg-black px-4 py-2 text-white disabled:opacity-60"
+                          className="bg-black text-white px-4 py-2 rounded-xl disabled:opacity-60"
                         >
-                          Aprobar pago
+                          Aprobar
                         </button>
 
                         <button
-                          type="button"
-                          onClick={() => resolver(item.ultimo_pago!.id, "rechazar")}
+                          onClick={() => resolver(pago.id, "rechazar")}
                           disabled={cargando}
-                          className="rounded-xl border px-4 py-2 disabled:opacity-60"
+                          className="border px-4 py-2 rounded-xl disabled:opacity-60"
                         >
                           Rechazar
                         </button>
                       </div>
                     </div>
-                  ) : item.ultimo_pago.estado === "pagado" ? (
-                    <p className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 font-medium text-green-800">
-                      Pago aprobado. La actividad queda habilitada para el participante.
-                    </p>
-                  ) : item.ultimo_pago.estado === "rechazado" ? (
-                    <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 font-medium text-red-800">
-                      Pago rechazado. Podés generar o actualizar un nuevo cobro si corresponde.
-                    </p>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="rounded-xl border bg-gray-50 p-3 text-sm text-gray-700">
-                  Todavía no hay un cobro generado para esta asignación.
-                </div>
-              )}
+                  ))}
+                </section>
 
-              <div className="flex gap-3 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => editarHonorario(item)}
-                  className="border px-4 py-2 rounded-xl"
-                >
-                  Editar
-                </button>
+                <section className="space-y-3">
+                  <h3 className="font-semibold">Reservas pendientes</h3>
 
-                {item.activo && item.modalidad_pago !== "sesion" && (
-                  <button
-                    type="button"
-                    onClick={() => void generarCobro(item)}
-                    disabled={generandoCobroId === item.id}
-                    className="bg-black text-white px-4 py-2 rounded-xl disabled:opacity-60"
-                  >
-                    {generandoCobroId === item.id
-                      ? "Generando..."
-                      : item.ultimo_pago
-                        ? "Ver o actualizar cobro"
-                        : "Generar cobro"}
-                  </button>
-                )}
+                  {grupo.reservas.length === 0 && (
+                    <div className="border rounded-xl p-4 text-sm text-gray-600 bg-white/70">
+                      No tiene reservas pendientes de revisión.
+                    </div>
+                  )}
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    void guardarHonorario(!item.activo, {
-                      actividadSlug: item.actividad_slug,
-                      participanteNombre: item.participante_nombre || "",
-                      participanteEmail: item.participante_email,
-                      honorarioMensual: String(item.honorario_mensual || ""),
-                      modalidadPago: item.modalidad_pago,
-                      moneda: item.moneda || "ARS",
-                    })
-                  }
-                  className="border px-4 py-2 rounded-xl"
-                >
-                  {item.activo ? "Desactivar" : "Reactivar"}
-                </button>
+                  {grupo.reservas.map((reserva) => (
+                    <div key={reserva.id} className="border rounded-xl p-4 space-y-3 bg-white/70">
+                      <p>
+                        <strong>Actividad:</strong>{" "}
+                        {reserva.actividad_nombre || "Terapia"}
+                      </p>
+                      <p>
+                        <strong>Encuentro:</strong> {reserva.titulo || "Sesión"}
+                      </p>
+                      <p>
+                        <strong>Fecha:</strong> {reserva.fecha || "Sin fecha"}{" "}
+                        {reserva.hora ? `· ${reserva.hora}` : ""}
+                      </p>
+                      <p>
+                        <strong>Transferencia:</strong> ARS{" "}
+                        {reserva.monto_transferencia || reserva.monto || "0"}
+                      </p>
+                      <p>
+                        <strong>Mercado Pago:</strong> ARS{" "}
+                        {reserva.monto_mercado_pago ||
+                          reserva.monto_transferencia ||
+                          reserva.monto ||
+                          "0"}
+                      </p>
+                      {reserva.porcentaje_recargo_mercado_pago ? (
+                        <p>
+                          <strong>Recargo MP:</strong>{" "}
+                          {reserva.porcentaje_recargo_mercado_pago}%
+                        </p>
+                      ) : null}
+                      <p>
+                        <strong>Estado:</strong> {reserva.estado}
+                      </p>
+                      <p>
+                        <strong>Medio:</strong>{" "}
+                        {reserva.medio_pago || "transferencia"}
+                      </p>
+                      <p>
+                        <strong>Archivo:</strong>{" "}
+                        {reserva.comprobante_nombre_archivo || "Sin nombre"}
+                      </p>
+
+                      {reserva.comprobante_url && (
+                        <a
+                          href={`/api/reservas/comprobante?reservaId=${reserva.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-600 underline"
+                        >
+                          Ver comprobante
+                        </a>
+                      )}
+
+                      <textarea
+                        className="w-full border rounded-xl p-3 min-h-[100px]"
+                        placeholder="Observación opcional"
+                        value={observaciones[`reserva-${reserva.id}`] || ""}
+                        onChange={(e) =>
+                          setObservaciones((prev) => ({
+                            ...prev,
+                            [`reserva-${reserva.id}`]: e.target.value,
+                          }))
+                        }
+                      />
+
+                      <div className="flex gap-3 flex-wrap">
+                        <button
+                          onClick={() => void resolverReserva(reserva.id, "aprobar")}
+                          disabled={cargando}
+                          className="bg-black text-white px-4 py-2 rounded-xl disabled:opacity-60"
+                        >
+                          Aprobar
+                        </button>
+
+                        <button
+                          onClick={() => void resolverReserva(reserva.id, "rechazar")}
+                          disabled={cargando}
+                          className="border px-4 py-2 rounded-xl disabled:opacity-60"
+                        >
+                          Rechazar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </section>
               </div>
-            </div>
+            </details>
           ))}
         </div>
       </section>
-
-      {cargando && pagosFiltrados.length === 0 && <p>Cargando...</p>}
-
-      <div className="space-y-4">
-        <section className="space-y-4">
-          <div>
-            <h2 className="text-xl font-semibold">Pagos por sesión pendientes</h2>
-            <p className="text-gray-600 mt-1">
-              Acá aparecen las reservas con comprobante subido para que las apruebes o rechaces.
-            </p>
-          </div>
-
-          {reservasPendientesFiltradas.length === 0 && !cargando && (
-            <div className="border rounded-xl p-4">
-              {hayFiltroActivo
-                ? "No hay pagos por sesión pendientes para este filtro."
-                : "No hay pagos por sesión pendientes."}
-            </div>
-          )}
-
-          {reservasPendientesFiltradas.map((reserva) => (
-            <section key={reserva.id} className="border rounded-2xl p-5 space-y-3">
-              <p>
-                <strong>Actividad:</strong> {reserva.actividad_nombre || "Terapia"}
-              </p>
-              <p>
-                <strong>Encuentro:</strong> {reserva.titulo || "Sesión"}
-              </p>
-              <p>
-                <strong>Participante:</strong> {reserva.participante_nombre}
-              </p>
-              <p>
-                <strong>Email:</strong> {reserva.participante_email}
-              </p>
-              <p>
-                <strong>Fecha:</strong> {reserva.fecha || "Sin fecha"} {reserva.hora ? `· ${reserva.hora}` : ""}
-              </p>
-              <p>
-                <strong>Transferencia:</strong> ARS {reserva.monto_transferencia || reserva.monto || "0"}
-              </p>
-              <p>
-                <strong>Mercado Pago:</strong> ARS {reserva.monto_mercado_pago || reserva.monto_transferencia || reserva.monto || "0"}
-              </p>
-              {reserva.porcentaje_recargo_mercado_pago ? (
-                <p>
-                  <strong>Recargo MP:</strong> {reserva.porcentaje_recargo_mercado_pago}%
-                </p>
-              ) : null}
-              <p>
-                <strong>Estado:</strong> {reserva.estado}
-              </p>
-              <p>
-                <strong>Medio:</strong> {reserva.medio_pago || "transferencia"}
-              </p>
-              <p>
-                <strong>Archivo:</strong> {reserva.comprobante_nombre_archivo || "Sin nombre"}
-              </p>
-
-              {reserva.comprobante_url && (
-                <a
-                  href={`/api/reservas/comprobante?reservaId=${reserva.id}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-blue-600 underline"
-                >
-                  Ver comprobante
-                </a>
-              )}
-
-              <textarea
-                className="w-full border rounded-xl p-3 min-h-[100px]"
-                placeholder="Observación opcional"
-                value={observaciones[`reserva-${reserva.id}`] || ""}
-                onChange={(e) =>
-                  setObservaciones((prev) => ({
-                    ...prev,
-                    [`reserva-${reserva.id}`]: e.target.value,
-                  }))
-                }
-              />
-
-              <div className="flex gap-3 flex-wrap">
-                <button
-                  onClick={() => void resolverReserva(reserva.id, "aprobar")}
-                  disabled={cargando}
-                  className="bg-black text-white px-4 py-2 rounded-xl disabled:opacity-60"
-                >
-                  Aprobar
-                </button>
-
-                <button
-                  onClick={() => void resolverReserva(reserva.id, "rechazar")}
-                  disabled={cargando}
-                  className="border px-4 py-2 rounded-xl disabled:opacity-60"
-                >
-                  Rechazar
-                </button>
-              </div>
-            </section>
-          ))}
-        </section>
-
-        {pagosFiltrados.length === 0 && !cargando && (
-          <div className="border rounded-xl p-4">
-            {hayFiltroActivo
-              ? "No hay pagos pendientes de revisión para este filtro."
-              : "No hay pagos pendientes de revisión."}
-          </div>
-        )}
-
-        {pagosFiltrados.map((pago) => (
-          <section key={pago.id} className="border rounded-2xl p-5 space-y-3">
-            <p>
-              <strong>Actividad:</strong> {pago.actividad_nombre}
-            </p>
-            <p>
-              <strong>Participante:</strong> {pago.participante_nombre}
-            </p>
-            <p>
-              <strong>Email:</strong> {pago.participante_email}
-            </p>
-            <p>
-              <strong>Período:</strong> {pago.mes}/{pago.anio}
-            </p>
-            <p>
-              <strong>Monto:</strong> {pago.moneda} {pago.monto}
-            </p>
-            <p>
-              <strong>Estado:</strong> {pago.estado}
-            </p>
-            <p>
-              <strong>Medio:</strong> {pago.medio_pago}
-            </p>
-            <p>
-              <strong>Archivo:</strong>{" "}
-              {pago.comprobante_nombre_archivo || "Sin nombre"}
-            </p>
-
-            {pago.comprobante_url && (
-              <a
-                href={`/admin/pagos-mensuales/comprobante?pagoMensualId=${pago.id}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-blue-600 underline"
-              >
-                Ver comprobante
-              </a>
-            )}
-
-            <textarea
-              className="w-full border rounded-xl p-3 min-h-[100px]"
-              placeholder="Observación opcional"
-              value={observaciones[pago.id] || ""}
-              onChange={(e) =>
-                setObservaciones((prev) => ({
-                  ...prev,
-                  [pago.id]: e.target.value,
-                }))
-              }
-            />
-
-            <div className="flex gap-3 flex-wrap">
-              <button
-                onClick={() => resolver(pago.id, "aprobar")}
-                disabled={cargando}
-                className="bg-black text-white px-4 py-2 rounded-xl disabled:opacity-60"
-              >
-                Aprobar
-              </button>
-
-              <button
-                onClick={() => resolver(pago.id, "rechazar")}
-                disabled={cargando}
-                className="border px-4 py-2 rounded-xl disabled:opacity-60"
-              >
-                Rechazar
-              </button>
-            </div>
-          </section>
-        ))}
-      </div>
     </main>
   )
 }
