@@ -43,6 +43,7 @@ type ResumenAccesos = {
     subtitulo?: string
     fechaTexto?: string | null
     meetUrl?: string | null
+    grabacionUrl?: string | null
   }
   accesos?: Array<{
     slug: string
