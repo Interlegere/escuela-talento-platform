@@ -226,7 +226,10 @@ export default function AgendaPage() {
 
   useEffect(() => {
     const cargarParticipantes = async () => {
-      if (!esAdmin || actividadSlug !== "mentorias") {
+      if (
+  !esAdmin ||
+  (actividadSlug !== "mentorias" && actividadSlug !== "terapia")
+) {
         setParticipantesMentoria([])
         return
       }
@@ -238,7 +241,7 @@ export default function AgendaPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            actividadSlug: "mentorias",
+            actividadSlug,
           }),
         })
 
@@ -282,7 +285,8 @@ export default function AgendaPage() {
   }, [items])
 
   const estrategiaActual = ACTIVITY_RULES[actividadSlug].agendaStrategy
-  const requiereParticipante = actividadSlug === "mentorias"
+  const requiereParticipante =
+  actividadSlug === "mentorias" || actividadSlug === "terapia"
 
   const crearProgramacion = async () => {
     try {

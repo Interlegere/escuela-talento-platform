@@ -47,6 +47,13 @@ type HonorarioAsignado = {
   } | null
 }
 
+type UsuarioActividad = {
+  id: number
+  actividad_slug: string
+  estado: "activa" | "inactiva"
+  notas?: string | null
+}
+
 type FormState = {
   id: string
   nombre: string
@@ -76,6 +83,13 @@ const FORM_INICIAL: FormState = {
   password: "",
   enviarBienvenida: true,
 }
+
+const ACTIVIDADES = [
+  { slug: "casatalentos", nombre: "CasaTalentos" },
+  { slug: "conectando-sentidos", nombre: "Conectando Sentidos" },
+  { slug: "mentorias", nombre: "Mentorías" },
+  { slug: "terapia", nombre: "Terapia" },
+] as const
 
 function etiquetaRol(role: Usuario["role"]) {
   switch (role) {
@@ -109,6 +123,9 @@ export default function AdminUsuariosPage() {
 
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [honorarios, setHonorarios] = useState<HonorarioAsignado[]>([])
+  const [usuarioActividades, setUsuarioActividades] = useState<
+    Record<string, UsuarioActividad[]>
+  >({})
   const [form, setForm] = useState<FormState>(FORM_INICIAL)
   const [mensaje, setMensaje] = useState("")
   const [cargando, setCargando] = useState(true)
@@ -163,12 +180,50 @@ export default function AdminUsuariosPage() {
     }
   }, [])
 
+  const cargarActividadesUsuario = useCallback(async () => {
+    try {
+      const resultados = await Promise.all(
+        usuarios.map(async (usuario) => {
+          const res = await fetch(
+            `/api/admin/usuario-actividades?usuarioEmail=${encodeURIComponent(
+              usuario.email
+            )}`,
+            { cache: "no-store" }
+          )
+
+          const data = await res.json()
+
+          return {
+            email: usuario.email.trim().toLowerCase(),
+            actividades: data.actividades || [],
+          }
+        })
+      )
+
+      const mapa: Record<string, UsuarioActividad[]> = {}
+
+      for (const item of resultados) {
+        mapa[item.email] = item.actividades
+      }
+
+      setUsuarioActividades(mapa)
+    } catch {
+      setMensaje("Error cargando actividades por usuario.")
+    }
+  }, [usuarios])
+
   useEffect(() => {
     if (status === "authenticated" && esAdmin) {
       void cargarUsuarios()
       void cargarHonorarios()
     }
   }, [cargarHonorarios, cargarUsuarios, esAdmin, status])
+
+  useEffect(() => {
+    if (usuarios.length > 0) {
+      void cargarActividadesUsuario()
+    }
+  }, [cargarActividadesUsuario, usuarios])
 
   const honorariosPorEmail = useMemo(() => {
     const mapa = new Map<string, HonorarioAsignado[]>()
@@ -198,6 +253,11 @@ export default function AdminUsuariosPage() {
         .join(" ")
         .toLowerCase()
 
+      const actividadesHabilitadasTexto = (usuarioActividades[email] || [])
+        .map((item) => `${item.actividad_slug} ${item.estado}`)
+        .join(" ")
+        .toLowerCase()
+
       const charlaTexto = usuario.charla_intro_habilitada
         ? "charla introductoria charla tiempo"
         : ""
@@ -208,10 +268,11 @@ export default function AdminUsuariosPage() {
         usuario.email.toLowerCase().includes(q) ||
         usuario.role.toLowerCase().includes(q) ||
         charlaTexto.includes(q) ||
-        actividadesTexto.includes(q)
+        actividadesTexto.includes(q) ||
+        actividadesHabilitadasTexto.includes(q)
       )
     })
-  }, [busqueda, honorariosPorEmail, usuarios])
+  }, [busqueda, honorariosPorEmail, usuarioActividades, usuarios])
 
   const limpiarForm = () => {
     setForm(FORM_INICIAL)
@@ -282,6 +343,54 @@ export default function AdminUsuariosPage() {
     }
   }
 
+  const guardarActividadesUsuario = async (
+    usuario: Usuario,
+    actividadSlug: string,
+    habilitada: boolean
+  ) => {
+    try {
+      setMensaje("")
+
+      const email = usuario.email.trim().toLowerCase()
+      const actividadesActuales = usuarioActividades[email] || []
+
+      const nuevasActividades = ACTIVIDADES.map((item) => ({
+        actividadSlug: item.slug,
+        habilitada:
+          item.slug === actividadSlug
+            ? habilitada
+            : actividadesActuales.some(
+                (actual) =>
+                  actual.actividad_slug === item.slug &&
+                  actual.estado === "activa"
+              ),
+      }))
+
+      const res = await fetch("/api/admin/usuario-actividades", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          usuarioEmail: usuario.email,
+          actividades: nuevasActividades,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setMensaje(data.error || "No se pudo actualizar actividades.")
+        return
+      }
+
+      await cargarActividadesUsuario()
+      setMensaje("Actividades actualizadas correctamente.")
+    } catch {
+      setMensaje("Error actualizando actividades.")
+    }
+  }
+
   if (status === "loading") {
     return <main className="workspace-shell">Cargando sesión...</main>
   }
@@ -304,8 +413,8 @@ export default function AdminUsuariosPage() {
           <h1 className="workspace-title">Usuarios</h1>
           <p className="workspace-subtitle">
             Creá participantes, colaboradores o administradores. Esta vista
-            empieza a funcionar como ficha central de cada persona: datos,
-            estado, charla introductoria y actividades configuradas.
+            funciona como ficha central de cada persona: datos, estado, charla
+            introductoria, actividades habilitadas y resumen económico.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link href="/admin/pagos" className="workspace-button-secondary">
@@ -329,9 +438,8 @@ export default function AdminUsuariosPage() {
             {editando ? form.email : "Crear acceso a la plataforma"}
           </h2>
           <p className="workspace-inline-note">
-            Crear el usuario habilita el login. El acceso a actividades se
-            configura desde Admin Pagos, pero debajo vas a poder ver el resumen
-            por persona.
+            Crear el usuario habilita el login. Luego podés habilitar actividades
+            desde la ficha de cada persona.
           </p>
         </div>
 
@@ -452,7 +560,9 @@ export default function AdminUsuariosPage() {
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, password: e.target.value }))
               }
-              placeholder={editando ? "Dejar vacía para no cambiar" : "Mínimo 4 caracteres"}
+              placeholder={
+                editando ? "Dejar vacía para no cambiar" : "Mínimo 4 caracteres"
+              }
             />
           </label>
         </div>
@@ -562,6 +672,7 @@ export default function AdminUsuariosPage() {
           {usuariosFiltrados.map((usuario) => {
             const email = usuario.email.trim().toLowerCase()
             const actividadesUsuario = honorariosPorEmail.get(email) || []
+            const actividadesHabilitadas = usuarioActividades[email] || []
 
             return (
               <article
@@ -631,12 +742,49 @@ export default function AdminUsuariosPage() {
 
                     <div className="rounded-2xl border border-[var(--line)] bg-white/60 p-3">
                       <p className="text-sm font-semibold text-gray-900">
-                        Actividades configuradas
+                        Actividades habilitadas
+                      </p>
+
+                      <div className="mt-3 grid gap-2">
+                        {ACTIVIDADES.map((actividad) => {
+                          const activa = actividadesHabilitadas.some(
+                            (item) =>
+                              item.actividad_slug === actividad.slug &&
+                              item.estado === "activa"
+                          )
+
+                          return (
+                            <label
+                              key={actividad.slug}
+                              className="flex items-center gap-3 text-sm"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={activa}
+                                onChange={(e) =>
+                                  void guardarActividadesUsuario(
+                                    usuario,
+                                    actividad.slug,
+                                    e.target.checked
+                                  )
+                                }
+                              />
+
+                              <span>{actividad.nombre}</span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-[var(--line)] bg-white/60 p-3">
+                      <p className="text-sm font-semibold text-gray-900">
+                        Configuración económica / pagos
                       </p>
 
                       {actividadesUsuario.length === 0 ? (
                         <p className="mt-1 text-sm text-gray-500">
-                          No tiene actividades configuradas desde Admin Pagos.
+                          No tiene honorarios configurados desde Admin Pagos.
                         </p>
                       ) : (
                         <div className="mt-3 grid gap-2">

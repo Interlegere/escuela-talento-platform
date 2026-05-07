@@ -183,7 +183,8 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
     "",
     "¡Tu lugar ya está confirmado!",
     "",
-    'Antes de ingresar, quiero que tengas algo presente: "el problema no es que te falte tiempo, es qué te sobra... que te falta tiempo"',
+    "Antes de ingresar, quiero que tengas algo presente:",
+    '"el problema no es que te falte tiempo, es qué te sobra... que te falta tiempo"',
     "Lo profundizaremos con otras claves que te ayudarán a mover los hilos no evidentes que transforman todo en tu vida.",
     "",
     "Y una pregunta para desde antes ir resignificando la estructura:",
@@ -233,17 +234,17 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
 
           <p style="margin: 0 0 18px; font-weight: 700;">¡Tu lugar ya está confirmado!</p>
 
-          <p style="margin: 0 0 14px; font-size: 15px; line-height: 1.72; color: #1f2933; font-weight: 400; font-family: Arial, sans-serif; font-style: normal;">Antes de ingresar, quiero que tengas algo presente:</p>
-          <p style="margin: 0 0 14px; font-size: 14px; line-height: 1.72; color: #1f2933; font-weight: 400; font-family: Arial, sans-serif; font-style: normal;"><strong>el problema no es que te falte tiempo, es qué te sobra... que te falta tiempo</strong></p>
+          <p style="margin: 0 0 14px; font-size: 15px; line-height: 1.72; color: #1f2933; font-weight: 400; font-family: Arial, sans-serif;">Antes de ingresar, quiero que tengas algo presente:</p>
+          <p style="margin: 0 0 14px; font-size: 15px; line-height: 1.72; color: #1f2933; font-weight: 400; font-family: Arial, sans-serif;"><strong>el problema no es que te falte tiempo, es qué te sobra... que te falta tiempo</strong></p>
 
-          <p style="margin: 0 0 14px; font-size: 15px; line-height: 1.72; color: #1f2933; font-weight: 400; font-family: Arial, sans-serif; font-style: normal;">
+          <p style="margin: 0 0 14px; font-size: 15px; line-height: 1.72; color: #1f2933; font-weight: 400; font-family: Arial, sans-serif;">
             Lo profundizaremos con otras claves que te ayudarán a mover los hilos no evidentes que transforman todo en tu vida.
           </p>
 
-          <p style="margin: 0 0 10px; font-size: 15px; line-height: 1.72; color: #1f2933; font-weight: 400; font-family: Arial, sans-serif; font-style: normal;">Y una pregunta para desde antes ir resignificando la estructura:</p>
-          <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.72; color: #1f2933; font-weight: 400; font-family: Arial, sans-serif; font-style: normal;"><strong>¿Qué es lo que hoy estás dejando de lado por sentir que no tenés tiempo?</strong></p>
+          <p style="margin: 0 0 10px; font-size: 15px; line-height: 1.72; color: #1f2933; font-weight: 400; font-family: Arial, sans-serif;">Y una pregunta para desde antes ir resignificando la estructura:</p>
+          <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.72; color: #1f2933; font-weight: 400; font-family: Arial, sans-serif;"><strong>¿Qué es lo que hoy estás dejando de lado por sentir que no tenés tiempo?</strong></p>
 
-          <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.72; color: #1f2933; font-weight: 400; font-family: Arial, sans-serif; font-style: normal;">
+          <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.72; color: #1f2933; font-weight: 400; font-family: Arial, sans-serif;">
             Para ingresar a la charla, entrá a la plataforma con tu usuario y tu clave de acceso. Una vez dentro de Campus vas a encontrar el acceso a la videollamada.
           </p>
 
