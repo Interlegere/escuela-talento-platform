@@ -7,7 +7,7 @@ export default function SeccionDesplegable({
   children,
   abiertaPorDefecto = false,
 }: {
-  titulo: string
+  titulo: React.ReactNode
   children: React.ReactNode
   abiertaPorDefecto?: boolean
 }) {
@@ -31,7 +31,7 @@ export default function SeccionDesplegable({
           >
             {abierta ? "−" : "+"}
           </span>
-          <span className="text-lg font-semibold text-gray-900">{titulo}</span>
+          <div className="text-lg font-semibold text-gray-900">{titulo}</div>
         </div>
         <span className="shrink-0 rounded-full border border-[var(--line)] bg-[rgba(255,251,244,0.92)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
           {abierta ? "Ocultar" : "Abrir"}

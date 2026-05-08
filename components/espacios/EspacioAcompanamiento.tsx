@@ -477,6 +477,26 @@ export default function EspacioAcompanamiento({
     return mensajesLeidos[mensaje.id] === firmaHilo(mensaje)
   }
 
+  const cantidadMensajesNoLeidos = useMemo(() => {
+    return mensajesRaiz.reduce((total, mensaje) => {
+      return mensajesLeidos[mensaje.id] === firmaHilo(mensaje) ? total : total + 1
+    }, 0)
+  }, [mensajesLeidos, mensajesRaiz, respuestasPorMensaje])
+
+  const tituloMensajes = useMemo(() => {
+    return (
+      <span className="flex items-center gap-2 flex-wrap">
+        <span>{etiquetaMensajes}</span>
+        {cantidadMensajesNoLeidos > 0 && (
+          <span className="workspace-badge-unread">
+            {cantidadMensajesNoLeidos} no leido
+            {cantidadMensajesNoLeidos === 1 ? "" : "s"}
+          </span>
+        )}
+      </span>
+    )
+  }, [cantidadMensajesNoLeidos, etiquetaMensajes])
+
   const marcarMensajeComoLeido = (mensaje: Mensaje) => {
     setMensajesLeidos((prev) => ({
       ...prev,
@@ -955,7 +975,7 @@ export default function EspacioAcompanamiento({
 
               {actividadSlug === "terapia" && <ReservaTerapiaSection />}
 
-              <SeccionDesplegable titulo={etiquetaMensajes}>
+              <SeccionDesplegable titulo={tituloMensajes}>
                 <div className="space-y-4">
                   {cargandoResumen && !resumenInicializado && (
                     <p className="workspace-inline-note">Cargando mensajes...</p>

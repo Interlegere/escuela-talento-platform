@@ -768,6 +768,28 @@ export default function CasaTalentosPage() {
     return mensajesLeidos[mensaje.id] === firmaHiloMensaje(mensaje)
   }
 
+  const cantidadMensajesNoLeidos = useMemo(() => {
+    return mensajesRaiz.reduce((total, mensaje) => {
+      return mensajesLeidos[mensaje.id] === firmaHiloMensaje(mensaje)
+        ? total
+        : total + 1
+    }, 0)
+  }, [mensajesLeidos, mensajesRaiz, respuestasPorMensaje])
+
+  const tituloMensajes = useMemo(() => {
+    return (
+      <span className="flex items-center gap-2 flex-wrap">
+        <span>Mensajes</span>
+        {cantidadMensajesNoLeidos > 0 && (
+          <span className="workspace-badge-unread">
+            {cantidadMensajesNoLeidos} no leido
+            {cantidadMensajesNoLeidos === 1 ? "" : "s"}
+          </span>
+        )}
+      </span>
+    )
+  }, [cantidadMensajesNoLeidos])
+
   const marcarHiloComoLeido = (mensaje: MensajeGeneral) => {
     setMensajesLeidos((prev) => ({
       ...prev,
@@ -1883,7 +1905,7 @@ export default function CasaTalentosPage() {
             </SeccionDesplegable>
           )}
 
-          <SeccionDesplegable titulo="Mensajes">
+          <SeccionDesplegable titulo={tituloMensajes}>
             <div className="space-y-6">
               <div className="workspace-panel-soft space-y-3">
                 <div className="space-y-1">
