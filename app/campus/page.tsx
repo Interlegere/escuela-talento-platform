@@ -143,12 +143,10 @@ function RecordatorioCard({
 function CharlaIntroCard({
   titulo,
   subtitulo,
-  grabacionDisponible,
   grabacionUrl,
 }: {
   titulo: string
   subtitulo: string
-  grabacionDisponible?: boolean
   grabacionUrl?: string | null
 }) {
   return (
@@ -170,15 +168,11 @@ function CharlaIntroCard({
               href={grabacionUrl}
               className="workspace-button-primary workspace-button-primary-soft !bg-[#e0b15c] hover:!bg-[#e8c37b] !text-white !border-transparent"
             >
-              Acceso a la grabación
+              Ver grabación
             </ConsentimientoMeetButton>
-          ) : grabacionDisponible === false ? (
-            <span className="workspace-inline-note">
-              La grabación está disponible sólo viernes, sábado y domingo de esta misma semana.
-            </span>
           ) : (
             <span className="workspace-inline-note">
-              El acceso a la grabación va a aparecer acá cuando quede habilitado.
+              Grabación pendiente de configurar.
             </span>
           )}
           <a href="/perfil" className="workspace-button-secondary">
@@ -509,16 +503,15 @@ export default function CampusPage() {
         </WorkspaceHero>
 
       {modoSoloCharla && resumen?.charlaIntro && (
-      <CharlaIntroCard
-        titulo={resumen.charlaIntro.titulo || "Charla introductoria"}
-        subtitulo={
-          resumen.charlaIntro.subtitulo ||
-          "Tu acceso a la grabación está habilitado desde este campus."
-        }
-        grabacionDisponible={resumen.charlaIntro.grabacionDisponible}
-        grabacionUrl={resumen.charlaIntro.grabacionUrl}
-      />
-    )}
+        <CharlaIntroCard
+          titulo={resumen.charlaIntro.titulo || "Charla introductoria"}
+          subtitulo={
+            resumen.charlaIntro.subtitulo ||
+            "Tu acceso a la grabación está habilitado desde este campus."
+          }
+          grabacionUrl={resumen.charlaIntro.grabacionUrl}
+        />
+      )}
 
       <section className="workspace-panel campus-priority-panel space-y-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
