@@ -172,7 +172,7 @@ function CharlaIntroCard({
             </ConsentimientoMeetButton>
           ) : (
             <span className="workspace-inline-note">
-              Grabación pendiente de configurar.
+              La grabación estará disponible próximamente.
             </span>
           )}
           <a href="/perfil" className="workspace-button-secondary">
@@ -502,7 +502,7 @@ export default function CampusPage() {
           </div>
         </WorkspaceHero>
 
-      {modoSoloCharla && resumen?.charlaIntro && (
+      {resumen?.charlaIntro?.habilitada && (
         <CharlaIntroCard
           titulo={resumen.charlaIntro.titulo || "Charla introductoria"}
           subtitulo={

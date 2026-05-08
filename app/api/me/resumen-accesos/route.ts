@@ -67,18 +67,8 @@ export async function GET() {
     )
 
     const supabase = createAdminSupabaseClient()
-    const { data: usuarioData } = await supabase
-      .from("usuarios_plataforma")
-      .select("charla_intro_habilitada")
-      .eq("email", auth.actor.email)
-      .maybeSingle()
-
-    const charlaIntroHabilitada =
-      usuarioData?.charla_intro_habilitada === true &&
-      auth.actor.role !== "admin"
     const charlaIntroGrabacionActual = charlaIntroGrabacionUrl() || null
-    const charlaIntroGrabacionDisponible =
-      charlaIntroHabilitada && Boolean(charlaIntroGrabacionActual)
+    const charlaIntroGrabacionDisponible = Boolean(charlaIntroGrabacionActual)
 
     return NextResponse.json({
       ok: true,
@@ -89,10 +79,10 @@ export async function GET() {
       },
       permissions: listPermissionsForRole(auth.actor.role),
       usuario: {
-        charlaIntroHabilitada,
+        charlaIntroHabilitada: true,
       },
       charlaIntro: {
-        habilitada: charlaIntroHabilitada,
+        habilitada: true,
         titulo: charlaIntroTitulo(),
         subtitulo: charlaIntroSubtitulo(),
         fechaTexto: charlaIntroFechaTexto() || null,
