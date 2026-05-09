@@ -7,6 +7,7 @@ import SeccionDesplegable from "@/components/SeccionDesplegable"
 import AgendaActividad from "@/components/agenda/AgendaActividad"
 import { useActivityAccess } from "@/components/auth/useActivityAccess"
 import ConectandoAdminPanel from "@/components/conectando/ConectandoAdminPanel"
+import EditorMensajeAdmin from "@/components/espacios/EditorMensajeAdmin"
 import { isDevelopmentPreviewEnabled } from "@/lib/dev-flags"
 import WorkspaceHero from "@/components/ui/WorkspaceHero"
 
@@ -27,6 +28,7 @@ type MensajeGeneral = {
   autor_email?: string | null
   autor_rol?: string | null
   contenido: string
+  contenido_html?: string | null
   created_at?: string
   updated_at?: string
 }
@@ -52,6 +54,27 @@ const RECURSOS_PRUEBA_CONECTANDO: Recurso[] = [
   },
 ]
 
+function escaparHtml(texto: string) {
+  return texto
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+}
+
+function textoPlanoAHtmlSeguro(texto: string) {
+  return escaparHtml(texto).replaceAll("\n", "<br />")
+}
+
+function htmlATextoPlano(html: string) {
+  if (typeof window === "undefined") {
+    return html.replace(/<[^>]+>/g, " ").trim()
+  }
+
+  const contenedor = document.createElement("div")
+  contenedor.innerHTML = html
+  return (contenedor.innerText || contenedor.textContent || "").trim()
+}
+
 export default function ConectandoSentidosPage() {
   const {
     session,
@@ -74,12 +97,15 @@ export default function ConectandoSentidosPage() {
   const [cargandoMensajes, setCargandoMensajes] = useState(false)
   const [asuntoMensajeDraft, setAsuntoMensajeDraft] = useState("")
   const [mensajeDraft, setMensajeDraft] = useState("")
+  const [mensajeDraftHtml, setMensajeDraftHtml] = useState("")
   const [respuestasDraft, setRespuestasDraft] = useState<Record<number, string>>({})
+  const [respuestasDraftHtml, setRespuestasDraftHtml] = useState<Record<number, string>>({})
   const [guardandoMensaje, setGuardandoMensaje] = useState(false)
   const [respondiendoMensajeId, setRespondiendoMensajeId] = useState<number | null>(null)
   const [mensajeEditandoId, setMensajeEditandoId] = useState<number | null>(null)
   const [mensajeEditandoAsunto, setMensajeEditandoAsunto] = useState("")
   const [mensajeEditandoContenido, setMensajeEditandoContenido] = useState("")
+  const [mensajeEditandoContenidoHtml, setMensajeEditandoContenidoHtml] = useState("")
   const [mensajeExito, setMensajeExito] = useState("")
   const [mensajeError, setMensajeError] = useState("")
   const [mensajesAbiertos, setMensajesAbiertos] = useState<Record<number, boolean>>({})
@@ -214,9 +240,16 @@ export default function ConectandoSentidosPage() {
   }, [acceso, sesionLista])
 
   const handleEnviarMensaje = async (parentId?: number) => {
-    const contenido = parentId
-      ? (respuestasDraft[parentId] || "").trim()
-      : mensajeDraft.trim()
+    const contenidoHtml = esAdmin
+      ? parentId
+        ? (respuestasDraftHtml[parentId] || "").trim()
+        : mensajeDraftHtml.trim()
+      : ""
+    const contenido = esAdmin
+      ? htmlATextoPlano(contenidoHtml)
+      : parentId
+        ? (respuestasDraft[parentId] || "").trim()
+        : mensajeDraft.trim()
     const asunto = parentId ? "" : asuntoMensajeDraft.trim()
 
     if (!contenido) {
@@ -243,6 +276,7 @@ export default function ConectandoSentidosPage() {
         body: JSON.stringify({
           asunto,
           contenido,
+          contenidoHtml: esAdmin ? contenidoHtml : undefined,
           parentId: parentId || null,
           previewEnabled: MODO_PRUEBA,
         }),
@@ -260,9 +294,14 @@ export default function ConectandoSentidosPage() {
           ...prev,
           [parentId]: "",
         }))
+        setRespuestasDraftHtml((prev) => ({
+          ...prev,
+          [parentId]: "",
+        }))
       } else {
         setAsuntoMensajeDraft("")
         setMensajeDraft("")
+        setMensajeDraftHtml("")
       }
 
       setMensajeExito("Mensaje enviado correctamente.")
@@ -292,7 +331,10 @@ export default function ConectandoSentidosPage() {
   }
 
   const handleEditarMensaje = async (mensajeId: number) => {
-    const contenido = mensajeEditandoContenido.trim()
+    const contenidoHtml = esAdmin ? mensajeEditandoContenidoHtml.trim() : ""
+    const contenido = esAdmin
+      ? htmlATextoPlano(contenidoHtml)
+      : mensajeEditandoContenido.trim()
     const asunto = mensajeEditandoAsunto.trim()
 
     if (!contenido) {
@@ -314,6 +356,7 @@ export default function ConectandoSentidosPage() {
           mensajeId,
           asunto,
           contenido,
+          contenidoHtml: esAdmin ? contenidoHtml : undefined,
           previewEnabled: MODO_PRUEBA,
         }),
       })
@@ -328,6 +371,7 @@ export default function ConectandoSentidosPage() {
       setMensajeEditandoId(null)
       setMensajeEditandoAsunto("")
       setMensajeEditandoContenido("")
+      setMensajeEditandoContenidoHtml("")
       setMensajeExito("Mensaje actualizado correctamente.")
       setMensajesLeidos((prev) => ({
         ...prev,
@@ -473,12 +517,19 @@ export default function ConectandoSentidosPage() {
                     value={asuntoMensajeDraft}
                     onChange={(e) => setAsuntoMensajeDraft(e.target.value)}
                   />
-                  <textarea
-                    className="workspace-field min-h-[110px]"
-                    placeholder="Escribí aquí comentarios sobre la sesión, valoraciones, agradecimientos o algo que quieras compartir..."
-                    value={mensajeDraft}
-                    onChange={(e) => setMensajeDraft(e.target.value)}
-                  />
+                  {esAdmin ? (
+                    <EditorMensajeAdmin
+                      value={mensajeDraftHtml}
+                      onChange={setMensajeDraftHtml}
+                    />
+                  ) : (
+                    <textarea
+                      className="workspace-field min-h-[110px]"
+                      placeholder="Escribí aquí comentarios sobre la sesión, valoraciones, agradecimientos o algo que quieras compartir..."
+                      value={mensajeDraft}
+                      onChange={(e) => setMensajeDraft(e.target.value)}
+                    />
+                  )}
 
                   <button
                     type="button"
@@ -568,11 +619,18 @@ export default function ConectandoSentidosPage() {
                             onChange={(e) => setMensajeEditandoAsunto(e.target.value)}
                             placeholder="Asunto del mensaje"
                           />
-                          <textarea
-                            className="workspace-field min-h-[100px]"
-                            value={mensajeEditandoContenido}
-                            onChange={(e) => setMensajeEditandoContenido(e.target.value)}
-                          />
+                          {esAdmin ? (
+                            <EditorMensajeAdmin
+                              value={mensajeEditandoContenidoHtml}
+                              onChange={setMensajeEditandoContenidoHtml}
+                            />
+                          ) : (
+                            <textarea
+                              className="workspace-field min-h-[100px]"
+                              value={mensajeEditandoContenido}
+                              onChange={(e) => setMensajeEditandoContenido(e.target.value)}
+                            />
+                          )}
                           <div className="flex gap-3">
                             <button
                               type="button"
@@ -588,6 +646,7 @@ export default function ConectandoSentidosPage() {
                                 setMensajeEditandoId(null)
                                 setMensajeEditandoAsunto("")
                                 setMensajeEditandoContenido("")
+                                setMensajeEditandoContenidoHtml("")
                               }}
                               className="workspace-button-secondary"
                             >
@@ -604,6 +663,10 @@ export default function ConectandoSentidosPage() {
                             setMensajeEditandoId(mensaje.id)
                             setMensajeEditandoAsunto(mensaje.asunto || "")
                             setMensajeEditandoContenido(mensaje.contenido)
+                            setMensajeEditandoContenidoHtml(
+                              mensaje.contenido_html ||
+                                textoPlanoAHtmlSeguro(mensaje.contenido)
+                            )
                           }}
                           className="workspace-button-secondary"
                         >
@@ -613,9 +676,16 @@ export default function ConectandoSentidosPage() {
 
                       {mensajesAbiertos[mensaje.id] && !editandoEsteMensaje && (
                         <div className="workspace-divider pt-4 space-y-3">
-                          <p className="whitespace-pre-wrap text-sm text-gray-700">
-                            {mensaje.contenido}
-                          </p>
+                          {mensaje.contenido_html ? (
+                            <div
+                              className="break-words text-sm text-gray-700 [&_em]:italic [&_h3]:text-base [&_h3]:font-semibold [&_p]:my-2 [&_strong]:font-semibold"
+                              dangerouslySetInnerHTML={{ __html: mensaje.contenido_html }}
+                            />
+                          ) : (
+                            <p className="whitespace-pre-wrap text-sm text-gray-700">
+                              {mensaje.contenido}
+                            </p>
+                          )}
 
                           <h4 className="font-semibold">
                             Respuestas
@@ -641,13 +711,20 @@ export default function ConectandoSentidosPage() {
 
                               {mensajeEditandoId === respuesta.id ? (
                                 <div className="workspace-stack-tight pt-1">
-                                  <textarea
-                                    className="workspace-field min-h-[100px]"
-                                    value={mensajeEditandoContenido}
-                                    onChange={(e) =>
-                                      setMensajeEditandoContenido(e.target.value)
-                                    }
-                                  />
+                                  {esAdmin ? (
+                                    <EditorMensajeAdmin
+                                      value={mensajeEditandoContenidoHtml}
+                                      onChange={setMensajeEditandoContenidoHtml}
+                                    />
+                                  ) : (
+                                    <textarea
+                                      className="workspace-field min-h-[100px]"
+                                      value={mensajeEditandoContenido}
+                                      onChange={(e) =>
+                                        setMensajeEditandoContenido(e.target.value)
+                                      }
+                                    />
+                                  )}
                                   <div className="flex gap-3">
                                     <button
                                       type="button"
@@ -663,6 +740,7 @@ export default function ConectandoSentidosPage() {
                                         setMensajeEditandoId(null)
                                         setMensajeEditandoAsunto("")
                                         setMensajeEditandoContenido("")
+                                        setMensajeEditandoContenidoHtml("")
                                       }}
                                       className="workspace-button-secondary"
                                     >
@@ -672,9 +750,18 @@ export default function ConectandoSentidosPage() {
                                 </div>
                               ) : (
                                 <>
-                                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                                    {respuesta.contenido}
-                                  </p>
+                                  {respuesta.contenido_html ? (
+                                    <div
+                                      className="break-words text-sm text-gray-700 [&_em]:italic [&_h3]:text-base [&_h3]:font-semibold [&_p]:my-2 [&_strong]:font-semibold"
+                                      dangerouslySetInnerHTML={{
+                                        __html: respuesta.contenido_html,
+                                      }}
+                                    />
+                                  ) : (
+                                    <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                                      {respuesta.contenido}
+                                    </p>
+                                  )}
 
                                   {esAdmin && (
                                     <button
@@ -683,6 +770,10 @@ export default function ConectandoSentidosPage() {
                                         setMensajeEditandoId(respuesta.id)
                                         setMensajeEditandoAsunto("")
                                         setMensajeEditandoContenido(respuesta.contenido)
+                                        setMensajeEditandoContenidoHtml(
+                                          respuesta.contenido_html ||
+                                            textoPlanoAHtmlSeguro(respuesta.contenido)
+                                        )
                                       }}
                                       className="workspace-button-secondary mt-2"
                                     >
@@ -694,17 +785,29 @@ export default function ConectandoSentidosPage() {
                             </div>
                           ))}
 
-                          <textarea
-                            className="w-full rounded-2xl border border-[var(--line)] bg-[rgba(255,250,242,0.92)] p-3 min-h-[90px]"
-                            placeholder="Responder a este hilo..."
-                            value={respuestaActual}
-                            onChange={(e) =>
-                              setRespuestasDraft((prev) => ({
-                                ...prev,
-                                [mensaje.id]: e.target.value,
-                              }))
-                            }
-                          />
+                          {esAdmin ? (
+                            <EditorMensajeAdmin
+                              value={respuestasDraftHtml[mensaje.id] || ""}
+                              onChange={(value) =>
+                                setRespuestasDraftHtml((prev) => ({
+                                  ...prev,
+                                  [mensaje.id]: value,
+                                }))
+                              }
+                            />
+                          ) : (
+                            <textarea
+                              className="w-full rounded-2xl border border-[var(--line)] bg-[rgba(255,250,242,0.92)] p-3 min-h-[90px]"
+                              placeholder="Responder a este hilo..."
+                              value={respuestaActual}
+                              onChange={(e) =>
+                                setRespuestasDraft((prev) => ({
+                                  ...prev,
+                                  [mensaje.id]: e.target.value,
+                                }))
+                              }
+                            />
+                          )}
 
                           <button
                             type="button"

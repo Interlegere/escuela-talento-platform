@@ -10,6 +10,7 @@ import { useActivityAccess } from "@/components/auth/useActivityAccess"
 import CasaTalentosAdminPanel, {
   CasaTalentosAdminResumenBlock,
 } from "@/components/casatalentos/CasaTalentosAdminPanel"
+import EditorMensajeAdmin from "@/components/espacios/EditorMensajeAdmin"
 import { isDevelopmentPreviewEnabled } from "@/lib/dev-flags"
 import { obtenerPartesArgentina } from "@/lib/fechas"
 import WorkspaceHero from "@/components/ui/WorkspaceHero"
@@ -79,6 +80,7 @@ type MensajeGeneral = {
   autor_email?: string | null
   autor_rol?: string | null
   contenido: string
+  contenido_html?: string | null
   created_at?: string
   updated_at?: string
 }
@@ -111,6 +113,27 @@ const RECURSOS_PRUEBA_CASATALENTOS: Recurso[] = [
     proveedor: "interno",
   },
 ]
+
+function escaparHtml(texto: string) {
+  return texto
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+}
+
+function textoPlanoAHtmlSeguro(texto: string) {
+  return escaparHtml(texto).replaceAll("\n", "<br />")
+}
+
+function htmlATextoPlano(html: string) {
+  if (typeof window === "undefined") {
+    return html.replace(/<[^>]+>/g, " ").trim()
+  }
+
+  const contenedor = document.createElement("div")
+  contenedor.innerHTML = html
+  return (contenedor.innerText || contenedor.textContent || "").trim()
+}
 
 function formatearFecha(fecha?: string | null) {
   if (!fecha) return "Sin fecha"
@@ -296,12 +319,15 @@ export default function CasaTalentosPage() {
   const [participanteHistorialSeleccionado, setParticipanteHistorialSeleccionado] =
     useState("todos")
   const [mensajeGeneralDraft, setMensajeGeneralDraft] = useState("")
+  const [mensajeGeneralDraftHtml, setMensajeGeneralDraftHtml] = useState("")
   const [asuntoMensajeGeneralDraft, setAsuntoMensajeGeneralDraft] = useState("")
   const [respuestasDraft, setRespuestasDraft] = useState<Record<number, string>>({})
+  const [respuestasDraftHtml, setRespuestasDraftHtml] = useState<Record<number, string>>({})
   const [respondiendoMensajeId, setRespondiendoMensajeId] = useState<number | null>(null)
   const [mensajeEditandoId, setMensajeEditandoId] = useState<number | null>(null)
   const [mensajeEditandoAsunto, setMensajeEditandoAsunto] = useState("")
   const [mensajeEditandoContenido, setMensajeEditandoContenido] = useState("")
+  const [mensajeEditandoContenidoHtml, setMensajeEditandoContenidoHtml] = useState("")
   const [guardandoMensajeGeneral, setGuardandoMensajeGeneral] = useState(false)
   const [mensajesAbiertos, setMensajesAbiertos] = useState<Record<number, boolean>>({})
   const [mensajesLeidos, setMensajesLeidos] = useState<Record<number, string>>({})
@@ -1051,9 +1077,16 @@ export default function CasaTalentosPage() {
   }
 
   const handleEnviarMensajeGeneral = async (parentId?: number) => {
-    const contenido = parentId
-      ? (respuestasDraft[parentId] || "").trim()
-      : mensajeGeneralDraft.trim()
+    const contenidoHtml = esAdmin
+      ? parentId
+        ? (respuestasDraftHtml[parentId] || "").trim()
+        : mensajeGeneralDraftHtml.trim()
+      : ""
+    const contenido = esAdmin
+      ? htmlATextoPlano(contenidoHtml)
+      : parentId
+        ? (respuestasDraft[parentId] || "").trim()
+        : mensajeGeneralDraft.trim()
     const asunto = parentId ? "" : asuntoMensajeGeneralDraft.trim()
 
     if (!contenido) {
@@ -1080,6 +1113,7 @@ export default function CasaTalentosPage() {
         body: JSON.stringify({
           asunto,
           contenido,
+          contenidoHtml: esAdmin ? contenidoHtml : undefined,
           parentId: parentId || null,
           previewEnabled: MODO_PRUEBA,
         }),
@@ -1104,9 +1138,14 @@ export default function CasaTalentosPage() {
           ...prev,
           [parentId]: "",
         }))
+        setRespuestasDraftHtml((prev) => ({
+          ...prev,
+          [parentId]: "",
+        }))
       } else {
         setAsuntoMensajeGeneralDraft("")
         setMensajeGeneralDraft("")
+        setMensajeGeneralDraftHtml("")
       }
 
       setMensajeExito("Mensaje enviado correctamente.")
@@ -1141,7 +1180,10 @@ export default function CasaTalentosPage() {
   }
 
   const handleEditarMensajeGeneral = async (mensajeId: number) => {
-    const contenido = mensajeEditandoContenido.trim()
+    const contenidoHtml = esAdmin ? mensajeEditandoContenidoHtml.trim() : ""
+    const contenido = esAdmin
+      ? htmlATextoPlano(contenidoHtml)
+      : mensajeEditandoContenido.trim()
     const asunto = mensajeEditandoAsunto.trim()
 
     if (!contenido) {
@@ -1163,6 +1205,7 @@ export default function CasaTalentosPage() {
           mensajeId,
           asunto,
           contenido,
+          contenidoHtml: esAdmin ? contenidoHtml : undefined,
           previewEnabled: MODO_PRUEBA,
         }),
       })
@@ -1177,6 +1220,7 @@ export default function CasaTalentosPage() {
       setMensajeEditandoId(null)
       setMensajeEditandoAsunto("")
       setMensajeEditandoContenido("")
+      setMensajeEditandoContenidoHtml("")
       setMensajeExito("Mensaje actualizado correctamente.")
       setMensajesLeidos((prev) => ({
         ...prev,
@@ -1918,12 +1962,19 @@ export default function CasaTalentosPage() {
                   value={asuntoMensajeGeneralDraft}
                   onChange={(e) => setAsuntoMensajeGeneralDraft(e.target.value)}
                 />
-                <textarea
-                  className="workspace-field min-h-[110px]"
-                  placeholder="Escribí aquí comentarios sobre las reuniones, valoraciones, agradecimientos o algo que quieras compartir..."
-                  value={mensajeGeneralDraft}
-                  onChange={(e) => setMensajeGeneralDraft(e.target.value)}
-                />
+                {esAdmin ? (
+                  <EditorMensajeAdmin
+                    value={mensajeGeneralDraftHtml}
+                    onChange={setMensajeGeneralDraftHtml}
+                  />
+                ) : (
+                  <textarea
+                    className="workspace-field min-h-[110px]"
+                    placeholder="Escribí aquí comentarios sobre las reuniones, valoraciones, agradecimientos o algo que quieras compartir..."
+                    value={mensajeGeneralDraft}
+                    onChange={(e) => setMensajeGeneralDraft(e.target.value)}
+                  />
+                )}
 
                 <button
                   type="button"
@@ -2011,11 +2062,18 @@ export default function CasaTalentosPage() {
                           onChange={(e) => setMensajeEditandoAsunto(e.target.value)}
                           placeholder="Asunto del mensaje"
                         />
-                        <textarea
-                          className="workspace-field min-h-[100px]"
-                          value={mensajeEditandoContenido}
-                          onChange={(e) => setMensajeEditandoContenido(e.target.value)}
-                        />
+                        {esAdmin ? (
+                          <EditorMensajeAdmin
+                            value={mensajeEditandoContenidoHtml}
+                            onChange={setMensajeEditandoContenidoHtml}
+                          />
+                        ) : (
+                          <textarea
+                            className="workspace-field min-h-[100px]"
+                            value={mensajeEditandoContenido}
+                            onChange={(e) => setMensajeEditandoContenido(e.target.value)}
+                          />
+                        )}
                         <div className="flex gap-3">
                           <button
                             type="button"
@@ -2031,6 +2089,7 @@ export default function CasaTalentosPage() {
                               setMensajeEditandoId(null)
                               setMensajeEditandoAsunto("")
                               setMensajeEditandoContenido("")
+                              setMensajeEditandoContenidoHtml("")
                             }}
                             className="workspace-button-secondary"
                           >
@@ -2047,6 +2106,10 @@ export default function CasaTalentosPage() {
                           setMensajeEditandoId(mensaje.id)
                           setMensajeEditandoAsunto(mensaje.asunto || "")
                           setMensajeEditandoContenido(mensaje.contenido)
+                          setMensajeEditandoContenidoHtml(
+                            mensaje.contenido_html ||
+                              textoPlanoAHtmlSeguro(mensaje.contenido)
+                          )
                         }}
                         className="workspace-button-secondary"
                       >
@@ -2056,9 +2119,16 @@ export default function CasaTalentosPage() {
 
                     {mensajesAbiertos[mensaje.id] && !editandoEsteMensaje && (
                       <div className="workspace-divider pt-4 space-y-3">
-                        <p className="whitespace-pre-wrap text-sm text-gray-700">
-                          {mensaje.contenido}
-                        </p>
+                        {mensaje.contenido_html ? (
+                          <div
+                            className="break-words text-sm text-gray-700 [&_em]:italic [&_h3]:text-base [&_h3]:font-semibold [&_p]:my-2 [&_strong]:font-semibold"
+                            dangerouslySetInnerHTML={{ __html: mensaje.contenido_html }}
+                          />
+                        ) : (
+                          <p className="whitespace-pre-wrap text-sm text-gray-700">
+                            {mensaje.contenido}
+                          </p>
+                        )}
 
                         <h4 className="font-semibold">
                           Respuestas
@@ -2081,37 +2151,103 @@ export default function CasaTalentosPage() {
                                 ? " · editado"
                                 : ""}
                             </p>
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                              {respuesta.contenido}
-                            </p>
+                            {mensajeEditandoId === respuesta.id ? (
+                              <div className="space-y-3 pt-1">
+                                {esAdmin ? (
+                                  <EditorMensajeAdmin
+                                    value={mensajeEditandoContenidoHtml}
+                                    onChange={setMensajeEditandoContenidoHtml}
+                                  />
+                                ) : (
+                                  <textarea
+                                    className="workspace-field min-h-[100px]"
+                                    value={mensajeEditandoContenido}
+                                    onChange={(e) => setMensajeEditandoContenido(e.target.value)}
+                                  />
+                                )}
+                                <div className="flex gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleEditarMensajeGeneral(respuesta.id)}
+                                    disabled={guardandoMensajeGeneral}
+                                    className="workspace-button-primary disabled:opacity-60"
+                                  >
+                                    {guardandoMensajeGeneral ? "Guardando..." : "Guardar edición"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setMensajeEditandoId(null)
+                                      setMensajeEditandoAsunto("")
+                                      setMensajeEditandoContenido("")
+                                      setMensajeEditandoContenidoHtml("")
+                                    }}
+                                    className="workspace-button-secondary"
+                                  >
+                                    Cancelar
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                {respuesta.contenido_html ? (
+                                  <div
+                                    className="break-words text-sm text-gray-700 [&_em]:italic [&_h3]:text-base [&_h3]:font-semibold [&_p]:my-2 [&_strong]:font-semibold"
+                                    dangerouslySetInnerHTML={{
+                                      __html: respuesta.contenido_html,
+                                    }}
+                                  />
+                                ) : (
+                                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                                    {respuesta.contenido}
+                                  </p>
+                                )}
 
-                            {esAdmin && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setMensajeEditandoId(respuesta.id)
-                                  setMensajeEditandoAsunto("")
-                                  setMensajeEditandoContenido(respuesta.contenido)
-                                }}
-                                className="workspace-button-secondary mt-2"
-                              >
-                                Editar mensaje
-                              </button>
+                                {esAdmin && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setMensajeEditandoId(respuesta.id)
+                                      setMensajeEditandoAsunto("")
+                                      setMensajeEditandoContenido(respuesta.contenido)
+                                      setMensajeEditandoContenidoHtml(
+                                        respuesta.contenido_html ||
+                                          textoPlanoAHtmlSeguro(respuesta.contenido)
+                                      )
+                                    }}
+                                    className="workspace-button-secondary mt-2"
+                                  >
+                                    Editar mensaje
+                                  </button>
+                                )}
+                              </>
                             )}
                           </div>
                         ))}
 
-                        <textarea
-                          className="workspace-field min-h-[90px]"
-                          placeholder="Responder a este hilo..."
-                          value={respuestaActual}
-                          onChange={(e) =>
-                            setRespuestasDraft((prev) => ({
-                              ...prev,
-                              [mensaje.id]: e.target.value,
-                            }))
-                          }
-                        />
+                        {esAdmin ? (
+                          <EditorMensajeAdmin
+                            value={respuestasDraftHtml[mensaje.id] || ""}
+                            onChange={(value) =>
+                              setRespuestasDraftHtml((prev) => ({
+                                ...prev,
+                                [mensaje.id]: value,
+                              }))
+                            }
+                          />
+                        ) : (
+                          <textarea
+                            className="workspace-field min-h-[90px]"
+                            placeholder="Responder a este hilo..."
+                            value={respuestaActual}
+                            onChange={(e) =>
+                              setRespuestasDraft((prev) => ({
+                                ...prev,
+                                [mensaje.id]: e.target.value,
+                              }))
+                            }
+                          />
+                        )}
 
                         <button
                           type="button"
