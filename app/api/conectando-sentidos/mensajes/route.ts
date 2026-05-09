@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import {
   getCurrentActor,
   hasAnyPermission,
+  requirePermission,
   requireActivityAccess,
 } from "@/lib/authz"
 import { allowRequestedPreview } from "@/lib/dev-flags"
@@ -219,9 +220,7 @@ export async function PATCH(req: Request) {
     const body = (await req.json()) as Body
     const preview = permitePreview(body.previewEnabled)
 
-    const auth = preview
-      ? null
-      : await requireActivityAccess("conectando-sentidos", "conectando.admin")
+    const auth = preview ? null : await requirePermission("conectando.admin")
 
     if (auth && "response" in auth) {
       return auth.response
@@ -236,13 +235,6 @@ export async function PATCH(req: Request) {
             email: "preview@escuela.local",
             role: "admin" as const,
           }
-
-    if (!preview && !hasAnyPermission(actor, ["conectando.admin"])) {
-      return NextResponse.json(
-        { error: "Solo admin puede editar mensajes." },
-        { status: 403 }
-      )
-    }
 
     const mensajeId = Number(body.mensajeId)
     const asunto = (body.asunto || "").trim()

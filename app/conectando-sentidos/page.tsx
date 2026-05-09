@@ -638,22 +638,58 @@ export default function ConectandoSentidosPage() {
                                   ? " · editado"
                                   : ""}
                               </p>
-                              <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                                {respuesta.contenido}
-                              </p>
 
-                              {esAdmin && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setMensajeEditandoId(respuesta.id)
-                                    setMensajeEditandoAsunto("")
-                                    setMensajeEditandoContenido(respuesta.contenido)
-                                  }}
-                                  className="workspace-button-secondary mt-2"
-                                >
-                                  Editar mensaje
-                                </button>
+                              {mensajeEditandoId === respuesta.id ? (
+                                <div className="workspace-stack-tight pt-1">
+                                  <textarea
+                                    className="workspace-field min-h-[100px]"
+                                    value={mensajeEditandoContenido}
+                                    onChange={(e) =>
+                                      setMensajeEditandoContenido(e.target.value)
+                                    }
+                                  />
+                                  <div className="flex gap-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleEditarMensaje(respuesta.id)}
+                                      disabled={guardandoMensaje}
+                                      className="workspace-button-primary disabled:opacity-60"
+                                    >
+                                      {guardandoMensaje ? "Guardando..." : "Guardar edición"}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setMensajeEditandoId(null)
+                                        setMensajeEditandoAsunto("")
+                                        setMensajeEditandoContenido("")
+                                      }}
+                                      className="workspace-button-secondary"
+                                    >
+                                      Cancelar
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                                    {respuesta.contenido}
+                                  </p>
+
+                                  {esAdmin && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setMensajeEditandoId(respuesta.id)
+                                        setMensajeEditandoAsunto("")
+                                        setMensajeEditandoContenido(respuesta.contenido)
+                                      }}
+                                      className="workspace-button-secondary mt-2"
+                                    >
+                                      Editar mensaje
+                                    </button>
+                                  )}
+                                </>
                               )}
                             </div>
                           ))}
