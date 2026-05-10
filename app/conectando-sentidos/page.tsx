@@ -339,11 +339,12 @@ export default function ConectandoSentidosPage() {
   }
 
   const handleEditarMensaje = async (mensajeId: number) => {
+    const editorActivo = editorRespuestaRef.current[mensajeId] || editorEdicionMensajeRef.current
     const contenidoHtml = esAdmin
-      ? (editorEdicionMensajeRef.current?.getHtml() || mensajeEditandoContenidoHtml || "").trim()
+      ? (editorActivo?.getHtml() || mensajeEditandoContenidoHtml || "").trim()
       : ""
     const contenido = esAdmin
-      ? htmlATextoPlano(contenidoHtml)
+      ? (editorActivo?.getText() || htmlATextoPlano(contenidoHtml)).trim()
       : mensajeEditandoContenido.trim()
     const asunto = mensajeEditandoAsunto.trim()
 
