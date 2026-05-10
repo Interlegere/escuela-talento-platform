@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import { flushSync } from "react-dom"
 
 type Props = {
   value: string
@@ -86,7 +87,11 @@ export default function EditorMensajeAdmin({ value, onChange }: Props) {
     const editor = editorRef.current
     if (!editor) return
 
-    onChange(normalizarHtml(editor.innerHTML))
+    const htmlActual = normalizarHtml(editor.innerHTML)
+
+    flushSync(() => {
+      onChange(htmlActual)
+    })
   }
 
   const actualizarValorDiferido = () => {
