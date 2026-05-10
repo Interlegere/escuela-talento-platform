@@ -32,6 +32,7 @@ function normalizarHtml(html: string) {
 
 export default function EditorMensajeAdmin({ value, onChange }: Props) {
   const editorRef = useRef<HTMLDivElement | null>(null)
+  const rangoRef = useRef<Range | null>(null)
 
   useEffect(() => {
     const editor = editorRef.current
@@ -43,11 +44,42 @@ export default function EditorMensajeAdmin({ value, onChange }: Props) {
     }
   }, [value])
 
+  useEffect(() => {
+    const guardarSeleccion = () => {
+      const editor = editorRef.current
+      const selection = window.getSelection()
+
+      if (!editor || !selection || selection.rangeCount === 0) return
+
+      const range = selection.getRangeAt(0)
+
+      if (!editor.contains(range.commonAncestorContainer)) return
+
+      rangoRef.current = range.cloneRange()
+    }
+
+    document.addEventListener("selectionchange", guardarSeleccion)
+
+    return () => {
+      document.removeEventListener("selectionchange", guardarSeleccion)
+    }
+  }, [])
+
   const enfocarEditor = () => {
     const editor = editorRef.current
     if (!editor) return
 
     editor.focus()
+  }
+
+  const restaurarSeleccion = () => {
+    const selection = window.getSelection()
+    const rango = rangoRef.current
+
+    if (!selection || !rango) return
+
+    selection.removeAllRanges()
+    selection.addRange(rango)
   }
 
   const actualizarValor = () => {
@@ -59,6 +91,7 @@ export default function EditorMensajeAdmin({ value, onChange }: Props) {
 
   const ejecutarComando = (command: string, commandValue?: string) => {
     enfocarEditor()
+    restaurarSeleccion()
     document.execCommand("styleWithCSS", false, "true")
     document.execCommand(command, false, commandValue)
     actualizarValor()
@@ -87,12 +120,19 @@ export default function EditorMensajeAdmin({ value, onChange }: Props) {
     }
   }
 
+  const preservarFocoToolbar = (event: React.MouseEvent<HTMLElement>) => {
+    event.preventDefault()
+    enfocarEditor()
+    restaurarSeleccion()
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex gap-2 flex-wrap items-center">
         <button
           type="button"
           className="border px-3 py-1 rounded"
+          onMouseDown={preservarFocoToolbar}
           onClick={() => ejecutarComando("bold")}
         >
           Negrita
@@ -101,6 +141,7 @@ export default function EditorMensajeAdmin({ value, onChange }: Props) {
         <button
           type="button"
           className="border px-3 py-1 rounded italic"
+          onMouseDown={preservarFocoToolbar}
           onClick={() => ejecutarComando("italic")}
         >
           Cursiva
@@ -109,6 +150,7 @@ export default function EditorMensajeAdmin({ value, onChange }: Props) {
         <button
           type="button"
           className="border px-3 py-1 rounded"
+          onMouseDown={preservarFocoToolbar}
           onClick={() => ejecutarComando("foreColor", "#b91c1c")}
         >
           Rojo
@@ -117,6 +159,7 @@ export default function EditorMensajeAdmin({ value, onChange }: Props) {
         <button
           type="button"
           className="border px-3 py-1 rounded"
+          onMouseDown={preservarFocoToolbar}
           onClick={() => ejecutarComando("foreColor", "#1d4ed8")}
         >
           Azul
@@ -125,6 +168,7 @@ export default function EditorMensajeAdmin({ value, onChange }: Props) {
         <button
           type="button"
           className="border px-3 py-1 rounded"
+          onMouseDown={preservarFocoToolbar}
           onClick={() => ejecutarComando("foreColor", "#166534")}
         >
           Verde
@@ -133,6 +177,7 @@ export default function EditorMensajeAdmin({ value, onChange }: Props) {
         <button
           type="button"
           className="border px-3 py-1 rounded"
+          onMouseDown={preservarFocoToolbar}
           onClick={() => ejecutarComando("formatBlock", "h3")}
         >
           Título
@@ -141,6 +186,7 @@ export default function EditorMensajeAdmin({ value, onChange }: Props) {
         <select
           className="border px-3 py-1 rounded bg-white"
           defaultValue=""
+          onMouseDown={preservarFocoToolbar}
           onChange={(e) => {
             if (!e.target.value) return
             aplicarTipografia(e.target.value)
@@ -175,6 +221,8 @@ export default function EditorMensajeAdmin({ value, onChange }: Props) {
           dir="ltr"
           onInput={actualizarValor}
           onKeyDown={manejarKeyDown}
+          onMouseUp={actualizarValor}
+          onKeyUp={actualizarValor}
           className="min-h-[180px] w-full border rounded-xl p-4 bg-white text-left outline-none focus:ring-2 focus:ring-blue-500 whitespace-pre-wrap"
           style={{
             direction: "ltr",
