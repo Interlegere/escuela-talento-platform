@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import PagoMensualCard from "@/components/pagos/PagoMensualCard"
 import BibliotecaGrabaciones from "@/components/BibliotecaGrabaciones"
 import SeccionDesplegable from "@/components/SeccionDesplegable"
@@ -11,6 +11,7 @@ import CasaTalentosAdminPanel, {
   CasaTalentosAdminResumenBlock,
 } from "@/components/casatalentos/CasaTalentosAdminPanel"
 import EditorMensajeAdmin from "@/components/espacios/EditorMensajeAdmin"
+import type { EditorMensajeAdminHandle } from "@/components/espacios/EditorMensajeAdmin"
 import { isDevelopmentPreviewEnabled } from "@/lib/dev-flags"
 import { obtenerPartesArgentina } from "@/lib/fechas"
 import WorkspaceHero from "@/components/ui/WorkspaceHero"
@@ -331,6 +332,9 @@ export default function CasaTalentosPage() {
   const [guardandoMensajeGeneral, setGuardandoMensajeGeneral] = useState(false)
   const [mensajesAbiertos, setMensajesAbiertos] = useState<Record<number, boolean>>({})
   const [mensajesLeidos, setMensajesLeidos] = useState<Record<number, string>>({})
+  const editorNuevoMensajeRef = useRef<EditorMensajeAdminHandle | null>(null)
+  const editorEdicionMensajeRef = useRef<EditorMensajeAdminHandle | null>(null)
+  const editorRespuestaRef = useRef<Record<number, EditorMensajeAdminHandle | null>>({})
   const esAdmin = session?.user?.role === "admin"
 
   useEffect(() => {
@@ -1079,8 +1083,12 @@ export default function CasaTalentosPage() {
   const handleEnviarMensajeGeneral = async (parentId?: number) => {
     const contenidoHtml = esAdmin
       ? parentId
-        ? (respuestasDraftHtml[parentId] || "").trim()
-        : mensajeGeneralDraftHtml.trim()
+        ? (
+            editorRespuestaRef.current[parentId || 0]?.getHtml() ||
+            respuestasDraftHtml[parentId] ||
+            ""
+          ).trim()
+        : (editorNuevoMensajeRef.current?.getHtml() || mensajeGeneralDraftHtml || "").trim()
       : ""
     const contenido = esAdmin
       ? htmlATextoPlano(contenidoHtml)
@@ -1180,7 +1188,9 @@ export default function CasaTalentosPage() {
   }
 
   const handleEditarMensajeGeneral = async (mensajeId: number) => {
-    const contenidoHtml = esAdmin ? mensajeEditandoContenidoHtml.trim() : ""
+    const contenidoHtml = esAdmin
+      ? (editorEdicionMensajeRef.current?.getHtml() || mensajeEditandoContenidoHtml || "").trim()
+      : ""
     const contenido = esAdmin
       ? htmlATextoPlano(contenidoHtml)
       : mensajeEditandoContenido.trim()
@@ -1964,6 +1974,7 @@ export default function CasaTalentosPage() {
                 />
                 {esAdmin ? (
                   <EditorMensajeAdmin
+                    ref={editorNuevoMensajeRef}
                     value={mensajeGeneralDraftHtml}
                     onChange={setMensajeGeneralDraftHtml}
                   />
@@ -2064,6 +2075,7 @@ export default function CasaTalentosPage() {
                         />
                         {esAdmin ? (
                           <EditorMensajeAdmin
+                            ref={editorEdicionMensajeRef}
                             value={mensajeEditandoContenidoHtml}
                             onChange={setMensajeEditandoContenidoHtml}
                           />
@@ -2155,6 +2167,9 @@ export default function CasaTalentosPage() {
                               <div className="space-y-3 pt-1">
                                 {esAdmin ? (
                                   <EditorMensajeAdmin
+                                    ref={(instance) => {
+                                      editorRespuestaRef.current[respuesta.id] = instance
+                                    }}
                                     value={mensajeEditandoContenidoHtml}
                                     onChange={setMensajeEditandoContenidoHtml}
                                   />
@@ -2227,6 +2242,9 @@ export default function CasaTalentosPage() {
 
                         {esAdmin ? (
                           <EditorMensajeAdmin
+                            ref={(instance) => {
+                              editorRespuestaRef.current[mensaje.id] = instance
+                            }}
                             value={respuestasDraftHtml[mensaje.id] || ""}
                             onChange={(value) =>
                               setRespuestasDraftHtml((prev) => ({

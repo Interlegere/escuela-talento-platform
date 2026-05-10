@@ -1,11 +1,16 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react"
 import { flushSync } from "react-dom"
 
 type Props = {
   value: string
   onChange: (value: string) => void
+}
+
+export type EditorMensajeAdminHandle = {
+  getHtml: () => string
+  getText: () => string
 }
 
 const TIPOGRAFIAS = [
@@ -31,7 +36,8 @@ function normalizarHtml(html: string) {
   return html === "<br>" ? "" : html
 }
 
-export default function EditorMensajeAdmin({ value, onChange }: Props) {
+const EditorMensajeAdmin = forwardRef<EditorMensajeAdminHandle, Props>(
+  function EditorMensajeAdmin({ value, onChange }, ref) {
   const editorRef = useRef<HTMLDivElement | null>(null)
   const rangoRef = useRef<Range | null>(null)
 
@@ -136,6 +142,22 @@ export default function EditorMensajeAdmin({ value, onChange }: Props) {
     enfocarEditor()
     restaurarSeleccion()
   }
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getHtml: () => {
+        const editor = editorRef.current
+        return editor ? normalizarHtml(editor.innerHTML) : ""
+      },
+      getText: () => {
+        const editor = editorRef.current
+        if (!editor) return ""
+        return (editor.innerText || editor.textContent || "").trim()
+      },
+    }),
+    []
+  )
 
   return (
     <div className="space-y-3">
@@ -242,4 +264,6 @@ export default function EditorMensajeAdmin({ value, onChange }: Props) {
       </div>
     </div>
   )
-}
+})
+
+export default EditorMensajeAdmin
