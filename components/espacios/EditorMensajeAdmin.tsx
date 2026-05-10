@@ -89,12 +89,18 @@ export default function EditorMensajeAdmin({ value, onChange }: Props) {
     onChange(normalizarHtml(editor.innerHTML))
   }
 
+  const actualizarValorDiferido = () => {
+    window.requestAnimationFrame(() => {
+      actualizarValor()
+    })
+  }
+
   const ejecutarComando = (command: string, commandValue?: string) => {
     enfocarEditor()
     restaurarSeleccion()
     document.execCommand("styleWithCSS", false, "true")
     document.execCommand(command, false, commandValue)
-    actualizarValor()
+    actualizarValorDiferido()
   }
 
   const aplicarTipografia = (fontFamily: string) => {
