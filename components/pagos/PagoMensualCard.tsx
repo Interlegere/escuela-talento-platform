@@ -36,6 +36,10 @@ type Props = {
   participanteNombre: string
   participanteEmail: string
   modalidadPago?: BillingMode
+  retornoMercadoPago?: {
+    status: "success" | "failure" | "pending"
+    pagoMensualId: number
+  } | null
 }
 
 function extraerDetalleMercadoPago(detalle: unknown) {
@@ -87,6 +91,7 @@ export default function PagoMensualCard({
   participanteNombre,
   participanteEmail,
   modalidadPago: modalidadPagoProp = "mensual",
+  retornoMercadoPago = null,
 }: Props) {
   const [actividad, setActividad] = useState<Actividad | null>(null)
   const [pago, setPago] = useState<PagoMensual | null>(null)
@@ -95,6 +100,7 @@ export default function PagoMensualCard({
   const [cargando, setCargando] = useState(false)
   const [archivoPendiente, setArchivoPendiente] = useState<File | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
+  const reconciliacionIntentadaRef = useRef<number | null>(null)
   const esProceso = modalidadPagoProp === "proceso"
 
   const cargar = useCallback(async () => {
@@ -136,6 +142,75 @@ export default function PagoMensualCard({
       void cargar()
     }
   }, [cargar, participanteNombre, participanteEmail])
+
+  useEffect(() => {
+    if (!pago || !retornoMercadoPago) return
+    if (retornoMercadoPago.pagoMensualId !== pago.id) return
+    if (reconciliacionIntentadaRef.current === pago.id) return
+
+    reconciliacionIntentadaRef.current = pago.id
+
+    if (retornoMercadoPago.status === "failure") {
+      setMensaje("El pago con Mercado Pago no se completó.")
+      return
+    }
+
+    if (retornoMercadoPago.status === "pending") {
+      setMensaje(
+        "Mercado Pago informó que el pago quedó pendiente. Vamos a actualizar tu estado apenas se confirme."
+      )
+      return
+    }
+
+    const reconciliar = async () => {
+      try {
+        setCargando(true)
+        setMensaje("Verificando tu pago en Mercado Pago...")
+
+        const res = await fetch("/api/pagos-mensuales/reconciliar-mp", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            pagoMensualId: pago.id,
+          }),
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+          setMensaje(
+            data.error ||
+              "No pudimos verificar automáticamente el pago. Intentá refrescar en unos minutos."
+          )
+          return
+        }
+
+        if (data.estado === "pagado") {
+          setMensaje("Pago acreditado correctamente. Tu acceso ya quedó actualizado.")
+        } else if (data.mpStatus === "approved") {
+          setMensaje(
+            "Mercado Pago aprobó el pago, pero todavía estamos actualizando el acceso. Intentá refrescar en unos segundos."
+          )
+        } else {
+          setMensaje(
+            "El pago todavía figura pendiente en Mercado Pago. Cuando se confirme, tu acceso se habilitará automáticamente."
+          )
+        }
+
+        await cargar()
+      } catch {
+        setMensaje(
+          "Error verificando el pago de Mercado Pago. Intentá refrescar en unos minutos."
+        )
+      } finally {
+        setCargando(false)
+      }
+    }
+
+    void reconciliar()
+  }, [cargar, pago, retornoMercadoPago])
 
   const pagarConMercadoPago = async () => {
     if (!pago) return

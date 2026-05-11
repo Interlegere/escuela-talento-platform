@@ -18,15 +18,46 @@ type HonorarioAsignado = {
   moneda: string
 }
 
+type RetornoMercadoPago = {
+  status: "success" | "failure" | "pending"
+  pagoMensualId: number
+} | null
+
 export default function PagosPage() {
   const { data: session, status, error } = useAppSession()
   const [honorarios, setHonorarios] = useState<HonorarioAsignado[]>([])
   const [cargandoHonorarios, setCargandoHonorarios] = useState(false)
   const [mensaje, setMensaje] = useState("")
+  const [retornoMercadoPago, setRetornoMercadoPago] =
+    useState<RetornoMercadoPago>(null)
 
   const nombre = session?.user?.name || "Participante"
   const email = session?.user?.email || ""
   const esAdmin = session?.user?.role === "admin"
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const params = new URLSearchParams(window.location.search)
+    const statusParam = params.get("mp_status")
+    const pagoMensualId = Number(params.get("pago_mensual_id"))
+
+    if (
+      (statusParam === "success" ||
+        statusParam === "failure" ||
+        statusParam === "pending") &&
+      !Number.isNaN(pagoMensualId) &&
+      pagoMensualId > 0
+    ) {
+      setRetornoMercadoPago({
+        status: statusParam,
+        pagoMensualId,
+      })
+
+      const cleanUrl = `${window.location.pathname}${window.location.hash || ""}`
+      window.history.replaceState({}, "", cleanUrl)
+    }
+  }, [])
 
   useEffect(() => {
     if (status !== "authenticated" || esAdmin) return
@@ -153,6 +184,7 @@ export default function PagosPage() {
               participanteNombre={actividad.participanteNombre || nombre}
               participanteEmail={actividad.participanteEmail || email}
               modalidadPago={actividad.modalidadPago}
+              retornoMercadoPago={retornoMercadoPago}
             />
           )
         ))}
