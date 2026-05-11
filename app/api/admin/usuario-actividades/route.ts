@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server"
 import { requirePermission, type ActivitySlug } from "@/lib/authz"
+import { asegurarActividadBase } from "@/lib/core-activities"
+import {
+  asegurarHonorarioYPagoAdmin,
+  syncInscripcionAdmin,
+  syncUsuarioActividadAdmin,
+} from "@/lib/admin-activity-sync"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
 const ACTIVIDADES_VALIDAS: ActivitySlug[] = [
@@ -108,7 +114,7 @@ export async function POST(req: Request) {
 
     const { data: usuario, error: usuarioError } = await supabase
       .from("usuarios_plataforma")
-      .select("id, email, activo")
+      .select("id, nombre, apellido, email, activo")
       .eq("email", usuarioEmail)
       .maybeSingle()
 
@@ -132,36 +138,98 @@ export async function POST(req: Request) {
       )
     }
 
-    const registros = body.actividades
-      .filter((item) => esActividadValida(item.actividadSlug))
-      .map((item) => ({
-        usuario_id: usuario.id,
-        usuario_email: usuarioEmail,
-        actividad_slug: item.actividadSlug,
-        estado: item.habilitada ? "activa" : "inactiva",
-        origen: "admin",
-        notas: item.notas || null,
-        updated_at: new Date().toISOString(),
-      }))
+    const actividadesValidas = body.actividades.filter((item) =>
+      esActividadValida(item.actividadSlug)
+    )
 
-    if (registros.length === 0) {
+    if (actividadesValidas.length === 0) {
       return NextResponse.json(
         { error: "No hay actividades válidas para guardar." },
         { status: 400 }
       )
     }
 
+    const nombreCompleto = [usuario.nombre, usuario.apellido]
+      .filter(Boolean)
+      .join(" ")
+    const advertencias: string[] = []
+    let honorariosCreados = 0
+    let pagosCreados = 0
+
+    const actividadesConInscripcion = new Map<number | string, { id: number }>()
+
+    for (const actividad of actividadesValidas) {
+      if (actividad.actividadSlug === "membresia") {
+        continue
+      }
+
+      const actividadBase = await asegurarActividadBase(
+        actividad.actividadSlug as Exclude<ActivitySlug, "membresia">
+      )
+      actividadesConInscripcion.set(actividadBase.slug, {
+        id: actividadBase.id,
+      })
+    }
+
+    for (const actividad of actividadesValidas) {
+      await syncUsuarioActividadAdmin({
+        supabase,
+        usuarioId: usuario.id,
+        usuarioEmail,
+        actividadSlug: actividad.actividadSlug,
+        habilitada: actividad.habilitada,
+        notas: actividad.notas || null,
+      })
+
+      const actividadBase = actividadesConInscripcion.get(actividad.actividadSlug)
+
+      if (!actividadBase) {
+        continue
+      }
+
+      await syncInscripcionAdmin({
+        supabase,
+        actividadId: actividadBase.id,
+        participanteEmail: usuarioEmail,
+        participanteNombre: nombreCompleto,
+        activa: actividad.habilitada,
+      })
+
+      if (!actividad.habilitada) {
+        continue
+      }
+
+      const provision = await asegurarHonorarioYPagoAdmin({
+        supabase,
+        actividadId: actividadBase.id,
+        actividadSlug: actividad.actividadSlug,
+        participanteEmail: usuarioEmail,
+        participanteNombre: nombreCompleto,
+      })
+
+      if (provision.honorarioCreado) {
+        honorariosCreados += 1
+      }
+
+      if (provision.pagoCreado) {
+        pagosCreados += 1
+      }
+
+      if (provision.advertencia) {
+        advertencias.push(provision.advertencia)
+      }
+    }
+
     const { data, error } = await supabase
       .from("usuario_actividades")
-      .upsert(registros, {
-        onConflict: "usuario_email,actividad_slug",
-      })
       .select("*")
+      .eq("usuario_email", usuarioEmail)
+      .order("actividad_slug", { ascending: true })
 
     if (error) {
       return NextResponse.json(
         {
-          error: "No se pudieron guardar las actividades del usuario.",
+          error: "Las actividades se guardaron, pero no se pudieron recargar.",
           detalle: error,
         },
         { status: 500 }
@@ -171,6 +239,11 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       actividades: data || [],
+      provisioning: {
+        honorariosCreados,
+        pagosCreados,
+        advertencias,
+      },
     })
   } catch (error) {
     return NextResponse.json(

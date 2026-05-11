@@ -2,11 +2,14 @@ import { NextResponse } from "next/server"
 import { requirePermission } from "@/lib/authz"
 import {
   obtenerRecargoMercadoPagoPorcentajeConfigurado,
+  obtenerHonorariosBaseEscuelaConfigurados,
 } from "@/lib/payment-pricing"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
 type Body = {
   mercadoPagoRecargoPorcentaje?: string | number
+  casatalentosHonorarioBase?: string | number
+  conectandoSentidosHonorarioBase?: string | number
 }
 
 function normalizarNumero(input: string | number | null | undefined) {
@@ -28,11 +31,16 @@ export async function GET() {
       return auth.response
     }
 
-    const porcentaje = await obtenerRecargoMercadoPagoPorcentajeConfigurado()
+    const [porcentaje, honorariosBase] = await Promise.all([
+      obtenerRecargoMercadoPagoPorcentajeConfigurado(),
+      obtenerHonorariosBaseEscuelaConfigurados(),
+    ])
 
     return NextResponse.json({
       ok: true,
       mercadoPagoRecargoPorcentaje: porcentaje,
+      casatalentosHonorarioBase: honorariosBase.casatalentos,
+      conectandoSentidosHonorarioBase: honorariosBase.conectandoSentidos,
     })
   } catch (error) {
     return NextResponse.json(
@@ -54,7 +62,22 @@ export async function POST(req: Request) {
     }
 
     const body = (await req.json()) as Body
-    const porcentaje = normalizarNumero(body.mercadoPagoRecargoPorcentaje)
+    const [porcentajeActual, honorariosBaseActuales] = await Promise.all([
+      obtenerRecargoMercadoPagoPorcentajeConfigurado(),
+      obtenerHonorariosBaseEscuelaConfigurados(),
+    ])
+    const porcentaje =
+      body.mercadoPagoRecargoPorcentaje === undefined
+        ? porcentajeActual
+        : normalizarNumero(body.mercadoPagoRecargoPorcentaje)
+    const casatalentosHonorarioBase =
+      body.casatalentosHonorarioBase === undefined
+        ? honorariosBaseActuales.casatalentos
+        : normalizarNumero(body.casatalentosHonorarioBase)
+    const conectandoSentidosHonorarioBase =
+      body.conectandoSentidosHonorarioBase === undefined
+        ? honorariosBaseActuales.conectandoSentidos
+        : normalizarNumero(body.conectandoSentidosHonorarioBase)
 
     if (!Number.isFinite(porcentaje) || porcentaje < 0) {
       return NextResponse.json(
@@ -63,21 +86,54 @@ export async function POST(req: Request) {
       )
     }
 
+    if (
+      !Number.isFinite(casatalentosHonorarioBase) ||
+      casatalentosHonorarioBase < 0
+    ) {
+      return NextResponse.json(
+        { error: "Ingresá un honorario base válido para CasaTalentos." },
+        { status: 400 }
+      )
+    }
+
+    if (
+      !Number.isFinite(conectandoSentidosHonorarioBase) ||
+      conectandoSentidosHonorarioBase < 0
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Ingresá un honorario base válido para Conectando Sentidos.",
+        },
+        { status: 400 }
+      )
+    }
+
     const supabase = createAdminSupabaseClient()
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("configuracion_plataforma")
       .upsert(
-        {
-          clave: "mercado_pago_recargo_porcentaje",
-          valor_texto: String(porcentaje),
-          updated_at: new Date().toISOString(),
-        },
+        [
+          {
+            clave: "mercado_pago_recargo_porcentaje",
+            valor_texto: String(porcentaje),
+            updated_at: new Date().toISOString(),
+          },
+          {
+            clave: "casatalentos_honorario_base",
+            valor_texto: String(casatalentosHonorarioBase),
+            updated_at: new Date().toISOString(),
+          },
+          {
+            clave: "conectando_sentidos_honorario_base",
+            valor_texto: String(conectandoSentidosHonorarioBase),
+            updated_at: new Date().toISOString(),
+          },
+        ],
         {
           onConflict: "clave",
         }
       )
-      .select("clave, valor_texto")
-      .single()
 
     if (error) {
       return NextResponse.json(
@@ -92,8 +148,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       ok: true,
-      configuracion: data,
       mercadoPagoRecargoPorcentaje: porcentaje,
+      casatalentosHonorarioBase,
+      conectandoSentidosHonorarioBase,
     })
   } catch (error) {
     return NextResponse.json(

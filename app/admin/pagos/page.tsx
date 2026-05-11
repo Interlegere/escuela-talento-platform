@@ -158,6 +158,10 @@ function AdminPagosPageContent() {
   const [observaciones, setObservaciones] = useState<Record<string, string>>({})
   const [mercadoPagoRecargoPorcentaje, setMercadoPagoRecargoPorcentaje] =
     useState("")
+  const [casatalentosHonorarioBase, setCasatalentosHonorarioBase] =
+    useState("")
+  const [conectandoSentidosHonorarioBase, setConectandoSentidosHonorarioBase] =
+    useState("")
   const [guardandoConfiguracion, setGuardandoConfiguracion] = useState(false)
   const [actividadSlug, setActividadSlug] = useState("casatalentos")
   const [participanteNombre, setParticipanteNombre] = useState("")
@@ -213,6 +217,12 @@ function AdminPagosPageContent() {
 
       setMercadoPagoRecargoPorcentaje(
         String(data.mercadoPagoRecargoPorcentaje ?? "0")
+      )
+      setCasatalentosHonorarioBase(
+        String(data.casatalentosHonorarioBase ?? "0")
+      )
+      setConectandoSentidosHonorarioBase(
+        String(data.conectandoSentidosHonorarioBase ?? "0")
       )
     } catch {
       setMensaje("Error cargando la configuración de pagos.")
@@ -381,6 +391,8 @@ function AdminPagosPageContent() {
         },
         body: JSON.stringify({
           mercadoPagoRecargoPorcentaje,
+          casatalentosHonorarioBase,
+          conectandoSentidosHonorarioBase,
         }),
       })
 
@@ -394,7 +406,16 @@ function AdminPagosPageContent() {
       setMercadoPagoRecargoPorcentaje(
         String(data.mercadoPagoRecargoPorcentaje ?? mercadoPagoRecargoPorcentaje)
       )
-      setMensaje("Recargo de Mercado Pago guardado correctamente.")
+      setCasatalentosHonorarioBase(
+        String(data.casatalentosHonorarioBase ?? casatalentosHonorarioBase)
+      )
+      setConectandoSentidosHonorarioBase(
+        String(
+          data.conectandoSentidosHonorarioBase ??
+            conectandoSentidosHonorarioBase
+        )
+      )
+      setMensaje("Configuración de pagos guardada correctamente.")
     } catch {
       setMensaje("Error guardando la configuración de pagos.")
     } finally {
@@ -462,10 +483,11 @@ function AdminPagosPageContent() {
         return
       }
 
+      const mensajeBase = activo
+        ? "Honorario guardado correctamente."
+        : "Honorario desactivado correctamente."
       setMensaje(
-        activo
-          ? "Honorario guardado correctamente."
-          : "Honorario desactivado correctamente."
+        data.advertencia ? `${mensajeBase} ${data.advertencia}` : mensajeBase
       )
       setParticipanteNombre("")
       setParticipanteEmail("")
@@ -722,15 +744,45 @@ function AdminPagosPageContent() {
 
       <section className="border rounded-2xl p-5 space-y-4">
         <div>
-          <h2 className="text-xl font-semibold">Configuración de recargo MP</h2>
+          <h2 className="text-xl font-semibold">Configuración base de pagos</h2>
           <p className="text-gray-600 mt-1">
-            Este porcentaje se suma al monto base cuando la persona elige pagar
-            con Mercado Pago.
+            Definí acá el recargo de Mercado Pago y los honorarios base
+            mensuales de CasaTalentos y Conectando Sentidos. Si una persona
+            participa en ambas, el ajuste final lo seguís resolviendo caso por
+            caso desde este mismo panel.
           </p>
         </div>
 
-        <div className="flex flex-col gap-3 md:flex-row md:items-end">
-          <label className="space-y-2 md:w-80">
+        <div className="grid gap-3 md:grid-cols-3">
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-gray-700">
+              Honorario base CasaTalentos (ARS)
+            </span>
+            <input
+              className="w-full border rounded-xl p-3"
+              inputMode="numeric"
+              placeholder="Ej: 120000"
+              value={casatalentosHonorarioBase}
+              onChange={(e) => setCasatalentosHonorarioBase(e.target.value)}
+            />
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-gray-700">
+              Honorario base Conectando Sentidos (ARS)
+            </span>
+            <input
+              className="w-full border rounded-xl p-3"
+              inputMode="numeric"
+              placeholder="Ej: 150000"
+              value={conectandoSentidosHonorarioBase}
+              onChange={(e) =>
+                setConectandoSentidosHonorarioBase(e.target.value)
+              }
+            />
+          </label>
+
+          <label className="space-y-2">
             <span className="text-sm font-medium text-gray-700">
               Recargo Mercado Pago (%)
             </span>
@@ -742,15 +794,20 @@ function AdminPagosPageContent() {
               onChange={(e) => setMercadoPagoRecargoPorcentaje(e.target.value)}
             />
           </label>
+        </div>
 
+        <div className="flex flex-wrap gap-3">
           <button
             type="button"
             onClick={() => void guardarConfiguracionPagos()}
             disabled={guardandoConfiguracion}
             className="bg-black text-white px-4 py-2 rounded-xl disabled:opacity-60 w-fit"
           >
-            {guardandoConfiguracion ? "Guardando..." : "Guardar recargo"}
+            {guardandoConfiguracion ? "Guardando..." : "Guardar configuración"}
           </button>
+          <p className="self-center text-xs text-gray-500">
+            Mentorías y Terapia siguen configurándose manualmente por usuario.
+          </p>
         </div>
       </section>
 
@@ -758,8 +815,9 @@ function AdminPagosPageContent() {
         <div>
           <h2 className="text-xl font-semibold">Asignar actividad y honorario</h2>
           <p className="text-gray-600 mt-1">
-            Desde acá definís qué actividad paga cada persona, con qué modalidad,
-            con qué honorario y, cuando corresponde, podés generar el cobro.
+            Desde acá ajustás casos por persona: combinaciones CT/CS,
+            Mentorías y Terapia, además de revisar o regenerar cobros si hace
+            falta.
           </p>
         </div>
 

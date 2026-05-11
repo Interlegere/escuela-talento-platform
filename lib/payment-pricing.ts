@@ -66,6 +66,60 @@ export async function obtenerRecargoMercadoPagoPorcentajeConfigurado() {
   }
 }
 
+async function obtenerNumeroConfigurado(
+  clave: string,
+  fallback: number = 0
+) {
+  try {
+    const supabase = createAdminSupabaseClient()
+    const { data, error } = await supabase
+      .from("configuracion_plataforma")
+      .select("valor_texto")
+      .eq("clave", clave)
+      .maybeSingle()
+
+    if (error || !data?.valor_texto) {
+      return fallback
+    }
+
+    const valor = normalizarNumero(data.valor_texto)
+
+    if (!Number.isFinite(valor) || valor < 0) {
+      return fallback
+    }
+
+    return valor
+  } catch {
+    return fallback
+  }
+}
+
+export async function obtenerHonorariosBaseEscuelaConfigurados() {
+  const [casatalentos, conectandoSentidos] = await Promise.all([
+    obtenerNumeroConfigurado("casatalentos_honorario_base", 0),
+    obtenerNumeroConfigurado("conectando_sentidos_honorario_base", 0),
+  ])
+
+  return {
+    casatalentos,
+    conectandoSentidos,
+  }
+}
+
+export async function obtenerHonorarioBasePorActividadConfigurado(
+  actividadSlug: string
+) {
+  if (actividadSlug === "casatalentos") {
+    return obtenerNumeroConfigurado("casatalentos_honorario_base", 0)
+  }
+
+  if (actividadSlug === "conectando-sentidos") {
+    return obtenerNumeroConfigurado("conectando_sentidos_honorario_base", 0)
+  }
+
+  return 0
+}
+
 export function calcularMontosPagoMensual(
   montoBaseInput: string | number | null | undefined
 ) {

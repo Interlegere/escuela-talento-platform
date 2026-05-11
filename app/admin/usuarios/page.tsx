@@ -55,6 +55,13 @@ type UsuarioActividad = {
   notas?: string | null
 }
 
+type ActividadesFormState = {
+  casatalentos: boolean
+  "conectando-sentidos": boolean
+  mentorias: boolean
+  terapia: boolean
+}
+
 type FormState = {
   id: string
   nombre: string
@@ -68,6 +75,14 @@ type FormState = {
   activo: boolean
   password: string
   enviarBienvenida: boolean
+  actividades: ActividadesFormState
+}
+
+const ACTIVIDADES_FORM_INICIAL: ActividadesFormState = {
+  casatalentos: false,
+  "conectando-sentidos": false,
+  mentorias: false,
+  terapia: false,
 }
 
 const FORM_INICIAL: FormState = {
@@ -83,6 +98,7 @@ const FORM_INICIAL: FormState = {
   activo: true,
   password: "",
   enviarBienvenida: true,
+  actividades: ACTIVIDADES_FORM_INICIAL,
 }
 
 const ACTIVIDADES = [
@@ -323,10 +339,17 @@ export default function AdminUsuariosPage() {
   }, [usuarioActividades, usuariosFiltrados])
 
   const limpiarForm = () => {
-    setForm(FORM_INICIAL)
+    setForm({
+      ...FORM_INICIAL,
+      actividades: { ...ACTIVIDADES_FORM_INICIAL },
+    })
   }
 
   const editarUsuario = (usuario: Usuario) => {
+    const actividadesUsuario = usuarioActividades[
+      usuario.email.trim().toLowerCase()
+    ] || []
+
     setForm({
       id: usuario.id,
       nombre: usuario.nombre,
@@ -340,6 +363,24 @@ export default function AdminUsuariosPage() {
       activo: usuario.activo,
       password: "",
       enviarBienvenida: false,
+      actividades: {
+        casatalentos: actividadesUsuario.some(
+          (item) =>
+            item.actividad_slug === "casatalentos" && item.estado === "activa"
+        ),
+        "conectando-sentidos": actividadesUsuario.some(
+          (item) =>
+            item.actividad_slug === "conectando-sentidos" &&
+            item.estado === "activa"
+        ),
+        mentorias: actividadesUsuario.some(
+          (item) =>
+            item.actividad_slug === "mentorias" && item.estado === "activa"
+        ),
+        terapia: actividadesUsuario.some(
+          (item) => item.actividad_slug === "terapia" && item.estado === "activa"
+        ),
+      },
     })
     setMensaje("Editando usuario. Dejá la contraseña vacía si no querés cambiarla.")
   }
@@ -377,13 +418,70 @@ export default function AdminUsuariosPage() {
           : ` ${mailing.motivo || "Email no enviado."}`
         : ""
 
+      let actividadesMensaje = ""
+      const usuarioGuardado = data.usuario as Usuario | undefined
+
+      if (usuarioGuardado?.email) {
+        const resActividades = await fetch("/api/admin/usuario-actividades", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            usuarioEmail: usuarioGuardado.email,
+            actividades: ACTIVIDADES.map((actividad) => ({
+              actividadSlug: actividad.slug,
+              habilitada: payload.actividades[actividad.slug],
+            })),
+          }),
+        })
+
+        const dataActividades = await resActividades.json()
+
+        if (!resActividades.ok) {
+          actividadesMensaje =
+            " Usuario guardado, pero no se pudieron sincronizar las actividades."
+        } else {
+          const provisioning = dataActividades.provisioning as
+            | {
+                honorariosCreados?: number
+                pagosCreados?: number
+                advertencias?: string[]
+              }
+            | undefined
+
+          const extras: string[] = []
+
+          if ((provisioning?.honorariosCreados || 0) > 0) {
+            extras.push(
+              `Se creó ${provisioning?.honorariosCreados} honorario base automáticamente.`
+            )
+          }
+
+          if ((provisioning?.pagosCreados || 0) > 0) {
+            extras.push(
+              `Se generó ${provisioning?.pagosCreados} cobro vigente automáticamente.`
+            )
+          }
+
+          if (Array.isArray(provisioning?.advertencias) && provisioning?.advertencias.length > 0) {
+            extras.push(provisioning.advertencias.join(" "))
+          }
+
+          actividadesMensaje = extras.length ? ` ${extras.join(" ")}` : ""
+        }
+      }
+
       setMensaje(
-        `${payload.id ? "Usuario actualizado." : "Usuario creado."}${mailingMensaje}`
+        `${payload.id ? "Usuario actualizado." : "Usuario creado."}${mailingMensaje}${actividadesMensaje}`
       )
 
       limpiarForm()
-      await cargarUsuarios()
-      await cargarHonorarios()
+      await Promise.all([
+        cargarUsuarios(),
+        cargarHonorarios(),
+        cargarActividadesUsuario(),
+      ])
     } catch {
       setMensaje("Error guardando usuario.")
     } finally {
@@ -432,8 +530,37 @@ export default function AdminUsuariosPage() {
         return
       }
 
-      await cargarActividadesUsuario()
-      setMensaje("Actividades actualizadas correctamente.")
+      await Promise.all([cargarActividadesUsuario(), cargarHonorarios()])
+
+      const provisioning = data.provisioning as
+        | {
+            honorariosCreados?: number
+            pagosCreados?: number
+            advertencias?: string[]
+          }
+        | undefined
+
+      const extras: string[] = []
+
+      if ((provisioning?.honorariosCreados || 0) > 0) {
+        extras.push(
+          `Se creó ${provisioning?.honorariosCreados} honorario base automáticamente.`
+        )
+      }
+
+      if ((provisioning?.pagosCreados || 0) > 0) {
+        extras.push(
+          `Se generó ${provisioning?.pagosCreados} cobro vigente automáticamente.`
+        )
+      }
+
+      if (Array.isArray(provisioning?.advertencias) && provisioning?.advertencias.length > 0) {
+        extras.push(provisioning.advertencias.join(" "))
+      }
+
+      setMensaje(
+        `Actividades actualizadas correctamente.${extras.length ? ` ${extras.join(" ")}` : ""}`
+      )
     } catch {
       setMensaje("Error actualizando actividades.")
     }
@@ -633,6 +760,28 @@ export default function AdminUsuariosPage() {
                   activo: !usuario.activo,
                   password: "",
                   enviarBienvenida: false,
+                  actividades: {
+                    casatalentos: actividadesHabilitadas.some(
+                      (item) =>
+                        item.actividad_slug === "casatalentos" &&
+                        item.estado === "activa"
+                    ),
+                    "conectando-sentidos": actividadesHabilitadas.some(
+                      (item) =>
+                        item.actividad_slug === "conectando-sentidos" &&
+                        item.estado === "activa"
+                    ),
+                    mentorias: actividadesHabilitadas.some(
+                      (item) =>
+                        item.actividad_slug === "mentorias" &&
+                        item.estado === "activa"
+                    ),
+                    terapia: actividadesHabilitadas.some(
+                      (item) =>
+                        item.actividad_slug === "terapia" &&
+                        item.estado === "activa"
+                    ),
+                  },
                 }
 
                 void guardarUsuario(payload)
@@ -824,6 +973,40 @@ export default function AdminUsuariosPage() {
         </div>
 
         <div className="rounded-2xl border border-[var(--line)] bg-[rgba(255,250,242,0.68)] p-4 space-y-3">
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-gray-900">
+              Actividades a habilitar desde esta ficha
+            </p>
+            <div className="grid gap-2 md:grid-cols-2">
+              {ACTIVIDADES.map((actividad) => (
+                <label
+                  key={`form-${actividad.slug}`}
+                  className="inline-flex items-center gap-3 text-sm font-medium text-gray-700"
+                >
+                  <input
+                    type="checkbox"
+                    checked={form.actividades[actividad.slug]}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        actividades: {
+                          ...prev.actividades,
+                          [actividad.slug]: e.target.checked,
+                        },
+                      }))
+                    }
+                  />
+                  <span>{actividad.nombre}</span>
+                </label>
+              ))}
+            </div>
+            <p className="workspace-inline-note">
+              CT y CS toman honorario base desde Admin Pagos y generan el cobro
+              mensual vigente. Mentorías y Terapia siguen requiriendo ajuste
+              manual caso por caso.
+            </p>
+          </div>
+
           <label className="inline-flex items-center gap-3 text-sm font-medium text-gray-700">
             <input
               type="checkbox"

@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server"
 import { requirePermission, type ActivitySlug } from "@/lib/authz"
+import {
+  asegurarHonorarioYPagoAdmin,
+  syncInscripcionAdmin,
+  syncUsuarioActividadAdmin,
+} from "@/lib/admin-activity-sync"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 import { normalizarModalidadPago } from "@/lib/billing"
 
@@ -50,6 +55,7 @@ type PagoRow = {
 }
 
 type UsuarioPlataformaRow = {
+  id?: string | null
   nombre?: string | null
   apellido?: string | null
   email?: string | null
@@ -276,7 +282,7 @@ export async function POST(req: Request) {
 
     const { data: usuario, error: usuarioError } = await supabase
       .from("usuarios_plataforma")
-      .select("nombre, apellido, email, activo")
+      .select("id, nombre, apellido, email, activo")
       .eq("email", participanteEmail)
       .maybeSingle()
 
@@ -356,8 +362,49 @@ export async function POST(req: Request) {
       )
     }
 
+    if (!usuarioRow.id) {
+      return NextResponse.json(
+        {
+          error:
+            "Se guardó el honorario, pero el usuario no tiene un identificador válido para sincronizar actividades.",
+        },
+        { status: 500 }
+      )
+    }
+
+    await syncUsuarioActividadAdmin({
+      supabase,
+      usuarioId: usuarioRow.id,
+      usuarioEmail: participanteEmail,
+      actividadSlug,
+      habilitada: activo,
+    })
+
+    await syncInscripcionAdmin({
+      supabase,
+      actividadId: actividad.id,
+      participanteEmail,
+      participanteNombre: nombreDesdeUsuario || participanteNombre,
+      activa: activo,
+    })
+
+    let advertencia: string | null = null
+
+    if (activo) {
+      const provision = await asegurarHonorarioYPagoAdmin({
+        supabase,
+        actividadId: actividad.id,
+        actividadSlug,
+        participanteEmail,
+        participanteNombre: nombreDesdeUsuario || participanteNombre,
+      })
+
+      advertencia = provision.advertencia || null
+    }
+
     return NextResponse.json({
       ok: true,
+      advertencia,
       honorario: {
         id: data.id,
         actividad_slug: actividad.slug,
