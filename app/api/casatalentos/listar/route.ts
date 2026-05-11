@@ -31,6 +31,16 @@ type ReferenteSemanalDB = {
   file_size?: number | null
 }
 
+type VotoDB = {
+  id: number
+  video_id: number
+  votante_nombre: string
+  votante_email?: string | null
+  fecha_semana?: string | null
+  created_at?: string
+  votante_rol?: string | null
+}
+
 type MensajeGeneralDB = {
   id: number
   parent_id?: number | null
@@ -39,8 +49,14 @@ type MensajeGeneralDB = {
   autor_email?: string | null
   autor_rol?: string | null
   contenido: string
+  contenido_html?: string | null
   created_at?: string
   updated_at?: string
+}
+
+type UsuarioRolRow = {
+  email?: string | null
+  role?: string | null
 }
 
 function esStorageInterno(value?: string | null) {
@@ -127,6 +143,46 @@ export async function GET(req: Request) {
         { status: 500 }
       )
     }
+
+    const votosTyped = (votos || []) as VotoDB[]
+    const emailsVotantes = Array.from(
+      new Set(
+        votosTyped
+          .map((voto) => String(voto.votante_email || "").trim().toLowerCase())
+          .filter(Boolean)
+      )
+    )
+
+    const rolesPorEmail = new Map<string, string>()
+
+    if (emailsVotantes.length > 0) {
+      const { data: usuariosRoles, error: usuariosRolesError } = await supabase
+        .from("usuarios_plataforma")
+        .select("email, role")
+        .in("email", emailsVotantes)
+
+      if (usuariosRolesError) {
+        return NextResponse.json(
+          { error: "No se pudieron cargar los roles de quienes evaluaron", detalle: usuariosRolesError },
+          { status: 500 }
+        )
+      }
+
+      for (const usuario of (usuariosRoles || []) as UsuarioRolRow[]) {
+        const email = String(usuario.email || "").trim().toLowerCase()
+        if (email) {
+          rolesPorEmail.set(email, String(usuario.role || "").trim().toLowerCase())
+        }
+      }
+    }
+
+    const votosConRol = votosTyped.map((voto) => {
+      const email = String(voto.votante_email || "").trim().toLowerCase()
+      return {
+        ...voto,
+        votante_rol: email ? rolesPorEmail.get(email) || null : null,
+      }
+    })
 
     const { data: comentarios, error: comentariosError } = await supabase
       .from("casatalentos_comentarios")
@@ -218,7 +274,7 @@ export async function GET(req: Request) {
     return NextResponse.json({
       ok: true,
       videos: videosConUrl,
-      votos: votos || [],
+      votos: votosConRol,
       comentarios: comentarios || [],
       referentesGenerales: referentesGenerales?.[0] || null,
       referentesSemanales: referentesSemanalesConUrl,

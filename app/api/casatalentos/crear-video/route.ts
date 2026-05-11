@@ -17,7 +17,6 @@ function limpiarNombreArchivo(nombre: string) {
 
 function weekdayToDiaClave(weekday: string) {
   if (weekday === "Mon") return "lunes"
-  if (weekday === "Tue") return "martes"
   if (weekday === "Wed") return "miercoles"
   return null
 }
@@ -106,22 +105,14 @@ export async function POST(req: Request) {
     const diaClave = weekdayToDiaClave(ahora.weekdayShort)
 
     if (!diaClave) {
+      const errorSubida =
+        ahora.weekdayShort === "Tue"
+          ? "El martes es día de aportes escritos. Los videos del dispositivo se suben lunes y miércoles."
+          : "Los videos del dispositivo solo se pueden subir lunes y miércoles."
       return NextResponse.json(
-        { error: "Los videos del dispositivo solo se pueden subir lunes, martes o miércoles." },
+        { error: errorSubida },
         { status: 400 }
       )
-    }
-
-    if (diaClave === "miercoles") {
-      const minutosActuales = ahora.hour * 60 + ahora.minute
-      const limite = 18 * 60 + 30
-
-      if (minutosActuales > limite) {
-        return NextResponse.json(
-          { error: "El video del miércoles solo puede subirse hasta las 18:30 hs." },
-          { status: 400 }
-        )
-      }
     }
 
     const fechaSemana = obtenerFechaSemanaLunes(

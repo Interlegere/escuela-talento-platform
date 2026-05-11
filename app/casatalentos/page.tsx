@@ -47,6 +47,7 @@ type VotoItem = {
   video_id: number
   votante_nombre: string
   votante_email?: string | null
+  votante_rol?: string | null
   fecha_semana?: string | null
   created_at?: string
 }
@@ -188,14 +189,16 @@ function normalizarClaveDia(dia?: string | null) {
     .replace(/[\u0300-\u036f]/g, "")
 }
 
+function pesoEvaluacion(voto: VotoItem) {
+  return String(voto.votante_rol || "").trim().toLowerCase() === "admin" ? 2 : 1
+}
+
 function ordenDia(dia?: string | null) {
   switch (normalizarClaveDia(dia)) {
     case "lunes":
       return 1
-    case "martes":
-      return 2
     case "miercoles":
-      return 3
+      return 2
     default:
       return 99
   }
@@ -255,6 +258,15 @@ function obtenerAhoraArgentinaCliente() {
   }
 }
 
+function resultadosDisponiblesSegunAhora(ahora: ReturnType<typeof obtenerAhoraArgentinaCliente>) {
+  if (ahora.weekday === "Thu") {
+    const minutosActuales = ahora.hour * 60 + ahora.minute
+    return minutosActuales > 17 * 60
+  }
+
+  return ahora.numeroDia >= 5 || ahora.numeroDia === 0
+}
+
 async function leerRespuestaJson<T>(res: Response): Promise<T> {
   const raw = await res.text()
 
@@ -298,6 +310,9 @@ export default function CasaTalentosPage() {
   const [referentesGenerales, setReferentesGenerales] = useState<ReferentesGenerales | null>(null)
   const [referentesSemanales, setReferentesSemanales] = useState<ReferenteSemanal[]>([])
   const [mensajesGenerales, setMensajesGenerales] = useState<MensajeGeneral[]>([])
+  const [participantesActivosCasaTalentos, setParticipantesActivosCasaTalentos] = useState<
+    { email: string; nombre: string }[]
+  >([])
 
   const [archivo, setArchivo] = useState<File | null>(null)
   const [titulo, setTitulo] = useState("")
@@ -410,6 +425,47 @@ export default function CasaTalentosPage() {
     }
   }, [mounted])
 
+  useEffect(() => {
+    if (!mounted || !esAdmin) return
+
+    let cancelado = false
+
+    const cargarParticipantesActivos = async () => {
+      try {
+        const res = await fetch("/api/espacios/participantes", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            actividadSlug: "casatalentos",
+          }),
+        })
+
+        const data = await leerRespuestaJson<{
+          participantes?: { email: string; nombre: string }[]
+          error?: string
+        }>(res)
+
+        if (!res.ok || cancelado) {
+          return
+        }
+
+        setParticipantesActivosCasaTalentos(data.participantes || [])
+      } catch {
+        if (!cancelado) {
+          setParticipantesActivosCasaTalentos([])
+        }
+      }
+    }
+
+    void cargarParticipantesActivos()
+
+    return () => {
+      cancelado = true
+    }
+  }, [esAdmin, mounted])
+
   const nombreDiaActual = useMemo(() => {
     const dias = [
       "Domingo",
@@ -496,7 +552,7 @@ export default function CasaTalentosPage() {
   const votosPorVideo = useMemo(() => {
     const mapa = new Map<number, number>()
     for (const voto of votosSemana) {
-      mapa.set(voto.video_id, (mapa.get(voto.video_id) || 0) + 1)
+      mapa.set(voto.video_id, (mapa.get(voto.video_id) || 0) + pesoEvaluacion(voto))
     }
     return mapa
   }, [votosSemana])
@@ -519,6 +575,8 @@ export default function CasaTalentosPage() {
         dias: Set<string>
         totalVotos: number
         participoEligiendo: boolean
+        subioLunes: boolean
+        subioMiercoles: boolean
         videos: VideoItem[]
       }
     >()
@@ -534,11 +592,16 @@ export default function CasaTalentosPage() {
           dias: new Set<string>(),
           totalVotos: 0,
           participoEligiendo: false,
+          subioLunes: false,
+          subioMiercoles: false,
           videos: [],
       }
 
-      if (video.dia_clave) {
-        actual.dias.add(normalizarClaveDia(video.dia_clave))
+      const diaNormalizado = normalizarClaveDia(video.dia_clave)
+      if (diaNormalizado) {
+        actual.dias.add(diaNormalizado)
+        if (diaNormalizado === "lunes") actual.subioLunes = true
+        if (diaNormalizado === "miercoles") actual.subioMiercoles = true
       }
 
       actual.totalVotos += votosPorVideo.get(video.id) || 0
@@ -549,17 +612,11 @@ export default function CasaTalentosPage() {
     const participantesQueEligieron = new Set(votosSemana.map((v) => claveVotante(v)))
 
     const lista = Array.from(mapa.values()).map((item) => {
-      const subioTres =
-        item.dias.has("lunes") &&
-        item.dias.has("martes") &&
-        item.dias.has("miercoles")
-
       const participoEligiendo = participantesQueEligieron.has(item.clave)
-      const elegible = subioTres && participoEligiendo
+      const elegible = item.subioLunes && item.subioMiercoles && participoEligiendo
 
       return {
         ...item,
-        subioTres,
         participoEligiendo,
         elegible,
       }
@@ -603,15 +660,7 @@ export default function CasaTalentosPage() {
     if (!semanaEnUso || semanaEnUso !== semanaActual) return true
     if (MODO_PRUEBA) return true
 
-    const esMiercolesArgentina = ahoraArgentina.weekday === "Wed"
-    const minutosActuales = ahoraArgentina.hour * 60 + ahoraArgentina.minute
-    const horarioRevelacion = 22 * 60
-
-    if (!esMiercolesArgentina) {
-      return ahoraArgentina.numeroDia === 0 || ahoraArgentina.numeroDia > 3
-    }
-
-    return minutosActuales >= horarioRevelacion
+    return resultadosDisponiblesSegunAhora(ahoraArgentina)
   }, [
     ahoraArgentina.hour,
     ahoraArgentina.minute,
@@ -626,14 +675,48 @@ export default function CasaTalentosPage() {
     switch (numeroDia) {
       case 1:
         return "lunes"
-      case 2:
-        return "martes"
       case 3:
         return "miercoles"
       default:
         return ""
     }
   }, [numeroDia])
+
+  const esMartesAportes = numeroDia === 2
+  const eleccionesHabilitadas = useMemo(() => {
+    if (MODO_PRUEBA) return true
+    if (semanaEnUso !== semanaActual) return false
+    if (ahoraArgentina.weekday !== "Thu") return false
+
+    const minutosActuales = ahoraArgentina.hour * 60 + ahoraArgentina.minute
+    return minutosActuales <= 17 * 60
+  }, [
+    ahoraArgentina.hour,
+    ahoraArgentina.minute,
+    ahoraArgentina.weekday,
+    semanaActual,
+    semanaEnUso,
+  ])
+
+  const participantesSinVideoLunes = useMemo(() => {
+    if (
+      !esAdmin ||
+      semanaEnUso !== semanaActual ||
+      participantesActivosCasaTalentos.length === 0
+    ) {
+      return []
+    }
+
+    const participantesConLunes = new Set(
+      videosSemana
+        .filter((video) => normalizarClaveDia(video.dia_clave || video.dia) === "lunes")
+        .map((video) => claveParticipante(video))
+    )
+
+    return participantesActivosCasaTalentos.filter((participante) => {
+      return !participantesConLunes.has(String(participante.email || "").trim().toLowerCase())
+    })
+  }, [esAdmin, participantesActivosCasaTalentos, semanaActual, semanaEnUso, videosSemana])
 
   const historialSemanal = useMemo(() => {
     return semanasDisponibles.map((semana) => {
@@ -646,7 +729,10 @@ export default function CasaTalentosPage() {
 
       const votosPorVideoSemana = new Map<number, number>()
       for (const voto of votosDeSemana) {
-        votosPorVideoSemana.set(voto.video_id, (votosPorVideoSemana.get(voto.video_id) || 0) + 1)
+        votosPorVideoSemana.set(
+          voto.video_id,
+          (votosPorVideoSemana.get(voto.video_id) || 0) + pesoEvaluacion(voto)
+        )
       }
 
       const mapaParticipantes = new Map<
@@ -658,6 +744,8 @@ export default function CasaTalentosPage() {
           dias: Set<string>
           totalVotos: number
           participoEligiendo: boolean
+          subioLunes: boolean
+          subioMiercoles: boolean
         }
       >()
 
@@ -671,11 +759,16 @@ export default function CasaTalentosPage() {
             dias: new Set<string>(),
             totalVotos: 0,
             participoEligiendo: false,
+            subioLunes: false,
+            subioMiercoles: false,
           }
 
         actual.videos.push(video)
-        if (video.dia_clave || video.dia) {
-          actual.dias.add(normalizarClaveDia(video.dia_clave || video.dia))
+        const diaNormalizado = normalizarClaveDia(video.dia_clave || video.dia)
+        if (diaNormalizado) {
+          actual.dias.add(diaNormalizado)
+          if (diaNormalizado === "lunes") actual.subioLunes = true
+          if (diaNormalizado === "miercoles") actual.subioMiercoles = true
         }
         actual.totalVotos += votosPorVideoSemana.get(video.id) || 0
         mapaParticipantes.set(clave, actual)
@@ -684,13 +777,8 @@ export default function CasaTalentosPage() {
       const participantesQueEligieron = new Set(votosDeSemana.map((voto) => claveVotante(voto)))
 
       const participantes = Array.from(mapaParticipantes.values()).map((item) => {
-        const subioTres =
-          item.dias.has("lunes") &&
-          item.dias.has("martes") &&
-          item.dias.has("miercoles")
-
         const participoEligiendo = participantesQueEligieron.has(item.clave)
-        const elegible = subioTres && participoEligiendo
+        const elegible = item.subioLunes && item.subioMiercoles && participoEligiendo
 
         return {
           nombre: item.nombre,
@@ -698,6 +786,9 @@ export default function CasaTalentosPage() {
             (a, b) => ordenDia(a.dia_clave || a.dia) - ordenDia(b.dia_clave || b.dia)
           ),
           totalVotos: item.totalVotos,
+          subioLunes: item.subioLunes,
+          subioMiercoles: item.subioMiercoles,
+          participoEligiendo,
           elegible,
         }
       })
@@ -958,7 +1049,7 @@ export default function CasaTalentosPage() {
 
     try {
       setEligiendo(true)
-      setMensajeExito("Guardando elección...")
+      setMensajeExito("Guardando evaluación...")
 
       const res = await fetch("/api/casatalentos/votar", {
         method: "POST",
@@ -978,16 +1069,16 @@ export default function CasaTalentosPage() {
 
       if (!res.ok) {
         setMensajeExito("")
-        setMensajeError(data.error || "No se pudo guardar la elección.")
+        setMensajeError(data.error || "No se pudo guardar la evaluación.")
         return
       }
 
-      setMensajeExito("Elección guardada correctamente.")
+      setMensajeExito("Evaluación guardada correctamente.")
       await cargarDatosCasaTalentos()
     } catch (error) {
       console.error("Error al elegir:", error)
       setMensajeExito("")
-      setMensajeError("Hubo un problema al elegir.")
+      setMensajeError("Hubo un problema al guardar la evaluación.")
     } finally {
       setEligiendo(false)
     }
@@ -1248,8 +1339,9 @@ export default function CasaTalentosPage() {
   const textoReferentesGenerales =
     referentesGenerales?.contenido?.trim() ||
     `Para ser ganador/a de la semana:
-+ Subir y participar con tus videos semanales de 1 min., uno por día: lunes, martes y miércoles
-+ ¡Elegir el día miércoles entre las 18:30 y las 21:30 hs el video que consideres el más valioso!`
++ Subir y participar con tus videos semanales de 1 min.: lunes y miércoles
++ El martes es día de aportes escritos para acompañar el proceso
++ Participar de la elección/evaluación del jueves hasta las 17:00 hs`
 
   if (!mounted || !sesionLista) {
     return (
@@ -1432,6 +1524,21 @@ export default function CasaTalentosPage() {
                   </div>
                 </div>
 
+                {esAdmin && participantesSinVideoLunes.length > 0 && (
+                  <div className="workspace-panel-soft space-y-3 border border-[#E8B4B4] bg-[#FFF6F6]">
+                    <h3 className="text-lg font-semibold text-[#8A2D2D]">
+                      Seguimiento del lunes
+                    </h3>
+                    <div className="space-y-2 text-sm text-[#7A1F1F]">
+                      {participantesSinVideoLunes.map((participante) => (
+                        <p key={participante.email}>
+                          {participante.nombre} no envió su video del lunes.
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {!esAdmin && (
                   <div className="workspace-panel-soft space-y-3">
                     <h3 className="text-lg font-semibold">Referente general</h3>
@@ -1479,7 +1586,8 @@ export default function CasaTalentosPage() {
                   <div className="workspace-divider pt-4 space-y-4">
                     <h3 className="text-lg font-semibold">Subir tu video</h3>
                     <p className="workspace-inline-note">
-                      Puedes grabarlo ahora desde la cámara o elegir un archivo ya guardado.
+                      Podés grabarlo ahora desde la cámara o elegir un archivo ya guardado. El
+                      martes el trabajo pasa por los aportes escritos a los videos del lunes.
                     </p>
 
                     <input
@@ -1533,6 +1641,18 @@ export default function CasaTalentosPage() {
                   </div>
                 )}
 
+                {!esAdmin && semanaEnUso === semanaActual && esMartesAportes && (
+                  <div className="workspace-panel-soft space-y-3 border border-[#D6C39A] bg-[#FFF6E4]/70">
+                    <h3 className="text-lg font-semibold text-[#6D4F17]">
+                      Martes de aportes
+                    </h3>
+                    <p className="workspace-inline-note text-[var(--foreground)]">
+                      Hoy no se sube video. El martes está dedicado a escribir aportes sobre los
+                      videos del lunes para acompañar la evolución del proceso.
+                    </p>
+                  </div>
+                )}
+
                 {!esAdmin &&
                   semanaEnUso === semanaActual &&
                   Boolean(diaActualClave) &&
@@ -1546,6 +1666,10 @@ export default function CasaTalentosPage() {
 
                   <div className="workspace-divider pt-4 space-y-4">
                     <h3 className="text-lg font-semibold">Videos de la semana</h3>
+                    <p className="workspace-inline-note">
+                      La elección/evaluación del jueves considera el proceso completo: video del
+                      lunes, aportes del martes y video del miércoles.
+                    </p>
 
                   {semanasDisponibles.length === 0 && (
                     <p className="workspace-inline-note">Todavía no hay semanas registradas.</p>
@@ -1589,7 +1713,7 @@ export default function CasaTalentosPage() {
                             </p>
                           ) : (
                             <p className="workspace-inline-note text-xs">
-                              Elecciones recibidas: resultado oculto hasta las 22:00 hs de Argentina.
+                              Elecciones recibidas: resultado oculto hasta el jueves a las 17:00 hs de Argentina.
                             </p>
                           )}
                         </div>
@@ -1641,9 +1765,14 @@ export default function CasaTalentosPage() {
                             type="radio"
                             name="video-elegido"
                             checked={elegidoSeleccionado === video.id}
-                            onChange={() => setElegidoSeleccionado(video.id)}
+                            onChange={() => {
+                              if (eleccionesHabilitadas) {
+                                setElegidoSeleccionado(video.id)
+                              }
+                            }}
+                            disabled={!eleccionesHabilitadas}
                           />
-                          Elegir este video
+                          Elegir este proceso
                         </label>
 
                         <div className="workspace-divider pt-4 space-y-3">
@@ -1698,10 +1827,10 @@ export default function CasaTalentosPage() {
                     <button
                       type="button"
                       onClick={handleElegir}
-                      disabled={eligiendo || elegidoSeleccionado === null}
+                      disabled={eligiendo || elegidoSeleccionado === null || !eleccionesHabilitadas}
                       className="workspace-button-primary disabled:opacity-60"
                     >
-                      {eligiendo ? "Guardando elección..." : "Confirmar elección"}
+                      {eligiendo ? "Guardando evaluación..." : "Confirmar evaluación"}
                     </button>
 
                     {!esAdmin && (
@@ -1721,10 +1850,10 @@ export default function CasaTalentosPage() {
 
                   {!resultadosVotacionVisibles && (
                     <div className="workspace-panel-soft space-y-2">
-                      <p className="font-medium">Votación secreta en curso</p>
+                      <p className="font-medium">Evaluación en curso</p>
                       <p className="workspace-inline-note">
-                        Hasta las 22:00 hs de Argentina no se muestran resultados parciales
-                        ni ranking de la semana. El resultado se revela al cierre.
+                        Hasta el jueves a las 17:00 hs de Argentina no se muestran resultados
+                        parciales ni ranking de la semana. El resultado se revela al cierre.
                       </p>
                     </div>
                   )}
@@ -1747,10 +1876,11 @@ export default function CasaTalentosPage() {
                               Elecciones recibidas: {item.totalVotos}
                             </p>
                             <p className="workspace-inline-note text-xs">
-                              Subió lunes, martes y miércoles: {item.subioTres ? "sí" : "no"}
+                              Subió lunes y miércoles:{" "}
+                              {item.subioLunes && item.subioMiercoles ? "sí" : "no"}
                             </p>
                             <p className="workspace-inline-note text-xs">
-                              Participó eligiendo: {item.participoEligiendo ? "sí" : "no"}
+                              Participó en la elección: {item.participoEligiendo ? "sí" : "no"}
                             </p>
                             <p className="workspace-inline-note text-xs">
                               Elegible para ganar: {item.elegible ? "sí" : "no"}
@@ -1764,7 +1894,9 @@ export default function CasaTalentosPage() {
 
                         {!ganadorSemana && (
                           <p className="workspace-inline-note">
-                            No hay ganador definido esta semana. Para ganar hay que subir los 3 videos y además participar eligiendo.
+                            No hay ganador definido esta semana. Para ganar hay que subir los
+                            videos del lunes y miércoles, y además participar de la
+                            elección/evaluación del jueves.
                           </p>
                         )}
 
@@ -1781,7 +1913,8 @@ export default function CasaTalentosPage() {
                               Elecciones recibidas: {ganadorSemana.participante.totalVotos}
                             </p>
                             <p className="workspace-inline-note text-xs">
-                              Cumplió con subir lunes, martes y miércoles y además participó eligiendo.
+                              Cumplió con subir lunes y miércoles y además participó de la
+                              elección/evaluación del jueves.
                             </p>
                           </div>
                         )}

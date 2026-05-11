@@ -49,20 +49,19 @@ export async function POST(req: Request) {
     if (!MODO_PRUEBA) {
       const ahora = obtenerPartesArgentina()
 
-      if (ahora.weekdayShort !== "Wed") {
+      if (ahora.weekdayShort !== "Thu") {
         return NextResponse.json(
-          { error: "La evaluación solo está habilitada los miércoles." },
+          { error: "La evaluación solo está habilitada los jueves." },
           { status: 400 }
         )
       }
 
       const minutosActuales = ahora.hour * 60 + ahora.minute
-      const inicio = 18 * 60 + 30
-      const fin = 21 * 60 + 30
+      const fin = 17 * 60
 
-      if (minutosActuales < inicio || minutosActuales > fin) {
+      if (minutosActuales > fin) {
         return NextResponse.json(
-          { error: "La evaluación está habilitada solo entre las 18:30 y las 21:30 hs." },
+          { error: "La evaluación está habilitada hasta el jueves a las 17:00 hs." },
           { status: 400 }
         )
       }
