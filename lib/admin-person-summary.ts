@@ -95,6 +95,25 @@ export type AgendaResumen = {
   notasDocumento: string | null
 }
 
+export type HistorialPagoResumen = {
+  id: string
+  origen: "mensual" | "reserva"
+  actividad: Exclude<ActividadSlugResumen, "charla-introductoria">
+  etiquetaActividad: string
+  estado: string
+  monto: number | null
+  moneda: string | null
+  periodo: string | null
+  medioPago: string | null
+  fechaCarga: string | null
+  comprobanteNombreArchivo: string | null
+  observacionesAdmin: string | null
+  verComprobanteUrl: string | null
+  descargarComprobanteUrl: string | null
+  puedeResolver: boolean
+  requiereRevisionComprobante: boolean
+}
+
 export type AlertaResumen = {
   codigo:
     | "actividad_sin_inscripcion"
@@ -119,6 +138,7 @@ export type PersonaResumen = {
   actividades: ActividadResumen[]
   economia: EconomiaResumen[]
   agenda: AgendaResumen[]
+  historialPagos: HistorialPagoResumen[]
   alertas: AlertaResumen[]
   resumen: {
     actividadesActivas: number
@@ -180,6 +200,10 @@ type PagoRow = {
   monto?: string | number | null
   moneda?: string | null
   medio_pago?: string | null
+  comprobante_nombre_archivo?: string | null
+  comprobante_url?: string | null
+  observaciones_admin?: string | null
+  comprobante_subido_at?: string | null
   anio?: number | null
   mes?: number | null
   created_at?: string | null
@@ -202,6 +226,15 @@ type ReservaRow = {
   id: number
   participante_email?: string | null
   estado?: string | null
+  medio_pago?: string | null
+  monto?: string | number | null
+  monto_transferencia?: string | number | null
+  monto_mercado_pago?: string | number | null
+  comprobante_nombre_archivo?: string | null
+  comprobante_url?: string | null
+  observaciones_admin?: string | null
+  comprobante_subido_at?: string | null
+  created_at?: string | null
   disponibilidades?: {
     id?: number | null
     actividad_slug?: string | null
@@ -442,6 +475,31 @@ function construirPeriodoPago(
   return pago.created_at || null
 }
 
+function normalizarEstadoHistorialPago(
+  origen: "mensual" | "reserva",
+  estado?: string | null
+) {
+  const value = String(estado || "").trim().toLowerCase()
+
+  if (origen === "mensual") {
+    return value || "pendiente"
+  }
+
+  if (value === "confirmada") {
+    return "pagado"
+  }
+
+  if (value === "cancelada") {
+    return "rechazado"
+  }
+
+  if (value === "pendiente_pago") {
+    return "en_revision"
+  }
+
+  return value || "pendiente"
+}
+
 export async function buildAdminPersonSummaries(): Promise<PersonaResumen[]> {
   const supabase = createAdminSupabaseClient()
   const hoy = obtenerFechaISOArgentina()
@@ -531,7 +589,7 @@ export async function buildAdminPersonSummaries(): Promise<PersonaResumen[]> {
         ? supabase
             .from("pagos_mensuales")
             .select(
-              "id, actividad_id, inscripcion_id, estado, monto, moneda, medio_pago, anio, mes, created_at"
+              "id, actividad_id, inscripcion_id, estado, monto, moneda, medio_pago, comprobante_nombre_archivo, comprobante_url, observaciones_admin, comprobante_subido_at, anio, mes, created_at"
             )
             .in("inscripcion_id", inscripcionIds)
             .order("created_at", { ascending: false })
@@ -562,7 +620,7 @@ export async function buildAdminPersonSummaries(): Promise<PersonaResumen[]> {
         ? supabase
             .from("reservas")
             .select(
-              "id, participante_email, estado, disponibilidades(id, actividad_slug, fecha, hora, duracion, titulo, meet_link)"
+              "id, participante_email, estado, medio_pago, monto, monto_transferencia, monto_mercado_pago, comprobante_nombre_archivo, comprobante_url, observaciones_admin, comprobante_subido_at, created_at, disponibilidades(id, actividad_slug, fecha, hora, duracion, titulo, meet_link)"
             )
             .in("participante_email", emails)
             .order("created_at", { ascending: false })
@@ -617,6 +675,110 @@ export async function buildAdminPersonSummaries(): Promise<PersonaResumen[]> {
       continue
     }
     ultimoPagoPorInscripcion.set(pago.inscripcion_id, pago)
+  }
+
+  const inscripcionPorId = new Map<number, InscripcionRow>()
+  for (const inscripcion of inscripciones) {
+    inscripcionPorId.set(inscripcion.id, inscripcion)
+  }
+
+  const pagosPorEmail = new Map<string, HistorialPagoResumen[]>()
+  for (const pago of pagos) {
+    if (!pago.inscripcion_id) continue
+    const inscripcion = inscripcionPorId.get(pago.inscripcion_id)
+    if (!inscripcion?.actividad_id) continue
+
+    const email = normalizarEmail(inscripcion.participante_email)
+    const actividadSlug = actividadSlugPorId.get(inscripcion.actividad_id)
+
+    if (!email || !actividadSlug) continue
+
+    const estadoNormalizado = normalizarEstadoHistorialPago(
+      "mensual",
+      pago.estado
+    )
+
+    const item: HistorialPagoResumen = {
+      id: `mensual:${pago.id}`,
+      origen: "mensual",
+      actividad: actividadSlug,
+      etiquetaActividad: actividadNombrePorSlug.get(actividadSlug) || actividadSlug,
+      estado: estadoNormalizado,
+      monto: normalizarMonto(pago.monto),
+      moneda: pago.moneda || null,
+      periodo: construirPeriodoPago(pago),
+      medioPago: pago.medio_pago || null,
+      fechaCarga: pago.comprobante_subido_at || pago.created_at || null,
+      comprobanteNombreArchivo: pago.comprobante_nombre_archivo || null,
+      observacionesAdmin: pago.observaciones_admin || null,
+      verComprobanteUrl: pago.comprobante_url
+        ? `/admin/pagos-mensuales/comprobante?pagoMensualId=${pago.id}`
+        : null,
+      descargarComprobanteUrl: pago.comprobante_url
+        ? `/admin/pagos-mensuales/comprobante?pagoMensualId=${pago.id}`
+        : null,
+      puedeResolver: estadoNormalizado === "en_revision" && Boolean(pago.comprobante_url),
+      requiereRevisionComprobante:
+        estadoNormalizado === "en_revision" &&
+        pago.medio_pago === "transferencia",
+    }
+
+    if (!pagosPorEmail.has(email)) {
+      pagosPorEmail.set(email, [])
+    }
+    pagosPorEmail.get(email)!.push(item)
+  }
+
+  for (const reserva of reservas) {
+    const email = normalizarEmail(reserva.participante_email)
+    const actividadSlug = reserva.disponibilidades?.actividad_slug
+
+    if (!email || !actividadSlug) continue
+    if (actividadSlug !== "mentorias" && actividadSlug !== "terapia") continue
+
+    const estadoNormalizado = normalizarEstadoHistorialPago(
+      "reserva",
+      reserva.estado
+    )
+
+    const montoBase =
+      reserva.monto_transferencia ??
+      reserva.monto ??
+      reserva.monto_mercado_pago ??
+      null
+
+    const item: HistorialPagoResumen = {
+      id: `reserva:${reserva.id}`,
+      origen: "reserva",
+      actividad: actividadSlug,
+      etiquetaActividad: actividadNombrePorSlug.get(actividadSlug) || actividadSlug,
+      estado: estadoNormalizado,
+      monto: normalizarMonto(montoBase),
+      moneda: "ARS",
+      periodo: reserva.disponibilidades?.fecha || null,
+      medioPago: reserva.medio_pago || null,
+      fechaCarga: reserva.comprobante_subido_at || reserva.created_at || null,
+      comprobanteNombreArchivo: reserva.comprobante_nombre_archivo || null,
+      observacionesAdmin: reserva.observaciones_admin || null,
+      verComprobanteUrl: reserva.comprobante_url
+        ? `/api/reservas/comprobante?reservaId=${reserva.id}`
+        : null,
+      descargarComprobanteUrl: reserva.comprobante_url
+        ? `/api/reservas/comprobante?reservaId=${reserva.id}`
+        : null,
+      puedeResolver:
+        actividadSlug === "terapia" &&
+        estadoNormalizado === "en_revision" &&
+        Boolean(reserva.comprobante_url),
+      requiereRevisionComprobante:
+        estadoNormalizado === "en_revision" &&
+        reserva.medio_pago === "transferencia",
+    }
+
+    if (!pagosPorEmail.has(email)) {
+      pagosPorEmail.set(email, [])
+    }
+    pagosPorEmail.get(email)!.push(item)
   }
 
   const proximasGrupales = new Map<
@@ -681,6 +843,9 @@ export async function buildAdminPersonSummaries(): Promise<PersonaResumen[]> {
     const economia: EconomiaResumen[] = []
     const agenda: AgendaResumen[] = []
     const alertas: AlertaResumen[] = []
+    const historialPagos = (pagosPorEmail.get(email) || [])
+      .slice()
+      .sort((a, b) => String(b.fechaCarga || "").localeCompare(String(a.fechaCarga || "")))
 
     if (!usuario.activo) {
       alertas.push({
@@ -996,6 +1161,7 @@ export async function buildAdminPersonSummaries(): Promise<PersonaResumen[]> {
       actividades,
       economia,
       agenda,
+      historialPagos,
       alertas,
       resumen: {
         actividadesActivas,

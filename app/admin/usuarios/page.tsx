@@ -10,6 +10,7 @@ import type {
   AgendaResumen,
   AlertaResumen,
   EconomiaResumen,
+  HistorialPagoResumen,
   PersonaResumen,
 } from "@/lib/admin-person-summary"
 import {
@@ -253,6 +254,21 @@ function estadoPagoLabel(estado?: string | null) {
       return "Rechazado"
     default:
       return estado || "Sin pago"
+  }
+}
+
+function medioPagoLabel(medio?: string | null) {
+  switch (medio) {
+    case "transferencia":
+      return "Transferencia"
+    case "mercado_pago":
+      return "Mercado Pago"
+    case "manual":
+      return "Manual"
+    case "sin_cargo":
+      return "Sin cargo"
+    default:
+      return medio || "Sin definir"
   }
 }
 
@@ -990,6 +1006,54 @@ export default function AdminUsuariosPage() {
     [recargarTodo]
   )
 
+  const resolverReservaDesdeFicha = useCallback(
+    async (
+      persona: PersonaResumen,
+      reservaId: string,
+      accion: "aprobar" | "rechazar"
+    ) => {
+      const key = actividadKey(persona.email, `reserva:${reservaId}`)
+
+      try {
+        setPagoGuardandoKey(key)
+        setMensaje("")
+
+        const res = await fetch("/api/terapia/admin/resolver-pago-reserva", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reservaId: Number(reservaId),
+            accion,
+          }),
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+          throw new Error(data.error || "No se pudo resolver la reserva.")
+        }
+
+        setMensaje(
+          accion === "aprobar"
+            ? data.advertencia
+              ? `Reserva aprobada. ${data.advertencia}`
+              : "Reserva aprobada desde la ficha."
+            : "Reserva rechazada desde la ficha."
+        )
+        await recargarTodo()
+      } catch (error) {
+        setMensaje(
+          error instanceof Error
+            ? error.message
+            : "No se pudo resolver la reserva."
+        )
+      } finally {
+        setPagoGuardandoKey(null)
+      }
+    },
+    [recargarTodo]
+  )
+
   const crearEncuentroDesdeFicha = useCallback(
     async (
       persona: PersonaResumen,
@@ -1497,6 +1561,190 @@ export default function AdminUsuariosPage() {
     )
   }
 
+  const renderHistorialPagos = (persona: PersonaResumen) => {
+    if (persona.historialPagos.length === 0) {
+      return (
+        <p className="text-sm text-gray-600">
+          No hay pagos ni comprobantes visibles para esta persona.
+        </p>
+      )
+    }
+
+    const grupos = persona.historialPagos.reduce<Record<string, HistorialPagoResumen[]>>(
+      (acc, item) => {
+        const key = item.actividad
+        acc[key] = acc[key] || []
+        acc[key].push(item)
+        return acc
+      },
+      {}
+    )
+
+    return (
+      <div className="space-y-3">
+        {Object.entries(grupos).map(([actividad, items]) => (
+          <div
+            key={actividad}
+            className="rounded-xl border border-[var(--line)] bg-[rgba(255,250,242,0.7)] p-3"
+          >
+            <div className="flex items-center gap-2">
+              <strong className="text-sm">{nombreActividad(actividad)}</strong>
+              <span className="workspace-chip">
+                {items.length} movimiento/s
+              </span>
+            </div>
+
+            <div className="mt-3 space-y-3">
+              {items.map((item) => {
+                const pagoKey = actividadKey(persona.email, item.id)
+                const bloqueadoResolver =
+                  item.requiereRevisionComprobante && !item.verComprobanteUrl
+
+                return (
+                  <div
+                    key={item.id}
+                    className="rounded-xl border border-[var(--line)] bg-white/80 p-3 text-sm"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold">
+                        {estadoPagoLabel(item.estado)}
+                      </span>
+                      <span className="workspace-chip">
+                        {item.origen === "mensual" ? "Pago mensual" : "Reserva"}
+                      </span>
+                      {item.periodo && (
+                        <span className="text-xs text-[var(--muted)]">
+                          {item.periodo}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                      <InfoItem
+                        label="Monto"
+                        value={
+                          item.monto != null
+                            ? `${item.moneda || "ARS"} ${item.monto}`
+                            : "—"
+                        }
+                      />
+                      <InfoItem
+                        label="Medio de pago"
+                        value={medioPagoLabel(item.medioPago)}
+                      />
+                      <InfoItem
+                        label="Fecha de carga"
+                        value={item.fechaCarga}
+                      />
+                      <InfoItem
+                        label="Comprobante"
+                        value={item.comprobanteNombreArchivo || "Sin archivo"}
+                      />
+                    </div>
+
+                    {item.observacionesAdmin && (
+                      <div className="mt-3 rounded-xl border border-[var(--line)] bg-[rgba(255,250,242,0.8)] p-3 text-xs text-gray-600">
+                        <strong className="block text-[11px] uppercase tracking-[0.14em] text-[var(--sea)]">
+                          Observaciones admin
+                        </strong>
+                        <p className="mt-1 whitespace-pre-wrap">
+                          {item.observacionesAdmin}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {item.verComprobanteUrl ? (
+                        <>
+                          <a
+                            href={item.verComprobanteUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="workspace-button-secondary !px-3 !py-1.5 text-xs"
+                          >
+                            Ver comprobante
+                          </a>
+                          <a
+                            href={item.descargarComprobanteUrl || item.verComprobanteUrl}
+                            download
+                            className="workspace-button-secondary !px-3 !py-1.5 text-xs"
+                          >
+                            Descargar comprobante
+                          </a>
+                        </>
+                      ) : (
+                        <span className="text-xs text-gray-500">
+                          No hay comprobante adjunto.
+                        </span>
+                      )}
+
+                      {item.puedeResolver && (
+                        <>
+                          <button
+                            type="button"
+                            disabled={
+                              pagoGuardandoKey === pagoKey || bloqueadoResolver
+                            }
+                            onClick={() =>
+                              item.origen === "mensual"
+                                ? void resolverPagoDesdeFicha(
+                                    persona,
+                                    item.id.replace("mensual:", ""),
+                                    "aprobar"
+                                  )
+                                : void resolverReservaDesdeFicha(
+                                    persona,
+                                    item.id.replace("reserva:", ""),
+                                    "aprobar"
+                                  )
+                            }
+                            className="workspace-button-secondary !px-3 !py-1.5 text-xs"
+                          >
+                            {pagoGuardandoKey === pagoKey
+                              ? "Procesando..."
+                              : "Aprobar"}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={
+                              pagoGuardandoKey === pagoKey || bloqueadoResolver
+                            }
+                            onClick={() =>
+                              item.origen === "mensual"
+                                ? void resolverPagoDesdeFicha(
+                                    persona,
+                                    item.id.replace("mensual:", ""),
+                                    "rechazar"
+                                  )
+                                : void resolverReservaDesdeFicha(
+                                    persona,
+                                    item.id.replace("reserva:", ""),
+                                    "rechazar"
+                                  )
+                            }
+                            className="workspace-button-secondary !px-3 !py-1.5 text-xs"
+                          >
+                            Rechazar
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    {item.requiereRevisionComprobante && !item.verComprobanteUrl && (
+                      <p className="mt-2 text-xs text-[rgb(156,69,59)]">
+                        Falta comprobante visible para revisar antes de aprobar.
+                      </p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   const renderAlerta = (alerta: AlertaResumen) => (
     <div
       key={`${alerta.codigo}-${alerta.actividad || "general"}-${alerta.titulo}`}
@@ -1660,6 +1908,10 @@ export default function AdminUsuariosPage() {
                   )}
                 </div>
               )}
+            </BloqueFicha>
+
+            <BloqueFicha titulo="Historial de pagos y comprobantes">
+              {renderHistorialPagos(persona)}
             </BloqueFicha>
 
             <BloqueFicha titulo="Agenda">
