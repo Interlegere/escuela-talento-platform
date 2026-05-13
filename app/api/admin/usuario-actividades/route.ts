@@ -4,6 +4,7 @@ import { asegurarActividadBase } from "@/lib/core-activities"
 import {
   asegurarHonorarioYPagoAdmin,
   syncInscripcionAdmin,
+  syncHonorarioEstadoAdmin,
   syncUsuarioActividadAdmin,
 } from "@/lib/admin-activity-sync"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
@@ -193,6 +194,13 @@ export async function POST(req: Request) {
         participanteEmail: usuarioEmail,
         participanteNombre: nombreCompleto,
         activa: actividad.habilitada,
+      })
+
+      await syncHonorarioEstadoAdmin({
+        supabase,
+        actividadId: actividadBase.id,
+        participanteEmail: usuarioEmail,
+        activo: actividad.habilitada,
       })
 
       if (!actividad.habilitada) {

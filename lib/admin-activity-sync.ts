@@ -28,6 +28,7 @@ type AsegurarHonorarioYPagoParams = {
   actividadSlug: ActivitySlug
   participanteEmail: string
   participanteNombre: string
+  medioPago?: string | null
 }
 
 type HonorarioAdminRow = {
@@ -49,6 +50,16 @@ type ResultadoProvisionPago = {
 
 function normalizarEmail(email?: string | null) {
   return String(email || "").trim().toLowerCase()
+}
+
+function esModalidadEspecial(
+  modalidad?: string | null
+): modalidad is "becado" | "invitado" | "sin_cobro" {
+  return (
+    modalidad === "becado" ||
+    modalidad === "invitado" ||
+    modalidad === "sin_cobro"
+  )
 }
 
 export async function syncUsuarioActividadAdmin(params: SyncUsuarioActividadParams) {
@@ -154,12 +165,40 @@ export async function syncInscripcionAdmin(params: SyncInscripcionParams) {
   }
 }
 
+export async function syncHonorarioEstadoAdmin(params: {
+  supabase: SupabaseAdmin
+  actividadId: number
+  participanteEmail: string
+  activo: boolean
+}) {
+  const { supabase, actividadId, activo } = params
+  const participanteEmail = normalizarEmail(params.participanteEmail)
+
+  if (!actividadId || !participanteEmail) {
+    throw new Error("Faltan datos para sincronizar el estado del honorario.")
+  }
+
+  const { error } = await supabase
+    .from("honorarios_participante")
+    .update({
+      activo,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("actividad_id", actividadId)
+    .eq("participante_email", participanteEmail)
+
+  if (error) {
+    throw new Error(`No se pudo sincronizar el estado del honorario: ${error.message}`)
+  }
+}
+
 export async function asegurarHonorarioYPagoAdmin(
   params: AsegurarHonorarioYPagoParams
 ): Promise<ResultadoProvisionPago> {
   const { supabase, actividadId, actividadSlug } = params
   const participanteEmail = normalizarEmail(params.participanteEmail)
   const participanteNombre = String(params.participanteNombre || "").trim()
+  const medioPago = params.medioPago || null
 
   if (!actividadId || !participanteEmail) {
     return {
@@ -262,6 +301,7 @@ export async function asegurarHonorarioYPagoAdmin(
     honorario.modalidad_pago,
     actividadSlug
   )
+  const modalidadEspecial = esModalidadEspecial(honorario.modalidad_pago)
 
   if (modalidadPago === "sesion") {
     return {
@@ -336,16 +376,28 @@ export async function asegurarHonorarioYPagoAdmin(
   const moneda = honorario.moneda || "ARS"
 
   if (pagoExistente) {
+    const cambiosPago: Record<string, unknown> = {}
+
     if (
       String(pagoExistente.monto) !== monto ||
       String(pagoExistente.moneda || "") !== moneda
     ) {
+      cambiosPago.monto = monto
+      cambiosPago.moneda = moneda
+    }
+
+    if (medioPago && String(pagoExistente.medio_pago || "") !== medioPago) {
+      cambiosPago.medio_pago = medioPago
+    }
+
+    if (modalidadEspecial && pagoExistente.estado !== "pagado") {
+      cambiosPago.estado = "pagado"
+    }
+
+    if (Object.keys(cambiosPago).length > 0) {
       const { error: pagoUpdateError } = await supabase
         .from("pagos_mensuales")
-        .update({
-          monto,
-          moneda,
-        })
+        .update(cambiosPago)
         .eq("id", pagoExistente.id)
 
       if (pagoUpdateError) {
@@ -368,9 +420,10 @@ export async function asegurarHonorarioYPagoAdmin(
       inscripcion_id: inscripcion.id,
       anio,
       mes,
-      estado: "pendiente",
+      estado: modalidadEspecial ? "pagado" : "pendiente",
       monto,
       moneda,
+      medio_pago: medioPago,
     })
 
   if (nuevoPagoError) {

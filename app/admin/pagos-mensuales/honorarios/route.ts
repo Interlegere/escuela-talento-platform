@@ -12,10 +12,11 @@ type Body = {
   actividadSlug: ActivitySlug
   participanteEmail: string
   participanteNombre?: string
-  honorarioMensual: string | number
+  honorarioMensual?: string | number | null
   modalidadPago?: string
   moneda?: string
   activo?: boolean
+  medioSugerido?: "transferencia" | "mercado_pago" | "manual" | null
 }
 
 type ActividadRow = {
@@ -71,6 +72,39 @@ function normalizarMonto(input: string | number) {
 
   const parsed = Number(raw)
   return Number.isFinite(parsed) ? parsed : NaN
+}
+
+function normalizarModalidadAdmin(
+  modalidad?: string | null,
+  actividadSlug?: ActivitySlug
+) {
+  const value = String(modalidad || "").trim().toLowerCase()
+
+  if (
+    value === "becado" ||
+    value === "invitado" ||
+    value === "sin_cobro"
+  ) {
+    return value
+  }
+
+  if (value === "por_sesion") {
+    return "sesion"
+  }
+
+  if (value === "por_proceso") {
+    return "proceso"
+  }
+
+  return normalizarModalidadPago(value, actividadSlug)
+}
+
+function permiteMontoCero(modalidad: string) {
+  return (
+    modalidad === "becado" ||
+    modalidad === "invitado" ||
+    modalidad === "sin_cobro"
+  )
 }
 
 export async function GET() {
@@ -249,10 +283,11 @@ export async function POST(req: Request) {
     const actividadSlug = body.actividadSlug
     const participanteEmail = String(body.participanteEmail || "").trim().toLowerCase()
     const participanteNombre = String(body.participanteNombre || "").trim()
-    const honorarioMensual = normalizarMonto(body.honorarioMensual)
-    const modalidadPago = normalizarModalidadPago(body.modalidadPago, actividadSlug)
+    const modalidadPago = normalizarModalidadAdmin(body.modalidadPago, actividadSlug)
+    const honorarioMensual = normalizarMonto(body.honorarioMensual ?? 0)
     const moneda = String(body.moneda || "ARS").trim().toUpperCase() || "ARS"
     const activo = body.activo !== false
+    const medioSugerido = body.medioSugerido || null
 
     if (!actividadSlug) {
       return NextResponse.json(
@@ -268,11 +303,17 @@ export async function POST(req: Request) {
       )
     }
 
-    if (Number.isNaN(honorarioMensual) || honorarioMensual <= 0) {
+    if (
+      Number.isNaN(honorarioMensual) ||
+      (!permiteMontoCero(modalidadPago) && honorarioMensual <= 0) ||
+      (permiteMontoCero(modalidadPago) && honorarioMensual < 0)
+    ) {
       return NextResponse.json(
         {
           error:
-            "Ingresá un honorario válido mayor a 0. Escribí sólo el número y elegí la moneda aparte.",
+            permiteMontoCero(modalidadPago)
+              ? "Ingresá un honorario válido igual o mayor a 0."
+              : "Ingresá un honorario válido mayor a 0. Escribí sólo el número y elegí la moneda aparte.",
         },
         { status: 400 }
       )
@@ -397,6 +438,7 @@ export async function POST(req: Request) {
         actividadSlug,
         participanteEmail,
         participanteNombre: nombreDesdeUsuario || participanteNombre,
+        medioPago: medioSugerido,
       })
 
       advertencia = provision.advertencia || null

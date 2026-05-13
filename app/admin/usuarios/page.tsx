@@ -5,11 +5,17 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
 import SeccionDesplegable from "@/components/SeccionDesplegable"
+import type {
+  ActividadResumen,
+  AgendaResumen,
+  AlertaResumen,
+  EconomiaResumen,
+  PersonaResumen,
+} from "@/lib/admin-person-summary"
 import {
   normalizarDocumentosNotas,
   serializarDocumentosNotas,
 } from "@/lib/documentos-notas"
-import { etiquetaModalidadPago, type BillingMode } from "@/lib/billing"
 
 type Usuario = {
   id: string
@@ -23,36 +29,6 @@ type Usuario = {
   role: "admin" | "colaborador" | "participante"
   activo: boolean
   created_at?: string | null
-}
-
-type HonorarioAsignado = {
-  id: number
-  actividad_id: number
-  actividad_slug: string
-  actividad_nombre: string
-  participante_email: string
-  participante_nombre: string
-  honorario_mensual: string | number
-  modalidad_pago: BillingMode
-  moneda: string
-  activo: boolean
-  updated_at?: string
-  ultimo_pago?: {
-    id: number
-    estado: string
-    monto: string | number
-    moneda: string
-    anio?: number | null
-    mes?: number | null
-    created_at?: string | null
-  } | null
-}
-
-type UsuarioActividad = {
-  id: number
-  actividad_slug: string
-  estado: "activa" | "inactiva"
-  notas?: string | null
 }
 
 type ActividadesFormState = {
@@ -76,6 +52,31 @@ type FormState = {
   password: string
   enviarBienvenida: boolean
   actividades: ActividadesFormState
+}
+
+type ModalidadOperable =
+  | "mensual"
+  | "por_sesion"
+  | "por_proceso"
+  | "becado"
+  | "invitado"
+  | "sin_cobro"
+
+type MedioSugerido = "transferencia" | "mercado_pago" | "manual" | ""
+
+type EconomiaDraft = {
+  monto: string
+  moneda: string
+  modalidad: ModalidadOperable
+  medioSugerido: MedioSugerido
+}
+
+type AgendaDraft = {
+  fecha: string
+  hora: string
+  duracion: string
+  meetLink: string
+  notasDocumentos: string
 }
 
 const ACTIVIDADES_FORM_INICIAL: ActividadesFormState = {
@@ -108,9 +109,29 @@ const ACTIVIDADES = [
   { slug: "terapia", nombre: "Terapia" },
 ] as const
 
-const ACTIVIDADES_ESCUELA = new Set<string>(
-  ACTIVIDADES.map((actividad) => actividad.slug)
-)
+const MODALIDADES_OPERABLES: Array<{
+  value: ModalidadOperable
+  label: string
+}> = [
+  { value: "mensual", label: "Mensual" },
+  { value: "por_sesion", label: "Por sesión" },
+  { value: "por_proceso", label: "Por proceso" },
+  { value: "becado", label: "Becado" },
+  { value: "invitado", label: "Invitado" },
+  { value: "sin_cobro", label: "Sin cobro" },
+]
+
+const MEDIOS_SUGERIDOS: Array<{
+  value: MedioSugerido
+  label: string
+}> = [
+  { value: "", label: "Sin definir" },
+  { value: "transferencia", label: "Transferencia" },
+  { value: "mercado_pago", label: "Mercado Pago" },
+  { value: "manual", label: "Manual" },
+]
+
+const ACTIVIDADES_INDIVIDUALES = new Set(["mentorias", "terapia"])
 
 function etiquetaRol(role: Usuario["role"]) {
   switch (role) {
@@ -121,6 +142,103 @@ function etiquetaRol(role: Usuario["role"]) {
     case "participante":
       return "Participante"
   }
+}
+
+function etiquetaEstadoGeneral(
+  estado: PersonaResumen["resumen"]["estadoGeneral"]
+) {
+  switch (estado) {
+    case "ok":
+      return {
+        texto: "OK",
+        className:
+          "border-[rgba(52,125,89,0.2)] bg-[rgba(52,125,89,0.1)] text-[rgb(52,125,89)]",
+      }
+    case "atencion":
+      return {
+        texto: "Atención",
+        className:
+          "border-[rgba(201,139,27,0.2)] bg-[rgba(201,139,27,0.1)] text-[rgb(154,101,21)]",
+      }
+    case "inconsistente":
+      return {
+        texto: "Inconsistente",
+        className:
+          "border-[rgba(156,69,59,0.2)] bg-[rgba(156,69,59,0.1)] text-[rgb(156,69,59)]",
+      }
+  }
+}
+
+function etiquetaActividadEstado(estado: ActividadResumen["estadoVisible"]) {
+  switch (estado) {
+    case "activa":
+      return "Activa"
+    case "charla":
+      return "Charla"
+    case "inactiva":
+      return "Inactiva"
+    case "sin_configurar":
+      return "Sin configurar"
+    case "inconsistente":
+      return "Inconsistente"
+  }
+}
+
+function etiquetaAccesoMotivo(motivo: ActividadResumen["accesoMotivo"]) {
+  switch (motivo) {
+    case "ok":
+      return "Acceso esperado OK"
+    case "gracia":
+      return "Dentro de gracia"
+    case "sin_inscripcion":
+      return "Sin inscripción"
+    case "sin_honorario":
+      return "Sin honorario"
+    case "sin_pago":
+      return "Sin pago vigente"
+    case "bloqueado":
+      return "Bloqueado"
+    case "charla":
+      return "Circuito de charla"
+    case "no_aplica":
+      return "No aplica"
+  }
+}
+
+function etiquetaModalidad(modalidad: EconomiaResumen["modalidad"]) {
+  switch (modalidad) {
+    case "mensual":
+      return "Mensual"
+    case "por_sesion":
+      return "Por sesión"
+    case "por_proceso":
+      return "Por proceso"
+    case "becado":
+      return "Becado"
+    case "invitado":
+      return "Invitado"
+    case "sin_cobro":
+      return "Sin cobro"
+    case "desconocida":
+      return "Sin configurar"
+  }
+}
+
+function normalizarModalidadOperable(
+  modalidad?: EconomiaResumen["modalidad"] | string | null
+): ModalidadOperable {
+  if (
+    modalidad === "mensual" ||
+    modalidad === "por_sesion" ||
+    modalidad === "por_proceso" ||
+    modalidad === "becado" ||
+    modalidad === "invitado" ||
+    modalidad === "sin_cobro"
+  ) {
+    return modalidad
+  }
+
+  return "mensual"
 }
 
 function estadoPagoLabel(estado?: string | null) {
@@ -138,20 +256,148 @@ function estadoPagoLabel(estado?: string | null) {
   }
 }
 
+function descripcionAlertaNivel(nivel: AlertaResumen["nivel"]) {
+  switch (nivel) {
+    case "error":
+      return "border-[rgba(156,69,59,0.18)] bg-[rgba(156,69,59,0.08)] text-[rgb(156,69,59)]"
+    case "warning":
+      return "border-[rgba(201,139,27,0.18)] bg-[rgba(201,139,27,0.08)] text-[rgb(154,101,21)]"
+    case "info":
+      return "border-[rgba(45,107,122,0.18)] bg-[rgba(45,107,122,0.08)] text-[rgb(45,107,122)]"
+  }
+}
+
+function formatearEncuentro(item: AgendaResumen["proximoEncuentro"]) {
+  if (!item?.inicio) return "Sin próximo encuentro"
+  return item.inicio
+}
+
+function nombreActividad(slug: string) {
+  switch (slug) {
+    case "casatalentos":
+      return "CasaTalentos"
+    case "conectando-sentidos":
+      return "Conectando Sentidos"
+    case "mentorias":
+      return "Mentorías"
+    case "terapia":
+      return "Terapia"
+    case "charla-introductoria":
+      return "Charla introductoria"
+    default:
+      return slug
+  }
+}
+
+function actividadKey(email: string, actividad: string) {
+  return `${email}:${actividad}`
+}
+
+function crearDraftEconomia(
+  economia?: EconomiaResumen | null
+): EconomiaDraft {
+  return {
+    monto: economia?.monto != null ? String(economia.monto) : "",
+    moneda: economia?.moneda || "ARS",
+    modalidad: normalizarModalidadOperable(economia?.modalidad),
+    medioSugerido:
+      economia?.medioSugerido === "transferencia" ||
+      economia?.medioSugerido === "mercado_pago" ||
+      economia?.medioSugerido === "manual"
+        ? economia.medioSugerido
+        : "",
+  }
+}
+
+function crearDraftAgenda(): AgendaDraft {
+  return {
+    fecha: "",
+    hora: "",
+    duracion: "60",
+    meetLink: "",
+    notasDocumentos: "",
+  }
+}
+
+function construirActividadesDesdePersona(persona: PersonaResumen): ActividadesFormState {
+  const porSlug = new Map(persona.actividades.map((item) => [item.actividad, item]))
+  return {
+    casatalentos: Boolean(
+      porSlug.get("casatalentos")?.marcadaEnUsuarioActividades ||
+        porSlug.get("casatalentos")?.inscripcionActiva
+    ),
+    "conectando-sentidos": Boolean(
+      porSlug.get("conectando-sentidos")?.marcadaEnUsuarioActividades ||
+        porSlug.get("conectando-sentidos")?.inscripcionActiva
+    ),
+    mentorias: Boolean(
+      porSlug.get("mentorias")?.marcadaEnUsuarioActividades ||
+        porSlug.get("mentorias")?.inscripcionActiva
+    ),
+    terapia: Boolean(
+      porSlug.get("terapia")?.marcadaEnUsuarioActividades ||
+        porSlug.get("terapia")?.inscripcionActiva
+    ),
+  }
+}
+
+function InfoItem({
+  label,
+  value,
+}: {
+  label: string
+  value: string | null | undefined
+}) {
+  return (
+    <div className="space-y-1">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
+        {label}
+      </p>
+      <p className="text-sm text-gray-800">{value || "—"}</p>
+    </div>
+  )
+}
+
+function BloqueFicha({
+  titulo,
+  children,
+}: {
+  titulo: string
+  children: React.ReactNode
+}) {
+  return (
+    <section className="rounded-2xl border border-[var(--line)] bg-white/65 p-4">
+      <h4 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--sea)]">
+        {titulo}
+      </h4>
+      <div className="mt-3">{children}</div>
+    </section>
+  )
+}
+
 export default function AdminUsuariosPage() {
   const { data: session, status } = useAppSession()
   const router = useRouter()
 
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
-  const [honorarios, setHonorarios] = useState<HonorarioAsignado[]>([])
-  const [usuarioActividades, setUsuarioActividades] = useState<
-    Record<string, UsuarioActividad[]>
-  >({})
+  const [personas, setPersonas] = useState<PersonaResumen[]>([])
   const [form, setForm] = useState<FormState>(FORM_INICIAL)
   const [mensaje, setMensaje] = useState("")
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [busqueda, setBusqueda] = useState("")
+  const [actividadGuardandoKey, setActividadGuardandoKey] = useState<string | null>(
+    null
+  )
+  const [economiaDrafts, setEconomiaDrafts] = useState<
+    Record<string, EconomiaDraft>
+  >({})
+  const [economiaGuardandoKey, setEconomiaGuardandoKey] = useState<string | null>(
+    null
+  )
+  const [pagoGuardandoKey, setPagoGuardandoKey] = useState<string | null>(null)
+  const [agendaDrafts, setAgendaDrafts] = useState<Record<string, AgendaDraft>>({})
+  const [agendaGuardandoKey, setAgendaGuardandoKey] = useState<string | null>(null)
 
   const esAdmin = session?.user?.role === "admin"
   const editando = Boolean(form.id)
@@ -163,180 +409,114 @@ export default function AdminUsuariosPage() {
   }, [router, status])
 
   const cargarUsuarios = useCallback(async () => {
-    try {
-      setCargando(true)
-      setMensaje("")
-
-      const res = await fetch("/api/admin/usuarios", { cache: "no-store" })
-      const data = await res.json()
-
-      if (!res.ok) {
-        setMensaje(data.error || "No se pudieron cargar los usuarios.")
-        return
-      }
-
-      setUsuarios(data.usuarios || [])
-    } catch {
-      setMensaje("Error cargando usuarios.")
-    } finally {
-      setCargando(false)
+    const res = await fetch("/api/admin/usuarios", { cache: "no-store" })
+    const data = await res.json()
+    if (!res.ok) {
+      throw new Error(data.error || "No se pudieron cargar los usuarios.")
     }
+    setUsuarios(data.usuarios || [])
   }, [])
 
-  const cargarHonorarios = useCallback(async () => {
-    try {
-      const res = await fetch("/admin/pagos-mensuales/honorarios", {
-        cache: "no-store",
-      })
-      const data = await res.json()
-
-      if (!res.ok) {
-        setMensaje(data.error || "No se pudieron cargar las actividades asignadas.")
-        return
-      }
-
-      setHonorarios(data.honorarios || [])
-    } catch {
-      setMensaje("Error cargando actividades asignadas.")
+  const cargarPersonas = useCallback(async () => {
+    const res = await fetch("/api/admin/personas/resumen", { cache: "no-store" })
+    const data = await res.json()
+    if (!res.ok) {
+      throw new Error(data.error || "No se pudo cargar el resumen de personas.")
     }
+    setPersonas(data.personas || [])
   }, [])
-
-  const cargarActividadesUsuario = useCallback(async () => {
-    try {
-      const resultados = await Promise.all(
-        usuarios.map(async (usuario) => {
-          const res = await fetch(
-            `/api/admin/usuario-actividades?usuarioEmail=${encodeURIComponent(
-              usuario.email
-            )}`,
-            { cache: "no-store" }
-          )
-
-          const data = await res.json()
-
-          return {
-            email: usuario.email.trim().toLowerCase(),
-            actividades: data.actividades || [],
-          }
-        })
-      )
-
-      const mapa: Record<string, UsuarioActividad[]> = {}
-
-      for (const item of resultados) {
-        mapa[item.email] = item.actividades
-      }
-
-      setUsuarioActividades(mapa)
-    } catch {
-      setMensaje("Error cargando actividades por usuario.")
-    }
-  }, [usuarios])
 
   useEffect(() => {
     if (status === "authenticated" && esAdmin) {
-      void cargarUsuarios()
-      void cargarHonorarios()
+      void (async () => {
+        try {
+          setCargando(true)
+          setMensaje("")
+          await Promise.all([cargarUsuarios(), cargarPersonas()])
+        } catch (error) {
+          setMensaje(String(error))
+        } finally {
+          setCargando(false)
+        }
+      })()
     }
-  }, [cargarHonorarios, cargarUsuarios, esAdmin, status])
+  }, [cargarPersonas, cargarUsuarios, esAdmin, status])
 
-  useEffect(() => {
-    if (usuarios.length > 0) {
-      void cargarActividadesUsuario()
+  const usuarioBasePorEmail = useMemo(() => {
+    const mapa = new Map<string, Usuario>()
+    for (const usuario of usuarios) {
+      mapa.set(usuario.email.trim().toLowerCase(), usuario)
     }
-  }, [cargarActividadesUsuario, usuarios])
-
-  const honorariosPorEmail = useMemo(() => {
-    const mapa = new Map<string, HonorarioAsignado[]>()
-
-    for (const item of honorarios) {
-      const email = String(item.participante_email || "").trim().toLowerCase()
-      if (!email) continue
-
-      const existentes = mapa.get(email) || []
-      existentes.push(item)
-      mapa.set(email, existentes)
-    }
-
     return mapa
-  }, [honorarios])
+  }, [usuarios])
 
-  const usuariosFiltrados = useMemo(() => {
+  const personasFiltradas = useMemo(() => {
     const q = busqueda.trim().toLowerCase()
+    if (!q) return personas
 
-    if (!q) return usuarios
-
-    return usuarios.filter((usuario) => {
-      const email = usuario.email.trim().toLowerCase()
-      const actividadesUsuario = honorariosPorEmail.get(email) || []
-      const actividadesTexto = actividadesUsuario
-        .map((item) => `${item.actividad_nombre} ${item.actividad_slug}`)
+    return personas.filter((persona) => {
+      const actividadTexto = persona.actividades
+        .map(
+          (item) =>
+            `${item.etiqueta} ${item.actividad} ${item.estadoVisible} ${item.accesoMotivo}`
+        )
         .join(" ")
         .toLowerCase()
 
-      const actividadesHabilitadasTexto = (usuarioActividades[email] || [])
-        .map((item) => `${item.actividad_slug} ${item.estado}`)
+      const alertasTexto = persona.alertas
+        .map((item) => `${item.titulo} ${item.detalle}`)
         .join(" ")
         .toLowerCase()
-
-      const charlaTexto = usuario.charla_intro_habilitada
-        ? "charla introductoria charla tiempo"
-        : ""
 
       return (
-        usuario.nombre.toLowerCase().includes(q) ||
-        String(usuario.apellido || "").toLowerCase().includes(q) ||
-        usuario.email.toLowerCase().includes(q) ||
-        usuario.role.toLowerCase().includes(q) ||
-        charlaTexto.includes(q) ||
-        actividadesTexto.includes(q) ||
-        actividadesHabilitadasTexto.includes(q)
+        persona.perfil.nombre.toLowerCase().includes(q) ||
+        persona.perfil.apellido.toLowerCase().includes(q) ||
+        persona.perfil.nombreCompleto.toLowerCase().includes(q) ||
+        persona.perfil.email.toLowerCase().includes(q) ||
+        persona.perfil.role.toLowerCase().includes(q) ||
+        actividadTexto.includes(q) ||
+        alertasTexto.includes(q) ||
+        (persona.perfil.charlaIntroHabilitada &&
+          "charla introductoria charla grabacion".includes(q))
       )
     })
-  }, [busqueda, honorariosPorEmail, usuarioActividades, usuarios])
+  }, [busqueda, personas])
 
-  const gruposUsuarios = useMemo(() => {
+  const gruposPersonas = useMemo(() => {
     const grupos = {
-      charlaIntroductoria: [] as Usuario[],
-      participantesActivos: [] as Usuario[],
-      usuariosSinActividad: [] as Usuario[],
-      equipoInterno: [] as Usuario[],
-      usuariosInactivos: [] as Usuario[],
+      charlaIntroductoria: [] as PersonaResumen[],
+      participantesActivos: [] as PersonaResumen[],
+      usuariosSinActividad: [] as PersonaResumen[],
+      equipoInterno: [] as PersonaResumen[],
+      usuariosInactivos: [] as PersonaResumen[],
     }
 
-    for (const usuario of usuariosFiltrados) {
-      const email = usuario.email.trim().toLowerCase()
-      const actividadesActivas = (usuarioActividades[email] || []).some(
-        (actividad) =>
-          actividad.estado === "activa" &&
-          ACTIVIDADES_ESCUELA.has(actividad.actividad_slug)
-      )
-
-      if (!usuario.activo) {
-        grupos.usuariosInactivos.push(usuario)
+    for (const persona of personasFiltradas) {
+      if (!persona.perfil.activo) {
+        grupos.usuariosInactivos.push(persona)
         continue
       }
 
-      if (usuario.role === "admin" || usuario.role === "colaborador") {
-        grupos.equipoInterno.push(usuario)
+      if (persona.perfil.role === "admin" || persona.perfil.role === "colaborador") {
+        grupos.equipoInterno.push(persona)
         continue
       }
 
-      if (usuario.charla_intro_habilitada === true) {
-        grupos.charlaIntroductoria.push(usuario)
+      if (persona.perfil.charlaIntroHabilitada) {
+        grupos.charlaIntroductoria.push(persona)
         continue
       }
 
-      if (usuario.role === "participante" && actividadesActivas) {
-        grupos.participantesActivos.push(usuario)
+      if (persona.resumen.actividadesActivas > 0) {
+        grupos.participantesActivos.push(persona)
         continue
       }
 
-      grupos.usuariosSinActividad.push(usuario)
+      grupos.usuariosSinActividad.push(persona)
     }
 
     return grupos
-  }, [usuarioActividades, usuariosFiltrados])
+  }, [personasFiltradas])
 
   const limpiarForm = () => {
     setForm({
@@ -345,11 +525,61 @@ export default function AdminUsuariosPage() {
     })
   }
 
-  const editarUsuario = (usuario: Usuario) => {
-    const actividadesUsuario = usuarioActividades[
-      usuario.email.trim().toLowerCase()
-    ] || []
+  const recargarTodo = useCallback(async () => {
+    await Promise.all([cargarUsuarios(), cargarPersonas()])
+  }, [cargarPersonas, cargarUsuarios])
 
+  const actualizarDraftEconomia = useCallback(
+    (
+      email: string,
+      actividad: string,
+      patch: Partial<EconomiaDraft>,
+      economiaBase?: EconomiaResumen | null
+    ) => {
+      const key = actividadKey(email, actividad)
+      setEconomiaDrafts((prev) => ({
+        ...prev,
+        [key]: {
+          ...(prev[key] || crearDraftEconomia(economiaBase)),
+          ...patch,
+        },
+      }))
+    },
+    []
+  )
+
+  const obtenerDraftEconomia = useCallback(
+    (email: string, actividad: string, economiaBase?: EconomiaResumen | null) => {
+      const key = actividadKey(email, actividad)
+      return economiaDrafts[key] || crearDraftEconomia(economiaBase)
+    },
+    [economiaDrafts]
+  )
+
+  const actualizarDraftAgenda = useCallback(
+    (email: string, actividad: string, patch: Partial<AgendaDraft>) => {
+      const key = actividadKey(email, actividad)
+      setAgendaDrafts((prev) => ({
+        ...prev,
+        [key]: {
+          ...(prev[key] || crearDraftAgenda()),
+          ...patch,
+        },
+      }))
+    },
+    []
+  )
+
+  const obtenerDraftAgenda = useCallback(
+    (email: string, actividad: string) => {
+      const key = actividadKey(email, actividad)
+      return agendaDrafts[key] || crearDraftAgenda()
+    },
+    [agendaDrafts]
+  )
+
+  const editarUsuario = (usuario: Usuario, persona?: PersonaResumen) => {
+    const resumen = persona || personas.find((item) => item.email === usuario.email.trim().toLowerCase())
     setForm({
       id: usuario.id,
       nombre: usuario.nombre,
@@ -363,24 +593,7 @@ export default function AdminUsuariosPage() {
       activo: usuario.activo,
       password: "",
       enviarBienvenida: false,
-      actividades: {
-        casatalentos: actividadesUsuario.some(
-          (item) =>
-            item.actividad_slug === "casatalentos" && item.estado === "activa"
-        ),
-        "conectando-sentidos": actividadesUsuario.some(
-          (item) =>
-            item.actividad_slug === "conectando-sentidos" &&
-            item.estado === "activa"
-        ),
-        mentorias: actividadesUsuario.some(
-          (item) =>
-            item.actividad_slug === "mentorias" && item.estado === "activa"
-        ),
-        terapia: actividadesUsuario.some(
-          (item) => item.actividad_slug === "terapia" && item.estado === "activa"
-        ),
-      },
+      actividades: resumen ? construirActividadesDesdePersona(resumen) : { ...ACTIVIDADES_FORM_INICIAL },
     })
     setMensaje("Editando usuario. Dejá la contraseña vacía si no querés cambiarla.")
   }
@@ -392,9 +605,7 @@ export default function AdminUsuariosPage() {
 
       const res = await fetch("/api/admin/usuarios", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       })
 
@@ -424,9 +635,7 @@ export default function AdminUsuariosPage() {
       if (usuarioGuardado?.email) {
         const resActividades = await fetch("/api/admin/usuario-actividades", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             usuarioEmail: usuarioGuardado.email,
             actividades: ACTIVIDADES.map((actividad) => ({
@@ -464,7 +673,10 @@ export default function AdminUsuariosPage() {
             )
           }
 
-          if (Array.isArray(provisioning?.advertencias) && provisioning?.advertencias.length > 0) {
+          if (
+            Array.isArray(provisioning?.advertencias) &&
+            provisioning?.advertencias.length > 0
+          ) {
             extras.push(provisioning.advertencias.join(" "))
           }
 
@@ -477,11 +689,7 @@ export default function AdminUsuariosPage() {
       )
 
       limpiarForm()
-      await Promise.all([
-        cargarUsuarios(),
-        cargarHonorarios(),
-        cargarActividadesUsuario(),
-      ])
+      await Promise.all([cargarUsuarios(), cargarPersonas()])
     } catch {
       setMensaje("Error guardando usuario.")
     } finally {
@@ -489,140 +697,995 @@ export default function AdminUsuariosPage() {
     }
   }
 
-  const guardarActividadesUsuario = async (
-    usuario: Usuario,
-    actividadSlug: string,
-    habilitada: boolean
-  ) => {
-    try {
-      setMensaje("")
+  const guardarCharlaIntroDesdeFicha = useCallback(
+    async (persona: PersonaResumen, habilitada: boolean) => {
+      const usuario = usuarioBasePorEmail.get(persona.email)
+      if (!usuario) return
 
-      const email = usuario.email.trim().toLowerCase()
-      const actividadesActuales = usuarioActividades[email] || []
+      const key = actividadKey(persona.email, "charla-introductoria")
 
-      const nuevasActividades = ACTIVIDADES.map((item) => ({
-        actividadSlug: item.slug,
-        habilitada:
-          item.slug === actividadSlug
-            ? habilitada
-            : actividadesActuales.some(
-                (actual) =>
-                  actual.actividad_slug === item.slug &&
-                  actual.estado === "activa"
-              ),
-      }))
+      try {
+        setActividadGuardandoKey(key)
+        setMensaje("")
+        await guardarUsuario({
+          id: usuario.id,
+          nombre: usuario.nombre,
+          apellido: usuario.apellido || "",
+          email: usuario.email,
+          whatsapp: usuario.whatsapp || "",
+          fechaCumpleanos: usuario.fecha_cumpleanos || "",
+          notasDocumentos: serializarDocumentosNotas(usuario.notas_documentos),
+          charlaIntroHabilitada: habilitada,
+          role: usuario.role,
+          activo: usuario.activo,
+          password: "",
+          enviarBienvenida: false,
+          actividades: construirActividadesDesdePersona(persona),
+        })
+      } finally {
+        setActividadGuardandoKey(null)
+      }
+    },
+    [guardarUsuario, usuarioBasePorEmail]
+  )
 
-      const res = await fetch("/api/admin/usuario-actividades", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          usuarioEmail: usuario.email,
-          actividades: nuevasActividades,
-        }),
-      })
+  const guardarActividadesDesdeFicha = useCallback(
+    async (
+      persona: PersonaResumen,
+      cambios: Partial<ActividadesFormState>,
+      mensajeOk: string
+    ) => {
+      const usuario = usuarioBasePorEmail.get(persona.email)
+      if (!usuario) return
 
-      const data = await res.json()
-
-      if (!res.ok) {
-        setMensaje(data.error || "No se pudo actualizar actividades.")
-        return
+      const actividades = {
+        ...construirActividadesDesdePersona(persona),
+        ...cambios,
       }
 
-      await Promise.all([cargarActividadesUsuario(), cargarHonorarios()])
+      try {
+        const actividadPrincipal =
+          Object.keys(cambios)[0] || Object.keys(actividades)[0]
+        setActividadGuardandoKey(actividadKey(persona.email, actividadPrincipal))
+        setMensaje("")
 
-      const provisioning = data.provisioning as
-        | {
-            honorariosCreados?: number
-            pagosCreados?: number
-            advertencias?: string[]
-          }
-        | undefined
+        const res = await fetch("/api/admin/usuario-actividades", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            usuarioEmail: usuario.email,
+            actividades: ACTIVIDADES.map((actividad) => ({
+              actividadSlug: actividad.slug,
+              habilitada: actividades[actividad.slug],
+            })),
+          }),
+        })
 
-      const extras: string[] = []
+        const data = await res.json()
 
-      if ((provisioning?.honorariosCreados || 0) > 0) {
-        extras.push(
-          `Se creó ${provisioning?.honorariosCreados} honorario base automáticamente.`
+        if (!res.ok) {
+          throw new Error(
+            data.error || "No se pudieron actualizar las actividades."
+          )
+        }
+
+        const provisioning = data.provisioning as
+          | {
+              honorariosCreados?: number
+              pagosCreados?: number
+              advertencias?: string[]
+            }
+          | undefined
+
+        const extras: string[] = []
+
+        if ((provisioning?.honorariosCreados || 0) > 0) {
+          extras.push(
+            `Se creó ${provisioning?.honorariosCreados} honorario base automáticamente.`
+          )
+        }
+
+        if ((provisioning?.pagosCreados || 0) > 0) {
+          extras.push(
+            `Se generó ${provisioning?.pagosCreados} cobro vigente automáticamente.`
+          )
+        }
+
+        if (Array.isArray(provisioning?.advertencias) && provisioning.advertencias.length > 0) {
+          extras.push(provisioning.advertencias.join(" "))
+        }
+
+        setMensaje([mensajeOk, ...extras].join(" ").trim())
+        await recargarTodo()
+      } catch (error) {
+        setMensaje(
+          error instanceof Error
+            ? error.message
+            : "No se pudieron actualizar las actividades."
         )
+      } finally {
+        setActividadGuardandoKey(null)
       }
+    },
+    [recargarTodo, usuarioBasePorEmail]
+  )
 
-      if ((provisioning?.pagosCreados || 0) > 0) {
-        extras.push(
-          `Se generó ${provisioning?.pagosCreados} cobro vigente automáticamente.`
+  const guardarEconomiaDesdeFicha = useCallback(
+    async (
+      persona: PersonaResumen,
+      actividadSlug: EconomiaResumen["actividad"],
+      economiaBase?: EconomiaResumen | null,
+      draftOverride?: EconomiaDraft
+    ) => {
+      const draft =
+        draftOverride ||
+        obtenerDraftEconomia(persona.email, actividadSlug, economiaBase)
+      const key = actividadKey(persona.email, actividadSlug)
+
+      try {
+        setEconomiaGuardandoKey(key)
+        setMensaje("")
+
+        const actividadActual = persona.actividades.find(
+          (item) => item.actividad === actividadSlug
         )
+
+        if (!actividadActual?.inscripcionActiva || !actividadActual.marcadaEnUsuarioActividades) {
+          await guardarActividadesDesdeFicha(
+            persona,
+            { [actividadSlug]: true } as Partial<ActividadesFormState>,
+            `${nombreActividad(actividadSlug)} quedó habilitada.`
+          )
+        }
+
+        const res = await fetch("/admin/pagos-mensuales/honorarios", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            actividadSlug,
+            participanteEmail: persona.email,
+            participanteNombre: persona.perfil.nombreCompleto,
+            honorarioMensual: draft.monto || 0,
+            modalidadPago: draft.modalidad,
+            moneda: draft.moneda || "ARS",
+            medioSugerido: draft.medioSugerido || null,
+            activo: true,
+          }),
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+          throw new Error(data.error || "No se pudo guardar la economía.")
+        }
+
+        setMensaje(
+          data.advertencia
+            ? `Economía de ${nombreActividad(actividadSlug)} actualizada. ${data.advertencia}`
+            : `Economía de ${nombreActividad(actividadSlug)} actualizada.`
+        )
+        await recargarTodo()
+      } catch (error) {
+        setMensaje(
+          error instanceof Error ? error.message : "No se pudo guardar la economía."
+        )
+      } finally {
+        setEconomiaGuardandoKey(null)
+      }
+    },
+    [guardarActividadesDesdeFicha, obtenerDraftEconomia, recargarTodo]
+  )
+
+  const aplicarPresetEconomico = useCallback(
+    async (
+      persona: PersonaResumen,
+      actividadSlug: EconomiaResumen["actividad"],
+      modalidad: Extract<
+        ModalidadOperable,
+        "becado" | "invitado" | "sin_cobro"
+      >
+    ) => {
+      const draftPreset: EconomiaDraft = {
+        monto: "0",
+        moneda: "ARS",
+        modalidad,
+        medioSugerido: "",
       }
 
-      if (Array.isArray(provisioning?.advertencias) && provisioning?.advertencias.length > 0) {
-        extras.push(provisioning.advertencias.join(" "))
-      }
-
-      setMensaje(
-        `Actividades actualizadas correctamente.${extras.length ? ` ${extras.join(" ")}` : ""}`
+      actualizarDraftEconomia(
+        persona.email,
+        actividadSlug,
+        draftPreset,
+        persona.economia.find((item) => item.actividad === actividadSlug) || null
       )
-    } catch {
-      setMensaje("Error actualizando actividades.")
-    }
-  }
 
-  const renderUsuarioCard = (usuario: Usuario) => {
-    const email = usuario.email.trim().toLowerCase()
-    const actividadesUsuario = honorariosPorEmail.get(email) || []
-    const actividadesHabilitadas = usuarioActividades[email] || []
+      await guardarEconomiaDesdeFicha(
+        persona,
+        actividadSlug,
+        persona.economia.find((item) => item.actividad === actividadSlug) || null,
+        draftPreset
+      )
+    },
+    [actualizarDraftEconomia, guardarEconomiaDesdeFicha]
+  )
+
+  const generarCobroDesdeFicha = useCallback(
+    async (persona: PersonaResumen, actividadSlug: EconomiaResumen["actividad"]) => {
+      const key = actividadKey(persona.email, `${actividadSlug}:cobro`)
+
+      try {
+        setPagoGuardandoKey(key)
+        setMensaje("")
+
+        const res = await fetch("/api/pagos-mensuales/obtener-o-crear", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            actividadSlug,
+            participanteNombre: persona.perfil.nombreCompleto,
+            participanteEmail: persona.email,
+          }),
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+          throw new Error(data.error || "No se pudo generar el cobro.")
+        }
+
+        setMensaje(`Cobro vigente de ${nombreActividad(actividadSlug)} listo.`)
+        await recargarTodo()
+      } catch (error) {
+        setMensaje(
+          error instanceof Error ? error.message : "No se pudo generar el cobro."
+        )
+      } finally {
+        setPagoGuardandoKey(null)
+      }
+    },
+    [recargarTodo]
+  )
+
+  const resolverPagoDesdeFicha = useCallback(
+    async (
+      persona: PersonaResumen,
+      pagoId: string,
+      accion: "aprobar" | "rechazar"
+    ) => {
+      const key = actividadKey(persona.email, `pago:${pagoId}`)
+
+      try {
+        setPagoGuardandoKey(key)
+        setMensaje("")
+
+        const res = await fetch("/admin/pagos-mensuales/resolver", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pagoMensualId: Number(pagoId),
+            accion,
+          }),
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+          throw new Error(data.error || "No se pudo resolver el pago.")
+        }
+
+        setMensaje(
+          accion === "aprobar"
+            ? "Pago aprobado desde la ficha."
+            : "Pago rechazado desde la ficha."
+        )
+        await recargarTodo()
+      } catch (error) {
+        setMensaje(
+          error instanceof Error ? error.message : "No se pudo resolver el pago."
+        )
+      } finally {
+        setPagoGuardandoKey(null)
+      }
+    },
+    [recargarTodo]
+  )
+
+  const crearEncuentroDesdeFicha = useCallback(
+    async (
+      persona: PersonaResumen,
+      actividadSlug: Extract<EconomiaResumen["actividad"], "mentorias" | "terapia">
+    ) => {
+      const key = actividadKey(persona.email, `${actividadSlug}:agenda`)
+      const draft = obtenerDraftAgenda(persona.email, actividadSlug)
+
+      try {
+        setAgendaGuardandoKey(key)
+        setMensaje("")
+
+        if (!draft.fecha || !draft.hora) {
+          throw new Error("Completá fecha y hora para crear el encuentro.")
+        }
+
+        const res = await fetch("/api/agenda/admin/crear-disponibilidades", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: [
+              {
+                titulo:
+                  actividadSlug === "mentorias"
+                    ? `Mentoría · ${persona.perfil.nombreCompleto}`
+                    : `Terapia · ${persona.perfil.nombreCompleto}`,
+                tipo: actividadSlug === "mentorias" ? "reunion" : "sesion",
+                actividad_slug: actividadSlug,
+                modo: "actividad_fija",
+                fecha: draft.fecha,
+                hora: draft.hora,
+                duracion: draft.duracion || "60",
+                meet_link: draft.meetLink.trim(),
+                requiere_pago: true,
+                precio: "0",
+                estado: "confirmada",
+                es_recurrente: false,
+                participante_email: persona.email,
+                participante_nombre: persona.perfil.nombreCompleto,
+                notas_documentos: draft.notasDocumentos,
+              },
+            ],
+          }),
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+          throw new Error(data.error || "No se pudo crear el encuentro.")
+        }
+
+        setAgendaDrafts((prev) => ({
+          ...prev,
+          [actividadKey(persona.email, actividadSlug)]: crearDraftAgenda(),
+        }))
+        setMensaje(`Encuentro de ${nombreActividad(actividadSlug)} creado.`)
+        await recargarTodo()
+      } catch (error) {
+        setMensaje(
+          error instanceof Error ? error.message : "No se pudo crear el encuentro."
+        )
+      } finally {
+        setAgendaGuardandoKey(null)
+      }
+    },
+    [obtenerDraftAgenda, recargarTodo]
+  )
+
+  const renderActividad = (persona: PersonaResumen, actividad: ActividadResumen) => {
+    const key = actividadKey(persona.email, actividad.actividad)
+    const estaGuardando = actividadGuardandoKey === key
+
+    if (actividad.actividad === "charla-introductoria") {
+      return (
+        <div
+          key={actividad.actividad}
+          className="rounded-xl border border-[var(--line)] bg-[rgba(255,250,242,0.7)] p-3 text-sm"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <strong>{actividad.etiqueta}</strong>
+            <span className="workspace-chip">
+              {persona.perfil.charlaIntroHabilitada ? "Habilitada" : "No habilitada"}
+            </span>
+          </div>
+          <p className="mt-1 text-gray-700">
+            {persona.perfil.charlaIntroHabilitada
+              ? "La persona tiene acceso al circuito actual de charla/grabación."
+              : "La charla introductoria no está habilitada para esta persona."}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={estaGuardando}
+              onClick={() =>
+                void guardarCharlaIntroDesdeFicha(
+                  persona,
+                  !persona.perfil.charlaIntroHabilitada
+                )
+              }
+              className="workspace-button-secondary !px-3 !py-1.5 text-xs"
+            >
+              {estaGuardando
+                ? "Guardando..."
+                : persona.perfil.charlaIntroHabilitada
+                  ? "Desactivar charla"
+                  : "Activar charla"}
+            </button>
+          </div>
+        </div>
+      )
+    }
 
     return (
-      <article
-        key={usuario.id}
-        className="rounded-[1.4rem] border border-[var(--line)] bg-[rgba(255,250,242,0.68)] p-4"
+      <div
+        key={actividad.actividad}
+        className="rounded-xl border border-[var(--line)] bg-[rgba(255,250,242,0.7)] p-3 text-sm"
       >
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-lg font-semibold tracking-[-0.03em]">
-                {[usuario.nombre, usuario.apellido].filter(Boolean).join(" ") ||
-                  usuario.email}
-              </h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <strong>{actividad.etiqueta}</strong>
+          <span className="workspace-chip">
+            {etiquetaActividadEstado(actividad.estadoVisible)}
+          </span>
+        </div>
+        <p className="mt-1 text-gray-700">
+          {etiquetaAccesoMotivo(actividad.accesoMotivo)}
+        </p>
+        <p className="mt-1 text-gray-500">
+          Marcada: {actividad.marcadaEnUsuarioActividades ? "Sí" : "No"} ·
+          Inscripción: {actividad.inscripcionActiva ? " Activa" : " No"}
+        </p>
+        {actividad.observaciones.length > 0 && (
+          <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-gray-600">
+            {actividad.observaciones.map((item) => (
+              <li key={`${actividad.actividad}-${item}`}>{item}</li>
+            ))}
+          </ul>
+        )}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={estaGuardando}
+            onClick={() =>
+              void guardarActividadesDesdeFicha(
+                persona,
+                {
+                  [actividad.actividad]:
+                    !(actividad.marcadaEnUsuarioActividades || actividad.inscripcionActiva),
+                } as Partial<ActividadesFormState>,
+                actividad.marcadaEnUsuarioActividades || actividad.inscripcionActiva
+                  ? `${actividad.etiqueta} quedó deshabilitada desde la ficha.`
+                  : `${actividad.etiqueta} quedó habilitada desde la ficha.`
+              )
+            }
+            className="workspace-button-secondary !px-3 !py-1.5 text-xs"
+          >
+            {estaGuardando
+              ? "Guardando..."
+              : actividad.marcadaEnUsuarioActividades || actividad.inscripcionActiva
+                ? "Deshabilitar"
+                : "Habilitar"}
+          </button>
 
-              <span className="workspace-chip">{etiquetaRol(usuario.role)}</span>
+          {actividad.actividad === "casatalentos" ||
+          actividad.actividad === "conectando-sentidos" ||
+          actividad.actividad === "mentorias" ||
+          actividad.actividad === "terapia" ? (
+            <>
+              <button
+                type="button"
+                disabled={economiaGuardandoKey === key}
+                onClick={() =>
+                  void aplicarPresetEconomico(
+                    persona,
+                    actividad.actividad as EconomiaResumen["actividad"],
+                    "becado"
+                  )
+                }
+                className="workspace-button-secondary !px-3 !py-1.5 text-xs"
+              >
+                Becado
+              </button>
+              <button
+                type="button"
+                disabled={economiaGuardandoKey === key}
+                onClick={() =>
+                  void aplicarPresetEconomico(
+                    persona,
+                    actividad.actividad as EconomiaResumen["actividad"],
+                    "invitado"
+                  )
+                }
+                className="workspace-button-secondary !px-3 !py-1.5 text-xs"
+              >
+                Invitado
+              </button>
+              <button
+                type="button"
+                disabled={economiaGuardandoKey === key}
+                onClick={() =>
+                  void aplicarPresetEconomico(
+                    persona,
+                    actividad.actividad as EconomiaResumen["actividad"],
+                    "sin_cobro"
+                  )
+                }
+                className="workspace-button-secondary !px-3 !py-1.5 text-xs"
+              >
+                Sin cobro
+              </button>
+            </>
+          ) : null}
+        </div>
+      </div>
+    )
+  }
 
-              {usuario.charla_intro_habilitada && (
-                <span className="rounded-full border border-[rgba(201,139,27,0.28)] bg-[rgba(201,139,27,0.12)] px-3 py-1 text-xs font-medium text-[rgb(154,101,21)]">
-                  Charla introductoria
+  const renderEconomia = (persona: PersonaResumen, economia: EconomiaResumen) => {
+    const key = actividadKey(persona.email, economia.actividad)
+    const draft = obtenerDraftEconomia(persona.email, economia.actividad, economia)
+    const guardando = economiaGuardandoKey === key
+
+    return (
+      <div
+        key={economia.actividad}
+        className="rounded-xl border border-[var(--line)] bg-[rgba(255,250,242,0.7)] p-3 text-sm"
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <strong>{economia.etiqueta}</strong>
+          <span className="workspace-chip">{etiquetaModalidad(economia.modalidad)}</span>
+        </div>
+        <p className="mt-1 text-gray-700">
+          {economia.monto != null
+            ? `${economia.moneda || "ARS"} ${economia.monto}`
+            : "Sin honorario visible"}
+        </p>
+        <p className="mt-1 text-gray-500">
+          Último pago: <strong>{estadoPagoLabel(economia.ultimoPago?.estado)}</strong>
+          {economia.ultimoPago?.periodo ? ` · ${economia.ultimoPago.periodo}` : ""}
+        </p>
+        <p className="mt-1 text-gray-500">
+          Medio sugerido: {economia.medioSugerido || "Sin definir"}
+        </p>
+
+        <div className="mt-3 grid gap-3 lg:grid-cols-4">
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-gray-600">Monto</span>
+            <input
+              className="workspace-field"
+              value={draft.monto}
+              onChange={(e) =>
+                actualizarDraftEconomia(
+                  persona.email,
+                  economia.actividad,
+                  { monto: e.target.value },
+                  economia
+                )
+              }
+              placeholder="0"
+            />
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-gray-600">Moneda</span>
+            <input
+              className="workspace-field"
+              value={draft.moneda}
+              onChange={(e) =>
+                actualizarDraftEconomia(
+                  persona.email,
+                  economia.actividad,
+                  { moneda: e.target.value.toUpperCase() },
+                  economia
+                )
+              }
+              placeholder="ARS"
+            />
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-gray-600">Modalidad</span>
+            <select
+              className="workspace-field"
+              value={draft.modalidad}
+              onChange={(e) =>
+                actualizarDraftEconomia(
+                  persona.email,
+                  economia.actividad,
+                  { modalidad: e.target.value as ModalidadOperable },
+                  economia
+                )
+              }
+            >
+              {MODALIDADES_OPERABLES.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-gray-600">
+              Medio sugerido
+            </span>
+            <select
+              className="workspace-field"
+              value={draft.medioSugerido}
+              onChange={(e) =>
+                actualizarDraftEconomia(
+                  persona.email,
+                  economia.actividad,
+                  { medioSugerido: e.target.value as MedioSugerido },
+                  economia
+                )
+              }
+            >
+              {MEDIOS_SUGERIDOS.map((option) => (
+                <option key={option.value || "sin-definir"} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={guardando}
+            onClick={() => void guardarEconomiaDesdeFicha(persona, economia.actividad, economia)}
+            className="workspace-button-secondary !px-3 !py-1.5 text-xs"
+          >
+            {guardando ? "Guardando..." : "Guardar economía"}
+          </button>
+          <button
+            type="button"
+            disabled={pagoGuardandoKey === actividadKey(persona.email, `${economia.actividad}:cobro`)}
+            onClick={() => void generarCobroDesdeFicha(persona, economia.actividad)}
+            className="workspace-button-secondary !px-3 !py-1.5 text-xs"
+          >
+            {pagoGuardandoKey === actividadKey(persona.email, `${economia.actividad}:cobro`)
+              ? "Generando..."
+              : "Generar cobro"}
+          </button>
+          {economia.ultimoPago?.estado === "en_revision" && economia.ultimoPago.id && (
+            <>
+              <button
+                type="button"
+                disabled={pagoGuardandoKey === actividadKey(persona.email, `pago:${economia.ultimoPago.id}`)}
+                onClick={() =>
+                  void resolverPagoDesdeFicha(persona, economia.ultimoPago!.id!, "aprobar")
+                }
+                className="workspace-button-secondary !px-3 !py-1.5 text-xs"
+              >
+                Aprobar pago
+              </button>
+              <button
+                type="button"
+                disabled={pagoGuardandoKey === actividadKey(persona.email, `pago:${economia.ultimoPago.id}`)}
+                onClick={() =>
+                  void resolverPagoDesdeFicha(persona, economia.ultimoPago!.id!, "rechazar")
+                }
+                className="workspace-button-secondary !px-3 !py-1.5 text-xs"
+              >
+                Rechazar pago
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  const renderAgenda = (persona: PersonaResumen, item: AgendaResumen) => {
+    const key = actividadKey(persona.email, item.actividad)
+    const draft = obtenerDraftAgenda(persona.email, item.actividad)
+    const guardando = agendaGuardandoKey === actividadKey(persona.email, `${item.actividad}:agenda`)
+
+    return (
+      <div
+        key={item.actividad}
+        className="rounded-xl border border-[var(--line)] bg-[rgba(255,250,242,0.7)] p-3 text-sm"
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <strong>{nombreActividad(item.actividad)}</strong>
+          <span className="workspace-chip">
+            {item.tipo === "grupal" ? "Grupal" : "Individual"}
+          </span>
+        </div>
+        <p className="mt-1 text-gray-700">
+          Próximo encuentro: {formatearEncuentro(item.proximoEncuentro)}
+        </p>
+        {item.ultimoEncuentro?.inicio && (
+          <p className="mt-1 text-gray-500">
+            Último encuentro visible: {item.ultimoEncuentro.inicio}
+          </p>
+        )}
+        {item.notasDocumento && (
+          <p className="mt-1 text-gray-500">Notas vinculadas disponibles.</p>
+        )}
+        <p className="mt-1 text-gray-500">
+          Encuentros visibles: {item.cantidadPendientes}
+        </p>
+
+        {ACTIVIDADES_INDIVIDUALES.has(item.actividad) ? (
+          <div className="mt-3 space-y-3 rounded-xl border border-[var(--line)] bg-white/80 p-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--sea)]">
+              Crear encuentro individual
+            </p>
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-gray-600">Fecha</span>
+                <input
+                  type="date"
+                  className="workspace-field"
+                  value={draft.fecha}
+                  onChange={(e) =>
+                    actualizarDraftAgenda(persona.email, item.actividad, {
+                      fecha: e.target.value,
+                    })
+                  }
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-gray-600">Hora</span>
+                <input
+                  type="time"
+                  className="workspace-field"
+                  value={draft.hora}
+                  onChange={(e) =>
+                    actualizarDraftAgenda(persona.email, item.actividad, {
+                      hora: e.target.value,
+                    })
+                  }
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-gray-600">
+                  Duración (min)
                 </span>
-              )}
+                <input
+                  className="workspace-field"
+                  value={draft.duracion}
+                  onChange={(e) =>
+                    actualizarDraftAgenda(persona.email, item.actividad, {
+                      duracion: e.target.value,
+                    })
+                  }
+                  placeholder="60"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-gray-600">
+                  Meet link
+                </span>
+                <input
+                  className="workspace-field"
+                  value={draft.meetLink}
+                  onChange={(e) =>
+                    actualizarDraftAgenda(persona.email, item.actividad, {
+                      meetLink: e.target.value,
+                    })
+                  }
+                  placeholder="https://meet.google.com/..."
+                />
+              </label>
+              <label className="space-y-1 md:col-span-2">
+                <span className="text-xs font-medium text-gray-600">
+                  Notas / documentos
+                </span>
+                <textarea
+                  className="workspace-field min-h-24"
+                  value={draft.notasDocumentos}
+                  onChange={(e) =>
+                    actualizarDraftAgenda(persona.email, item.actividad, {
+                      notasDocumentos: e.target.value,
+                    })
+                  }
+                  placeholder="Título | URL"
+                />
+              </label>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={guardando}
+                onClick={() =>
+                  void crearEncuentroDesdeFicha(
+                    persona,
+                    item.actividad as "mentorias" | "terapia"
+                  )
+                }
+                className="workspace-button-secondary !px-3 !py-1.5 text-xs"
+              >
+                {guardando ? "Creando..." : "Crear encuentro"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="mt-3 text-xs text-gray-500">
+            La agenda de {nombreActividad(item.actividad)} se gestiona grupalmente.
+          </p>
+        )}
+      </div>
+    )
+  }
 
+  const renderAlerta = (alerta: AlertaResumen) => (
+    <div
+      key={`${alerta.codigo}-${alerta.actividad || "general"}-${alerta.titulo}`}
+      className={`rounded-xl border p-3 text-sm ${descripcionAlertaNivel(alerta.nivel)}`}
+    >
+      <p className="font-semibold">{alerta.titulo}</p>
+      <p className="mt-1">{alerta.detalle}</p>
+    </div>
+  )
+
+  const renderPersonaCard = (persona: PersonaResumen) => {
+    const usuario = usuarioBasePorEmail.get(persona.email)
+    const documentos = usuario
+      ? normalizarDocumentosNotas(usuario.notas_documentos)
+      : []
+    const estadoGeneral = etiquetaEstadoGeneral(persona.resumen.estadoGeneral)
+
+    return (
+      <SeccionDesplegable
+        key={persona.id}
+        titulo={
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span>{persona.perfil.nombreCompleto}</span>
+              <span className="workspace-chip">{etiquetaRol(persona.perfil.role)}</span>
               <span
                 className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                  usuario.activo
+                  persona.perfil.activo
                     ? "border-[rgba(52,125,89,0.2)] bg-[rgba(52,125,89,0.1)] text-[rgb(52,125,89)]"
                     : "border-[rgba(156,69,59,0.2)] bg-[rgba(156,69,59,0.1)] text-[rgb(156,69,59)]"
                 }`}
               >
-                {usuario.activo ? "Activo" : "Inactivo"}
+                {persona.perfil.activo ? "Activo" : "Inactivo"}
+              </span>
+              <span
+                className={`rounded-full border px-3 py-1 text-xs font-medium ${estadoGeneral.className}`}
+              >
+                {estadoGeneral.texto}
               </span>
             </div>
-
-            <div>
-              <p className="workspace-inline-note">{usuario.email}</p>
-
-              {(usuario.whatsapp || usuario.fecha_cumpleanos) && (
-                <p className="workspace-inline-note">
-                  {usuario.whatsapp ? `WhatsApp: ${usuario.whatsapp}` : ""}
-                  {usuario.whatsapp && usuario.fecha_cumpleanos ? " · " : ""}
-                  {usuario.fecha_cumpleanos
-                    ? `Cumpleaños: ${usuario.fecha_cumpleanos}`
-                    : ""}
-                </p>
-              )}
+            <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+              <span>{persona.perfil.email}</span>
+              <span>· {persona.resumen.actividadesActivas} actividad/es activas</span>
+              <span>· {persona.resumen.pagosPendientes} pago/s pendiente/s</span>
+              <span>
+                · Próximo encuentro: {persona.resumen.proximoEncuentro || "Sin agenda"}
+              </span>
             </div>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {usuario && (
+              <button
+                type="button"
+                onClick={() => editarUsuario(usuario, persona)}
+                className="workspace-button-secondary"
+              >
+                Editar perfil
+              </button>
+            )}
 
-            {normalizarDocumentosNotas(usuario.notas_documentos).length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {normalizarDocumentosNotas(usuario.notas_documentos).map(
-                  (documento) => (
+            <Link
+              href={`/admin/pagos?participante=${encodeURIComponent(persona.email)}`}
+              className="workspace-button-secondary"
+            >
+              Ver pagos
+            </Link>
+
+            <Link
+              href={`/agenda?participante=${encodeURIComponent(persona.email)}`}
+              className="workspace-button-secondary"
+            >
+              Ver agenda
+            </Link>
+
+            {usuario && (
+              <button
+                type="button"
+                onClick={() =>
+                  void guardarUsuario({
+                    id: usuario.id,
+                    nombre: usuario.nombre,
+                    apellido: usuario.apellido || "",
+                    email: usuario.email,
+                    whatsapp: usuario.whatsapp || "",
+                    fechaCumpleanos: usuario.fecha_cumpleanos || "",
+                    notasDocumentos: serializarDocumentosNotas(
+                      usuario.notas_documentos
+                    ),
+                    charlaIntroHabilitada:
+                      usuario.charla_intro_habilitada === true,
+                    role: usuario.role,
+                    activo: !usuario.activo,
+                    password: "",
+                    enviarBienvenida: false,
+                    actividades: construirActividadesDesdePersona(persona),
+                  })
+                }
+                className="workspace-button-secondary"
+              >
+                {usuario.activo ? "Desactivar" : "Reactivar"}
+              </button>
+            )}
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            <BloqueFicha titulo="Perfil">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <InfoItem label="Nombre" value={persona.perfil.nombre} />
+                <InfoItem label="Apellido" value={persona.perfil.apellido} />
+                <InfoItem label="Email" value={persona.perfil.email} />
+                <InfoItem label="WhatsApp" value={persona.perfil.whatsapp} />
+                <InfoItem
+                  label="Cumpleaños"
+                  value={persona.perfil.fechaNacimiento}
+                />
+                <InfoItem
+                  label="Rol global"
+                  value={etiquetaRol(persona.perfil.role)}
+                />
+                <InfoItem
+                  label="Estado"
+                  value={persona.perfil.activo ? "Activo" : "Inactivo"}
+                />
+                <InfoItem
+                  label="Charla introductoria"
+                  value={persona.perfil.charlaIntroHabilitada ? "Sí" : "No"}
+                />
+              </div>
+            </BloqueFicha>
+
+            <BloqueFicha titulo="Estado operativo">
+              {persona.alertas.length === 0 ? (
+                <p className="text-sm text-gray-600">
+                  Sin alertas operativas visibles.
+                </p>
+              ) : (
+                <div className="grid gap-2">{persona.alertas.map(renderAlerta)}</div>
+              )}
+            </BloqueFicha>
+
+            <BloqueFicha titulo="Actividades">
+              <div className="grid gap-2">
+                {persona.actividades.map((actividad) =>
+                  renderActividad(persona, actividad)
+                )}
+              </div>
+            </BloqueFicha>
+
+            <BloqueFicha titulo="Economía">
+              {persona.economia.length === 0 ? (
+                <p className="text-sm text-gray-600">
+                  Sin configuración económica visible todavía.
+                </p>
+              ) : (
+                <div className="grid gap-2">
+                  {persona.economia.map((economia) =>
+                    renderEconomia(persona, economia)
+                  )}
+                </div>
+              )}
+            </BloqueFicha>
+
+            <BloqueFicha titulo="Agenda">
+              {persona.agenda.length === 0 ? (
+                <p className="text-sm text-gray-600">
+                  No hay encuentros visibles asociados a esta persona.
+                </p>
+              ) : (
+                <div className="grid gap-2">
+                  {persona.agenda.map((agendaItem) =>
+                    renderAgenda(persona, agendaItem)
+                  )}
+                </div>
+              )}
+            </BloqueFicha>
+
+            <BloqueFicha titulo="Notas y documentos">
+              {documentos.length === 0 ? (
+                <p className="text-sm text-gray-600">
+                  No hay documentos de notas visibles.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {documentos.map((documento) => (
                     <a
-                      key={`${usuario.id}-${documento.url}`}
+                      key={`${persona.id}-${documento.url}`}
                       href={documento.url}
                       target="_blank"
                       rel="noreferrer"
@@ -630,169 +1693,18 @@ export default function AdminUsuariosPage() {
                     >
                       {documento.titulo}
                     </a>
-                  )
-                )}
-              </div>
-            )}
-
-            <div className="rounded-2xl border border-[var(--line)] bg-white/60 p-3">
-              <p className="text-sm font-semibold text-gray-900">
-                Actividades habilitadas
-              </p>
-
-              <div className="mt-3 grid gap-2">
-                {ACTIVIDADES.map((actividad) => {
-                  const activa = actividadesHabilitadas.some(
-                    (item) =>
-                      item.actividad_slug === actividad.slug &&
-                      item.estado === "activa"
-                  )
-
-                  return (
-                    <label
-                      key={actividad.slug}
-                      className="flex items-center gap-3 text-sm"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={activa}
-                        onChange={(e) =>
-                          void guardarActividadesUsuario(
-                            usuario,
-                            actividad.slug,
-                            e.target.checked
-                          )
-                        }
-                      />
-
-                      <span>{actividad.nombre}</span>
-                    </label>
-                  )
-                })}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-[var(--line)] bg-white/60 p-3">
-              <p className="text-sm font-semibold text-gray-900">
-                Configuración económica / pagos
-              </p>
-
-              {actividadesUsuario.length === 0 ? (
-                <p className="mt-1 text-sm text-gray-500">
-                  No tiene honorarios configurados desde Admin Pagos.
-                </p>
-              ) : (
-                <div className="mt-3 grid gap-2">
-                  {actividadesUsuario.map((item) => (
-                    <div
-                      key={item.id}
-                      className="rounded-xl border border-[var(--line)] bg-[rgba(255,250,242,0.74)] p-3 text-sm"
-                    >
-                      <div className="flex flex-wrap items-center gap-2">
-                        <strong>{item.actividad_nombre}</strong>
-                        <span
-                          className={`rounded-full border px-2 py-0.5 text-xs ${
-                            item.activo
-                              ? "border-green-200 bg-green-50 text-green-800"
-                              : "border-red-200 bg-red-50 text-red-800"
-                          }`}
-                        >
-                          {item.activo ? "Activa" : "Inactiva"}
-                        </span>
-                      </div>
-
-                      <p className="mt-1 text-gray-600">
-                        {etiquetaModalidadPago(
-                          item.modalidad_pago,
-                          item.actividad_slug
-                        )}{" "}
-                        · {item.moneda} {item.honorario_mensual}
-                      </p>
-
-                      <p className="mt-1 text-gray-500">
-                        Último pago:{" "}
-                        <strong>{estadoPagoLabel(item.ultimo_pago?.estado)}</strong>
-                        {item.ultimo_pago?.monto
-                          ? ` · ${item.ultimo_pago.moneda} ${item.ultimo_pago.monto}`
-                          : ""}
-                        {item.ultimo_pago?.mes && item.ultimo_pago?.anio
-                          ? ` · ${item.ultimo_pago.mes}/${item.ultimo_pago.anio}`
-                          : ""}
-                      </p>
-                    </div>
                   ))}
                 </div>
               )}
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2 lg:justify-end">
-            <button
-              type="button"
-              onClick={() => editarUsuario(usuario)}
-              className="workspace-button-secondary"
-            >
-              Editar
-            </button>
-
-            <Link
-              href={`/admin/pagos?participante=${encodeURIComponent(usuario.email)}`}
-              className="workspace-button-secondary"
-            >
-              Ver pagos
-            </Link>
-
-            <button
-              type="button"
-              onClick={() => {
-                const payload: FormState = {
-                  id: usuario.id,
-                  nombre: usuario.nombre,
-                  apellido: usuario.apellido || "",
-                  email: usuario.email,
-                  whatsapp: usuario.whatsapp || "",
-                  fechaCumpleanos: usuario.fecha_cumpleanos || "",
-                  notasDocumentos: serializarDocumentosNotas(
-                    usuario.notas_documentos
-                  ),
-                  charlaIntroHabilitada: usuario.charla_intro_habilitada === true,
-                  role: usuario.role,
-                  activo: !usuario.activo,
-                  password: "",
-                  enviarBienvenida: false,
-                  actividades: {
-                    casatalentos: actividadesHabilitadas.some(
-                      (item) =>
-                        item.actividad_slug === "casatalentos" &&
-                        item.estado === "activa"
-                    ),
-                    "conectando-sentidos": actividadesHabilitadas.some(
-                      (item) =>
-                        item.actividad_slug === "conectando-sentidos" &&
-                        item.estado === "activa"
-                    ),
-                    mentorias: actividadesHabilitadas.some(
-                      (item) =>
-                        item.actividad_slug === "mentorias" &&
-                        item.estado === "activa"
-                    ),
-                    terapia: actividadesHabilitadas.some(
-                      (item) =>
-                        item.actividad_slug === "terapia" &&
-                        item.estado === "activa"
-                    ),
-                  },
-                }
-
-                void guardarUsuario(payload)
-              }}
-              className="workspace-button-secondary"
-            >
-              {usuario.activo ? "Desactivar" : "Reactivar"}
-            </button>
+              {persona.perfil.notasDocumentos && (
+                <pre className="mt-3 whitespace-pre-wrap rounded-xl border border-[var(--line)] bg-[rgba(255,250,242,0.6)] p-3 text-xs text-gray-600">
+                  {persona.perfil.notasDocumentos}
+                </pre>
+              )}
+            </BloqueFicha>
           </div>
         </div>
-      </article>
+      </SeccionDesplegable>
     )
   }
 
@@ -815,11 +1727,11 @@ export default function AdminUsuariosPage() {
       <section className="workspace-hero">
         <div className="relative z-10 max-w-3xl space-y-4">
           <p className="workspace-eyebrow">Administración</p>
-          <h1 className="workspace-title">Usuarios</h1>
+          <h1 className="workspace-title">Personas</h1>
           <p className="workspace-subtitle">
-            Creá participantes, colaboradores o administradores. Esta vista
-            funciona como ficha central de cada persona: datos, estado, charla
-            introductoria, actividades habilitadas y resumen económico.
+            Esta pantalla empieza a funcionar como ficha integral por persona:
+            perfil, actividades, economía, agenda, alertas y documentos, sin
+            mover todavía las lógicas reales de acceso, pagos ni agenda.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link href="/admin/pagos" className="workspace-button-secondary">
@@ -843,8 +1755,9 @@ export default function AdminUsuariosPage() {
             {editando ? form.email : "Crear acceso a la plataforma"}
           </h2>
           <p className="workspace-inline-note">
-            Crear el usuario habilita el login. Luego podés habilitar actividades
-            desde la ficha de cada persona.
+            Crear el usuario habilita el login. Luego podés asignar actividades
+            desde esta misma ficha o completar la configuración económica en las
+            vistas secundarias.
           </p>
         </div>
 
@@ -972,7 +1885,7 @@ export default function AdminUsuariosPage() {
           </label>
         </div>
 
-        <div className="rounded-2xl border border-[var(--line)] bg-[rgba(255,250,242,0.68)] p-4 space-y-3">
+        <div className="space-y-3 rounded-2xl border border-[var(--line)] bg-[rgba(255,250,242,0.68)] p-4">
           <div className="space-y-2">
             <p className="text-sm font-semibold text-gray-900">
               Actividades a habilitar desde esta ficha
@@ -1000,11 +1913,6 @@ export default function AdminUsuariosPage() {
                 </label>
               ))}
             </div>
-            <p className="workspace-inline-note">
-              CT y CS toman honorario base desde Admin Pagos y generan el cobro
-              mensual vigente. Mentorías y Terapia siguen requiriendo ajuste
-              manual caso por caso.
-            </p>
           </div>
 
           <label className="inline-flex items-center gap-3 text-sm font-medium text-gray-700">
@@ -1084,8 +1992,12 @@ export default function AdminUsuariosPage() {
       <section className="workspace-panel space-y-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-1">
-            <p className="workspace-eyebrow">Base de usuarios</p>
-            <h2 className="workspace-title-sm">Usuarios creados</h2>
+            <p className="workspace-eyebrow">Ficha integral</p>
+            <h2 className="workspace-title-sm">Personas creadas</h2>
+            <p className="workspace-inline-note">
+              Lectura consolidada por persona: actividades, economía, agenda y
+              alertas, sin cambiar todavía la lógica real de acceso.
+            </p>
           </div>
 
           <label className="space-y-2 lg:w-80">
@@ -1099,9 +2011,9 @@ export default function AdminUsuariosPage() {
           </label>
         </div>
 
-        {cargando && <p className="workspace-inline-note">Cargando usuarios...</p>}
+        {cargando && <p className="workspace-inline-note">Cargando personas...</p>}
 
-        {!cargando && usuariosFiltrados.length === 0 && (
+        {!cargando && personasFiltradas.length === 0 && (
           <div className="rounded-2xl border border-[var(--line)] p-4">
             Todavía no hay usuarios creados en la base nueva.
           </div>
@@ -1109,71 +2021,71 @@ export default function AdminUsuariosPage() {
 
         <div className="grid gap-3">
           <SeccionDesplegable
-            titulo={`Charla introductoria (${gruposUsuarios.charlaIntroductoria.length})`}
+            titulo={`Charla introductoria (${gruposPersonas.charlaIntroductoria.length})`}
           >
             <div className="grid gap-3">
-              {gruposUsuarios.charlaIntroductoria.length === 0 ? (
+              {gruposPersonas.charlaIntroductoria.length === 0 ? (
                 <p className="text-sm text-gray-500">
                   No hay usuarios en este grupo.
                 </p>
               ) : (
-                gruposUsuarios.charlaIntroductoria.map(renderUsuarioCard)
+                gruposPersonas.charlaIntroductoria.map(renderPersonaCard)
               )}
             </div>
           </SeccionDesplegable>
 
           <SeccionDesplegable
-            titulo={`Participantes activos de la escuela (${gruposUsuarios.participantesActivos.length})`}
+            titulo={`Participantes activos de la escuela (${gruposPersonas.participantesActivos.length})`}
           >
             <div className="grid gap-3">
-              {gruposUsuarios.participantesActivos.length === 0 ? (
+              {gruposPersonas.participantesActivos.length === 0 ? (
                 <p className="text-sm text-gray-500">
                   No hay usuarios en este grupo.
                 </p>
               ) : (
-                gruposUsuarios.participantesActivos.map(renderUsuarioCard)
+                gruposPersonas.participantesActivos.map(renderPersonaCard)
               )}
             </div>
           </SeccionDesplegable>
 
           <SeccionDesplegable
-            titulo={`Usuarios sin actividad (${gruposUsuarios.usuariosSinActividad.length})`}
+            titulo={`Usuarios sin actividad (${gruposPersonas.usuariosSinActividad.length})`}
           >
             <div className="grid gap-3">
-              {gruposUsuarios.usuariosSinActividad.length === 0 ? (
+              {gruposPersonas.usuariosSinActividad.length === 0 ? (
                 <p className="text-sm text-gray-500">
                   No hay usuarios en este grupo.
                 </p>
               ) : (
-                gruposUsuarios.usuariosSinActividad.map(renderUsuarioCard)
+                gruposPersonas.usuariosSinActividad.map(renderPersonaCard)
               )}
             </div>
           </SeccionDesplegable>
 
           <SeccionDesplegable
-            titulo={`Equipo interno (${gruposUsuarios.equipoInterno.length})`}
+            titulo={`Equipo interno (${gruposPersonas.equipoInterno.length})`}
           >
             <div className="grid gap-3">
-              {gruposUsuarios.equipoInterno.length === 0 ? (
+              {gruposPersonas.equipoInterno.length === 0 ? (
                 <p className="text-sm text-gray-500">
                   No hay usuarios en este grupo.
                 </p>
               ) : (
-                gruposUsuarios.equipoInterno.map(renderUsuarioCard)
+                gruposPersonas.equipoInterno.map(renderPersonaCard)
               )}
             </div>
           </SeccionDesplegable>
 
           <SeccionDesplegable
-            titulo={`Usuarios inactivos (${gruposUsuarios.usuariosInactivos.length})`}
+            titulo={`Usuarios inactivos (${gruposPersonas.usuariosInactivos.length})`}
           >
             <div className="grid gap-3">
-              {gruposUsuarios.usuariosInactivos.length === 0 ? (
+              {gruposPersonas.usuariosInactivos.length === 0 ? (
                 <p className="text-sm text-gray-500">
                   No hay usuarios en este grupo.
                 </p>
               ) : (
-                gruposUsuarios.usuariosInactivos.map(renderUsuarioCard)
+                gruposPersonas.usuariosInactivos.map(renderPersonaCard)
               )}
             </div>
           </SeccionDesplegable>
