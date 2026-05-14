@@ -932,7 +932,6 @@ export default function CasaTalentosPage() {
   }, [diaActualClave, email, nombre, videosSemana])
 
   const mostrarBloqueSubida =
-    !esAdmin &&
     semanaEnUso === semanaActual &&
     Boolean(diaActualClave) &&
     !yaSubioVideoHoy
@@ -1448,9 +1447,20 @@ export default function CasaTalentosPage() {
         {!cargandoAcceso && (acceso || MODO_PRUEBA) && (
           <div className="space-y-4">
           {esAdmin && (
-          <CasaTalentosAdminPanel
-              onActualizado={cargarDatosCasaTalentos}
-            />
+            <section className="space-y-3">
+              <div className="workspace-panel-soft space-y-2">
+                <p className="workspace-eyebrow">Administracion de CasaTalentos</p>
+                <h2 className="text-xl font-semibold tracking-[-0.02em]">
+                  Coordinacion del espacio
+                </h2>
+                <p className="workspace-inline-note text-[var(--foreground)]">
+                  Aqui administras referentes, grabaciones y el seguimiento general
+                  del espacio sin salir de CasaTalentos.
+                </p>
+              </div>
+
+              <CasaTalentosAdminPanel onActualizado={cargarDatosCasaTalentos} />
+            </section>
           )}
 
           {tieneRecurso("reunion_semanal_casatalentos") && (
@@ -1582,6 +1592,21 @@ export default function CasaTalentosPage() {
                   )}
                 </div>
 
+                {esAdmin && (
+                  <div className="workspace-panel-soft space-y-3 border border-[var(--line)] bg-[rgba(255,250,242,0.9)]">
+                    <p className="workspace-eyebrow">Participar / Evaluar dispositivo semanal</p>
+                    <h3 className="text-lg font-semibold">
+                      Tu participacion como admin tambien cuenta
+                    </h3>
+                    <p className="workspace-inline-note text-[var(--foreground)]">
+                      Desde esta misma seccion podes subir tu video cuando
+                      corresponda, dejar aportes escritos, realizar la
+                      eleccion/evaluacion semanal y seguir el ranking, el top 3 y
+                      el ganador sin salir del flujo del dispositivo.
+                    </p>
+                  </div>
+                )}
+
                 {mostrarBloqueSubida && (
                   <div className="workspace-divider pt-4 space-y-4">
                     <h3 className="text-lg font-semibold">Subir tu video</h3>
@@ -1641,7 +1666,7 @@ export default function CasaTalentosPage() {
                   </div>
                 )}
 
-                {!esAdmin && semanaEnUso === semanaActual && esMartesAportes && (
+                {semanaEnUso === semanaActual && esMartesAportes && (
                   <div className="workspace-panel-soft space-y-3 border border-[#D6C39A] bg-[#FFF6E4]/70">
                     <h3 className="text-lg font-semibold text-[#6D4F17]">
                       Martes de aportes
@@ -1653,13 +1678,12 @@ export default function CasaTalentosPage() {
                   </div>
                 )}
 
-                {!esAdmin &&
-                  semanaEnUso === semanaActual &&
+                {semanaEnUso === semanaActual &&
                   Boolean(diaActualClave) &&
                   yaSubioVideoHoy && (
                     <div className="border-t pt-4">
                       <p className="text-sm font-medium text-green-700">
-                        Ya cargaste el video de hoy. Podrás volver a subir cuando llegue el próximo día del dispositivo.
+                        Ya cargaste el video de hoy. Podras volver a subir cuando llegue el proximo dia del dispositivo.
                       </p>
                     </div>
                   )}
