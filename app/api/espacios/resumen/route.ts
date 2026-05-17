@@ -15,6 +15,11 @@ import {
 import { obtenerFechaISOArgentina } from "@/lib/fechas"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
+function faltaColumnaActivo(error: unknown) {
+  const err = error as { code?: string; message?: string }
+  return err?.code === "42703" || String(err?.message || "").includes("activo")
+}
+
 type ReservaEspacioRow = {
   id: number
   estado: string
@@ -151,11 +156,23 @@ export async function POST(req: Request) {
       )
     }
 
-    const { data: mensajes, error: mensajesError } = await supabase
+    let { data: mensajes, error: mensajesError } = await supabase
       .from("espacios_mensajes")
       .select("*")
       .eq("espacio_id", espacio.id)
+      .eq("activo", true)
       .order("created_at", { ascending: true })
+
+    if (mensajesError && faltaColumnaActivo(mensajesError)) {
+      const retry = await supabase
+        .from("espacios_mensajes")
+        .select("*")
+        .eq("espacio_id", espacio.id)
+        .order("created_at", { ascending: true })
+
+      mensajes = retry.data
+      mensajesError = retry.error
+    }
 
     if (mensajesError) {
       throw mensajesError

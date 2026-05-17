@@ -259,10 +259,21 @@ export async function GET(req: Request) {
             : item.video_url || null,
     }))
 
-    const { data: mensajesGenerales, error: mensajesError } = await supabase
+    let { data: mensajesGenerales, error: mensajesError } = await supabase
       .from("casatalentos_mensajes")
       .select("*")
+      .eq("activo", true)
       .order("created_at", { ascending: true })
+
+    if (mensajesError && faltaColumnaActivo(mensajesError)) {
+      const retry = await supabase
+        .from("casatalentos_mensajes")
+        .select("*")
+        .order("created_at", { ascending: true })
+
+      mensajesGenerales = retry.data
+      mensajesError = retry.error
+    }
 
     if (mensajesError) {
       return NextResponse.json(
@@ -289,4 +300,8 @@ export async function GET(req: Request) {
       { status: 500 }
     )
   }
+}
+function faltaColumnaActivo(error: unknown) {
+  const err = error as { code?: string; message?: string }
+  return err?.code === "42703" || String(err?.message || "").includes("activo")
 }

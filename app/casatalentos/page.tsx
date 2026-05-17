@@ -6,6 +6,7 @@ import BibliotecaGrabaciones from "@/components/BibliotecaGrabaciones"
 import SeccionDesplegable from "@/components/SeccionDesplegable"
 import AgendaActividad from "@/components/agenda/AgendaActividad"
 import GrabadorVideo from "@/components/casatalentos/GrabadorVideo"
+import HDRActividad from "@/components/hdr/HDRActividad"
 import { useActivityAccess } from "@/components/auth/useActivityAccess"
 import CasaTalentosAdminPanel, {
   CasaTalentosAdminResumenBlock,
@@ -326,14 +327,11 @@ export default function CasaTalentosPage() {
 
   const [mensajeExito, setMensajeExito] = useState("")
   const [mensajeError, setMensajeError] = useState("")
-  const [semanaSeleccionada, setSemanaSeleccionada] = useState("")
   const [subiendoVideo, setSubiendoVideo] = useState(false)
   const [eligiendo, setEligiendo] = useState(false)
 
   const [comentariosDraft, setComentariosDraft] = useState<Record<number, string>>({})
   const [comentandoVideoId, setComentandoVideoId] = useState<number | null>(null)
-  const [participanteHistorialSeleccionado, setParticipanteHistorialSeleccionado] =
-    useState("todos")
   const [mensajeGeneralDraft, setMensajeGeneralDraft] = useState("")
   const [mensajeGeneralDraftHtml, setMensajeGeneralDraftHtml] = useState("")
   const [asuntoMensajeGeneralDraft, setAsuntoMensajeGeneralDraft] = useState("")
@@ -487,34 +485,7 @@ export default function CasaTalentosPage() {
     return normalizarFechaSemana(ahoraArgentina.fechaIso)
   }, [ahoraArgentina.fechaIso])
 
-  const semanasDisponibles = useMemo(() => {
-    const desdeVideos = videos
-      .map((v) => normalizarFechaSemana(v.fecha_semana))
-      .filter((v): v is string => Boolean(v))
-
-    const desdeReferentes = referentesSemanales
-      .map((r) => normalizarFechaSemana(r.fecha_semana))
-      .filter((v): v is string => Boolean(v))
-
-    const unicas = Array.from(
-      new Set([semanaActual, ...desdeVideos, ...desdeReferentes].filter(Boolean))
-    )
-    return unicas.sort((a, b) => b.localeCompare(a))
-  }, [referentesSemanales, semanaActual, videos])
-
-  useEffect(() => {
-    if (!semanaSeleccionada && semanasDisponibles.length > 0) {
-      setSemanaSeleccionada(semanasDisponibles[0])
-    }
-  }, [semanasDisponibles, semanaSeleccionada])
-
-  useEffect(() => {
-    if (!esAdmin && semanaSeleccionada !== semanaActual) {
-      setSemanaSeleccionada(semanaActual)
-    }
-  }, [esAdmin, semanaActual, semanaSeleccionada])
-
-  const semanaEnUso = esAdmin ? semanaSeleccionada : semanaActual
+  const semanaEnUso = semanaActual
 
   const videosSemana = useMemo(() => {
     if (!semanaEnUso) return videos
@@ -718,143 +689,6 @@ export default function CasaTalentosPage() {
     })
   }, [esAdmin, participantesActivosCasaTalentos, semanaActual, semanaEnUso, videosSemana])
 
-  const historialSemanal = useMemo(() => {
-    return semanasDisponibles.map((semana) => {
-      const videosDeSemana = videos.filter(
-        (video) => normalizarFechaSemana(video.fecha_semana) === semana
-      )
-      const votosDeSemana = votos.filter(
-        (voto) => normalizarFechaSemana(voto.fecha_semana) === semana
-      )
-
-      const votosPorVideoSemana = new Map<number, number>()
-      for (const voto of votosDeSemana) {
-        votosPorVideoSemana.set(
-          voto.video_id,
-          (votosPorVideoSemana.get(voto.video_id) || 0) + pesoEvaluacion(voto)
-        )
-      }
-
-      const mapaParticipantes = new Map<
-        string,
-        {
-          clave: string
-          nombre: string
-          videos: VideoItem[]
-          dias: Set<string>
-          totalVotos: number
-          participoEligiendo: boolean
-          subioLunes: boolean
-          subioMiercoles: boolean
-        }
-      >()
-
-      for (const video of videosDeSemana) {
-        const clave = claveParticipante(video)
-        const actual =
-          mapaParticipantes.get(clave) || {
-            clave,
-            nombre: video.participante_nombre,
-            videos: [],
-            dias: new Set<string>(),
-            totalVotos: 0,
-            participoEligiendo: false,
-            subioLunes: false,
-            subioMiercoles: false,
-          }
-
-        actual.videos.push(video)
-        const diaNormalizado = normalizarClaveDia(video.dia_clave || video.dia)
-        if (diaNormalizado) {
-          actual.dias.add(diaNormalizado)
-          if (diaNormalizado === "lunes") actual.subioLunes = true
-          if (diaNormalizado === "miercoles") actual.subioMiercoles = true
-        }
-        actual.totalVotos += votosPorVideoSemana.get(video.id) || 0
-        mapaParticipantes.set(clave, actual)
-      }
-
-      const participantesQueEligieron = new Set(votosDeSemana.map((voto) => claveVotante(voto)))
-
-      const participantes = Array.from(mapaParticipantes.values()).map((item) => {
-        const participoEligiendo = participantesQueEligieron.has(item.clave)
-        const elegible = item.subioLunes && item.subioMiercoles && participoEligiendo
-
-        return {
-          nombre: item.nombre,
-          videos: [...item.videos].sort(
-            (a, b) => ordenDia(a.dia_clave || a.dia) - ordenDia(b.dia_clave || b.dia)
-          ),
-          totalVotos: item.totalVotos,
-          subioLunes: item.subioLunes,
-          subioMiercoles: item.subioMiercoles,
-          participoEligiendo,
-          elegible,
-        }
-      })
-
-      participantes.sort((a, b) => {
-        if (b.totalVotos !== a.totalVotos) return b.totalVotos - a.totalVotos
-        return a.nombre.localeCompare(b.nombre)
-      })
-
-      const elegibles = participantes.filter((participante) => participante.elegible)
-      let ganadorTexto = "No hubo ganador definido"
-
-      if (elegibles.length > 0) {
-        const maxVotos = elegibles[0].totalVotos
-        const empatados = elegibles.filter((participante) => participante.totalVotos === maxVotos)
-
-        ganadorTexto =
-          empatados.length > 1
-            ? "Hubo empate entre participantes elegibles"
-            : empatados[0]?.nombre || ganadorTexto
-      }
-
-      return {
-        semana,
-        participantes,
-        ganadorTexto,
-      }
-    })
-  }, [semanasDisponibles, videos, votos])
-
-  const participantesHistorial = useMemo(() => {
-    const mapa = new Map<string, string>()
-
-    for (const semana of historialSemanal) {
-      for (const participante of semana.participantes) {
-        const clave = participante.nombre.trim().toLowerCase()
-        if (clave && !mapa.has(clave)) {
-          mapa.set(clave, participante.nombre)
-        }
-      }
-    }
-
-    return Array.from(mapa.entries())
-      .map(([clave, nombreParticipante]) => ({
-        clave,
-        nombre: nombreParticipante,
-      }))
-      .sort((a, b) => a.nombre.localeCompare(b.nombre))
-  }, [historialSemanal])
-
-  const historialAdminFiltrado = useMemo(() => {
-    if (participanteHistorialSeleccionado === "todos") {
-      return historialSemanal
-    }
-
-    return historialSemanal
-      .map((semana) => ({
-        ...semana,
-        participantes: semana.participantes.filter(
-          (participante) =>
-            participante.nombre.trim().toLowerCase() === participanteHistorialSeleccionado
-        ),
-      }))
-      .filter((semana) => semana.participantes.length > 0)
-  }, [historialSemanal, participanteHistorialSeleccionado])
-
   const mensajesRaiz = useMemo(() => {
     return mensajesGenerales.filter((mensaje) => !mensaje.parent_id)
   }, [mensajesGenerales])
@@ -1017,10 +851,6 @@ export default function CasaTalentosPage() {
       setTitulo("")
       setNombreParticipante("")
 
-      if (data.video?.fecha_semana) {
-        setSemanaSeleccionada(data.video.fecha_semana)
-      }
-
       setMensajeExito("Video subido correctamente.")
       await cargarDatosCasaTalentos()
     } catch (error) {
@@ -1161,7 +991,6 @@ export default function CasaTalentosPage() {
 
       setVideoAbierto(null)
       setElegidoSeleccionado(null)
-      setSemanaSeleccionada("")
       setArchivo(null)
       setMensajeExito("Se limpiaron los videos, elecciones y aportes.")
       await cargarDatosCasaTalentos()
@@ -1335,6 +1164,46 @@ export default function CasaTalentosPage() {
     }
   }
 
+  const handleEliminarMensajeGeneral = async (mensajeId: number) => {
+    const confirmar = window.confirm(
+      "El mensaje dejará de verse en la plataforma. No se borrarán archivos ni datos físicos. ¿Querés continuar?"
+    )
+
+    if (!confirmar) return
+
+    try {
+      setMensajeError("")
+      setMensajeExito("")
+      setGuardandoMensajeGeneral(true)
+
+      const res = await fetch("/api/casatalentos/mensajes", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          mensajeId,
+          previewEnabled: MODO_PRUEBA,
+        }),
+      })
+
+      const data = await leerRespuestaJson<{ error?: string }>(res)
+
+      if (!res.ok) {
+        setMensajeError(data.error || "No se pudo eliminar el mensaje.")
+        return
+      }
+
+      setMensajeEditandoId(null)
+      setMensajeExito("Mensaje eliminado correctamente.")
+      await cargarDatosCasaTalentos()
+    } catch {
+      setMensajeError("Hubo un problema al eliminar el mensaje.")
+    } finally {
+      setGuardandoMensajeGeneral(false)
+    }
+  }
+
   const textoReferentesGenerales =
     referentesGenerales?.contenido?.trim() ||
     `Para ser ganador/a de la semana:
@@ -1482,29 +1351,9 @@ export default function CasaTalentosPage() {
                   <div className="space-y-1">
                     <h3 className="text-lg font-semibold">Semana activa</h3>
                     <p className="workspace-inline-note">
-                      {semanaSeleccionada
-                        ? `Semana del ${formatearFecha(semanaEnUso)}`
-                        : "Todavía no hay una semana seleccionada."}
+                      Semana del {formatearFecha(semanaEnUso)}
                     </p>
                   </div>
-
-                  {esAdmin && semanasDisponibles.length > 0 && (
-                    <select
-                      className="w-full rounded-2xl border border-[var(--line)] bg-[rgba(255,250,242,0.92)] p-3"
-                      value={semanaSeleccionada}
-                      onChange={(e) => {
-                        setSemanaSeleccionada(e.target.value)
-                        setElegidoSeleccionado(null)
-                        setVideoAbierto(null)
-                      }}
-                    >
-                      {semanasDisponibles.map((semana) => (
-                        <option key={semana} value={semana}>
-                          Semana del {formatearFecha(semana)}
-                        </option>
-                      ))}
-                    </select>
-                  )}
 
                   <div className="grid gap-3 md:grid-cols-4">
                     <div className="rounded-xl border border-[var(--line)] bg-[rgba(255,251,244,0.92)] p-3">
@@ -1695,13 +1544,9 @@ export default function CasaTalentosPage() {
                       lunes, aportes del martes y video del miércoles.
                     </p>
 
-                  {semanasDisponibles.length === 0 && (
-                    <p className="workspace-inline-note">Todavía no hay semanas registradas.</p>
-                  )}
-
                   {videosSemana.length === 0 && (
                     <p className="workspace-inline-note">
-                      No hay videos cargados para la semana seleccionada.
+                      No hay videos cargados para la semana actual.
                     </p>
                   )}
 
@@ -1950,172 +1795,12 @@ export default function CasaTalentosPage() {
             </SeccionDesplegable>
           )}
 
-          {tieneRecurso("dispositivo_videos_casatalentos") && !esAdmin && (
-            <SeccionDesplegable titulo="Historial">
-              <div className="space-y-6">
-                {historialSemanal.length === 0 && (
-                  <p className="workspace-inline-note">
-                    Todavía no hay semanas anteriores guardadas en el historial.
-                  </p>
-                )}
-
-                {historialSemanal.map((semana) => (
-                  <div key={semana.semana} className="workspace-panel space-y-5">
-                    <div className="flex items-start justify-between gap-4 flex-wrap">
-                      <div className="space-y-1">
-                        <p className="workspace-eyebrow">Semana</p>
-                        <h3 className="text-xl font-semibold tracking-[-0.02em]">
-                          {formatearFecha(semana.semana)}
-                        </h3>
-                      </div>
-                      <div className="workspace-panel-soft !p-3">
-                        <p className="workspace-eyebrow !text-[0.62rem]">Resultado</p>
-                        <p className="text-sm font-medium text-[var(--foreground)]">
-                          {semana.ganadorTexto}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 lg:grid-cols-2">
-                    {semana.participantes.length === 0 && (
-                      <p className="workspace-inline-note">No hubo videos cargados en esta semana.</p>
-                    )}
-
-                    {semana.participantes.map((participante) => (
-                      <div key={`${semana.semana}-${participante.nombre}`} className="workspace-panel-soft space-y-3">
-                        <div className="space-y-1">
-                          <p className="text-lg font-semibold tracking-[-0.02em]">{participante.nombre}</p>
-                          <p className="workspace-inline-note text-xs">
-                            Elecciones recibidas: {participante.totalVotos}
-                          </p>
-                        </div>
-
-                        <div className="space-y-3">
-                        {participante.videos.map((video) => (
-                          <div key={video.id} className="workspace-card-link !rounded-[1.2rem] !p-3 space-y-2">
-                            <div className="flex items-center justify-between gap-3 flex-wrap">
-                              <p className="text-sm font-semibold">
-                                {video.dia_clave || video.dia || "Día sin definir"}
-                              </p>
-                              <span className="workspace-chip !text-[0.58rem]">
-                                1 minuto
-                              </span>
-                            </div>
-                            {video.titulo && (
-                              <p className="workspace-inline-note">{video.titulo}</p>
-                            )}
-
-                            {video.video_url && (
-                              <video
-                                controls
-                                src={video.video_url}
-                                className="w-full rounded-xl border border-[var(--line)]"
-                              />
-                            )}
-                          </div>
-                        ))}
-                        </div>
-                      </div>
-                    ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </SeccionDesplegable>
-          )}
-
-          {tieneRecurso("dispositivo_videos_casatalentos") && esAdmin && (
-            <SeccionDesplegable titulo="Historial">
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium">
-                    Ver historial de
-                  </label>
-                  <select
-                    className="workspace-field"
-                    value={participanteHistorialSeleccionado}
-                    onChange={(e) => setParticipanteHistorialSeleccionado(e.target.value)}
-                  >
-                    <option value="todos">Todos los participantes</option>
-                    {participantesHistorial.map((participante) => (
-                      <option key={participante.clave} value={participante.clave}>
-                        {participante.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {historialAdminFiltrado.length === 0 && (
-                  <p className="workspace-inline-note">
-                    Todavía no hay historial guardado para este participante.
-                  </p>
-                )}
-
-                {historialAdminFiltrado.map((semana) => (
-                  <div key={semana.semana} className="workspace-panel space-y-5">
-                    <div className="flex items-start justify-between gap-4 flex-wrap">
-                      <div className="space-y-1">
-                        <p className="workspace-eyebrow">Semana</p>
-                        <h3 className="text-xl font-semibold tracking-[-0.02em]">
-                          {formatearFecha(semana.semana)}
-                        </h3>
-                      </div>
-                      <div className="workspace-panel-soft !p-3">
-                        <p className="workspace-eyebrow !text-[0.62rem]">Resultado</p>
-                        <p className="text-sm font-medium text-[var(--foreground)]">
-                          {semana.ganadorTexto}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 lg:grid-cols-2">
-                    {semana.participantes.map((participante) => (
-                      <div
-                        key={`${semana.semana}-${participante.nombre}`}
-                        className="workspace-panel-soft space-y-3"
-                      >
-                        <div className="space-y-1">
-                          <p className="text-lg font-semibold tracking-[-0.02em]">
-                            {participante.nombre}
-                          </p>
-                          <p className="workspace-inline-note text-xs">
-                            Elecciones recibidas: {participante.totalVotos}
-                          </p>
-                        </div>
-
-                        <div className="space-y-3">
-                        {participante.videos.map((video) => (
-                          <div key={video.id} className="workspace-card-link !rounded-[1.2rem] !p-3 space-y-2">
-                            <div className="flex items-center justify-between gap-3 flex-wrap">
-                              <p className="text-sm font-semibold">
-                                {video.dia_clave || video.dia || "Día sin definir"}
-                              </p>
-                              <span className="workspace-chip !text-[0.58rem]">
-                                1 minuto
-                              </span>
-                            </div>
-                            {video.titulo && (
-                              <p className="workspace-inline-note">{video.titulo}</p>
-                            )}
-
-                            {video.video_url && (
-                              <video
-                                controls
-                                src={video.video_url}
-                                className="w-full rounded-xl border border-[var(--line)]"
-                              />
-                            )}
-                          </div>
-                        ))}
-                        </div>
-                      </div>
-                    ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </SeccionDesplegable>
-          )}
+          <SeccionDesplegable titulo="Hoja de Ruta">
+            <HDRActividad
+              actividadSlug="casatalentos"
+              actorEmail={email}
+            />
+          </SeccionDesplegable>
 
           <SeccionDesplegable titulo={tituloMensajes}>
             <div className="space-y-6">
@@ -2270,21 +1955,31 @@ export default function CasaTalentosPage() {
                     )}
 
                     {esAdmin && !editandoEsteMensaje && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMensajeEditandoId(mensaje.id)
-                          setMensajeEditandoAsunto(mensaje.asunto || "")
-                          setMensajeEditandoContenido(mensaje.contenido)
-                          setMensajeEditandoContenidoHtml(
-                            mensaje.contenido_html ||
-                              textoPlanoAHtmlSeguro(mensaje.contenido)
-                          )
-                        }}
-                        className="workspace-button-secondary"
-                      >
-                        Editar mensaje
-                      </button>
+                      <div className="flex gap-3 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMensajeEditandoId(mensaje.id)
+                            setMensajeEditandoAsunto(mensaje.asunto || "")
+                            setMensajeEditandoContenido(mensaje.contenido)
+                            setMensajeEditandoContenidoHtml(
+                              mensaje.contenido_html ||
+                                textoPlanoAHtmlSeguro(mensaje.contenido)
+                            )
+                          }}
+                          className="workspace-button-secondary"
+                        >
+                          Editar mensaje
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleEliminarMensajeGeneral(mensaje.id)}
+                          disabled={guardandoMensajeGeneral}
+                          className="workspace-button-secondary disabled:opacity-60"
+                        >
+                          Eliminar mensaje
+                        </button>
+                      </div>
                     )}
 
                     {mensajesAbiertos[mensaje.id] && !editandoEsteMensaje && (
@@ -2377,21 +2072,33 @@ export default function CasaTalentosPage() {
                                 )}
 
                                 {esAdmin && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setMensajeEditandoId(respuesta.id)
-                                      setMensajeEditandoAsunto("")
-                                      setMensajeEditandoContenido(respuesta.contenido)
-                                      setMensajeEditandoContenidoHtml(
-                                        respuesta.contenido_html ||
-                                          textoPlanoAHtmlSeguro(respuesta.contenido)
-                                      )
-                                    }}
-                                    className="workspace-button-secondary mt-2"
-                                  >
-                                    Editar mensaje
-                                  </button>
+                                  <div className="mt-2 flex gap-3 flex-wrap">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setMensajeEditandoId(respuesta.id)
+                                        setMensajeEditandoAsunto("")
+                                        setMensajeEditandoContenido(respuesta.contenido)
+                                        setMensajeEditandoContenidoHtml(
+                                          respuesta.contenido_html ||
+                                            textoPlanoAHtmlSeguro(respuesta.contenido)
+                                        )
+                                      }}
+                                      className="workspace-button-secondary"
+                                    >
+                                      Editar mensaje
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        void handleEliminarMensajeGeneral(respuesta.id)
+                                      }
+                                      disabled={guardandoMensajeGeneral}
+                                      className="workspace-button-secondary disabled:opacity-60"
+                                    >
+                                      Eliminar mensaje
+                                    </button>
+                                  </div>
                                 )}
                               </>
                             )}
