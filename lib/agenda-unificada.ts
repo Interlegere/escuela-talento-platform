@@ -546,7 +546,7 @@ export async function listarAgendaUnificada(params: {
       motivoBloqueo,
       notasDocumentos,
       visibleParaParticipante,
-      eliminablePorAdmin: !reserva && item.estado === "disponible",
+      eliminablePorAdmin: !reserva,
     })
   }
 

@@ -25,6 +25,33 @@ export async function POST(req: Request) {
     }
 
     const supabase = createAdminSupabaseClient()
+
+    const { data: reservas, error: reservasError } = await supabase
+      .from("reservas")
+      .select("id")
+      .eq("disponibilidad_id", disponibilidadId)
+      .limit(1)
+
+    if (reservasError) {
+      return NextResponse.json(
+        {
+          error: "No se pudo validar si el encuentro tiene reservas.",
+          detalle: reservasError,
+        },
+        { status: 500 }
+      )
+    }
+
+    if ((reservas || []).length > 0) {
+      return NextResponse.json(
+        {
+          error:
+            "No se puede eliminar este encuentro porque tiene reservas asociadas.",
+        },
+        { status: 409 }
+      )
+    }
+
     const { error } = await supabase
       .from("disponibilidades")
       .delete()

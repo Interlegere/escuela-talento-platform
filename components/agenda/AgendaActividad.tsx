@@ -19,6 +19,7 @@ type ItemAgenda = {
   meet_link?: string | null
   meetLink?: string | null
   notasDocumentos?: DocumentoNota[]
+  eliminablePorAdmin?: boolean
 }
 
 function formatearFecha(fecha: string) {
@@ -84,38 +85,76 @@ export default function AgendaActividad({
   const [items, setItems] = useState<ItemAgenda[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState("")
+  const [mensaje, setMensaje] = useState("")
+  const [eliminandoId, setEliminandoId] = useState<number | null>(null)
+
+  const cargar = async () => {
+    try {
+      setCargando(true)
+      setError("")
+
+      const res = await fetch("/api/agenda/por-actividad", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ actividadSlug }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || "No se pudo cargar la agenda")
+        return
+      }
+
+      setItems(data.items || [])
+    } catch {
+      setError("Error de conexión")
+    } finally {
+      setCargando(false)
+    }
+  }
 
   useEffect(() => {
-    const cargar = async () => {
-      try {
-        setCargando(true)
-        setError("")
-
-        const res = await fetch("/api/agenda/por-actividad", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ actividadSlug }),
-        })
-
-        const data = await res.json()
-
-        if (!res.ok) {
-          setError(data.error || "No se pudo cargar la agenda")
-          return
-        }
-
-        setItems(data.items || [])
-      } catch {
-        setError("Error de conexión")
-      } finally {
-        setCargando(false)
-      }
-    }
-
     void cargar()
   }, [actividadSlug])
+
+  const eliminarEncuentro = async (disponibilidadId: number) => {
+    const confirmar = window.confirm(
+      "El encuentro se eliminará de la agenda de la plataforma. ¿Querés continuar?"
+    )
+
+    if (!confirmar) return
+
+    try {
+      setEliminandoId(disponibilidadId)
+      setError("")
+      setMensaje("")
+
+      const res = await fetch("/api/agenda/admin/eliminar-disponibilidad", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ disponibilidadId }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || "No se pudo eliminar el encuentro.")
+        return
+      }
+
+      setMensaje("Encuentro eliminado correctamente.")
+      await cargar()
+    } catch {
+      setError("Error eliminando el encuentro.")
+    } finally {
+      setEliminandoId(null)
+    }
+  }
 
   const itemsVisibles = mostrarSoloProximo ? items.slice(0, 1) : items
   const esAdmin = session?.user?.role === "admin"
@@ -129,6 +168,7 @@ export default function AgendaActividad({
 
       {cargando && <p className="workspace-inline-note">Cargando...</p>}
       {error && <p className="text-red-600">{error}</p>}
+      {mensaje && <p className="text-green-700 text-sm font-medium">{mensaje}</p>}
 
       {!cargando && !error && itemsVisibles.length === 0 && (
         <p className="workspace-inline-note">No hay encuentros cargados todavía.</p>
@@ -166,6 +206,19 @@ export default function AgendaActividad({
               <p className="workspace-inline-note text-amber-700">
                 {item.motivoBloqueo}
               </p>
+            )}
+
+            {esAdmin && item.eliminablePorAdmin && item.disponibilidadId && (
+              <button
+                type="button"
+                onClick={() => void eliminarEncuentro(item.disponibilidadId!)}
+                disabled={eliminandoId === item.disponibilidadId}
+                className="workspace-button-secondary disabled:opacity-60"
+              >
+                {eliminandoId === item.disponibilidadId
+                  ? "Eliminando..."
+                  : "Eliminar encuentro"}
+              </button>
             )}
           </div>
         ))}
