@@ -682,6 +682,7 @@ export default function CasaTalentosPage() {
     semanaActual,
     semanaEnUso,
   ])
+  const mostrarControlesEvaluacion = esAdmin || eleccionesHabilitadas
 
   const participantesSinVideoLunes = useMemo(() => {
     if (
@@ -1716,20 +1717,17 @@ export default function CasaTalentosPage() {
                           </div>
                         )}
 
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            name="video-elegido"
-                            checked={elegidoSeleccionado === video.id}
-                            onChange={() => {
-                              if (eleccionesHabilitadas) {
-                                setElegidoSeleccionado(video.id)
-                              }
-                            }}
-                            disabled={!eleccionesHabilitadas}
-                          />
-                          Elegir este proceso
-                        </label>
+                        {mostrarControlesEvaluacion && (
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name="video-elegido"
+                              checked={elegidoSeleccionado === video.id}
+                              onChange={() => setElegidoSeleccionado(video.id)}
+                            />
+                            Elegir este proceso
+                          </label>
+                        )}
 
                         <div className="workspace-divider pt-4 space-y-3">
                           <h4 className="font-semibold">Aportes a este video</h4>
@@ -1779,15 +1777,21 @@ export default function CasaTalentosPage() {
                     )
                   })}
 
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={handleElegir}
-                      disabled={eligiendo || elegidoSeleccionado === null || !eleccionesHabilitadas}
-                      className="workspace-button-primary disabled:opacity-60"
-                    >
-                      {eligiendo ? "Guardando evaluación..." : "Confirmar evaluación"}
-                    </button>
+                  <div className="flex gap-3 flex-wrap">
+                    {mostrarControlesEvaluacion ? (
+                      <button
+                        type="button"
+                        onClick={handleElegir}
+                        disabled={eligiendo || elegidoSeleccionado === null}
+                        className="workspace-button-primary disabled:opacity-60"
+                      >
+                        {eligiendo ? "Guardando evaluación..." : "Confirmar evaluación"}
+                      </button>
+                    ) : (
+                      <p className="workspace-inline-note">
+                        La evaluación se habilita el jueves.
+                      </p>
+                    )}
 
                     {!esAdmin && (
                       <button

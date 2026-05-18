@@ -131,6 +131,7 @@ export default function GrabadorVideo({
     }
 
     if (videoRef.current) {
+      videoRef.current.pause()
       videoRef.current.srcObject = null
     }
   }
@@ -395,7 +396,7 @@ export default function GrabadorVideo({
               ref={videoRef}
               autoPlay
               playsInline
-              muted={!grabando}
+              muted
               controls={false}
               className="w-full max-h-[360px] object-contain"
             />
