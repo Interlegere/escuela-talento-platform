@@ -15,6 +15,7 @@ import EditorMensajeAdmin from "@/components/espacios/EditorMensajeAdmin"
 import type { EditorMensajeAdminHandle } from "@/components/espacios/EditorMensajeAdmin"
 import { isDevelopmentPreviewEnabled } from "@/lib/dev-flags"
 import { obtenerPartesArgentina } from "@/lib/fechas"
+import { supabase } from "@/lib/supabase"
 import WorkspaceHero from "@/components/ui/WorkspaceHero"
 
 type Recurso = {
@@ -86,6 +87,18 @@ type MensajeGeneral = {
   contenido_html?: string | null
   created_at?: string
   updated_at?: string
+}
+
+type PrepararUploadResponse = {
+  ok?: boolean
+  error?: string
+  bucket?: string
+  storagePath?: string
+  signedToken?: string
+  signedUrl?: string
+  diaClave?: string
+  fechaSemana?: string
+  maxBytes?: number
 }
 
 const MODO_PRUEBA = isDevelopmentPreviewEnabled()
@@ -328,6 +341,7 @@ export default function CasaTalentosPage() {
   const [mensajeExito, setMensajeExito] = useState("")
   const [mensajeError, setMensajeError] = useState("")
   const [subiendoVideo, setSubiendoVideo] = useState(false)
+  const [estadoSubidaVideo, setEstadoSubidaVideo] = useState("")
   const [eligiendo, setEligiendo] = useState(false)
 
   const [comentariosDraft, setComentariosDraft] = useState<Record<number, string>>({})
@@ -814,6 +828,7 @@ export default function CasaTalentosPage() {
   const handleCargarVideo = async () => {
     setMensajeExito("")
     setMensajeError("")
+    setEstadoSubidaVideo("")
 
     if (!archivo) {
       setMensajeError("Primero graba o elige un video.")
@@ -822,28 +837,93 @@ export default function CasaTalentosPage() {
 
     try {
       setSubiendoVideo(true)
+      setEstadoSubidaVideo("Preparando subida...")
 
-      const formData = new FormData()
-      formData.append(
-        "participanteNombre",
-        nombreParticipante || nombre || "Participante"
-      )
-      formData.append("participanteEmail", email || "")
-      formData.append("titulo", titulo || `Video ${nombreDiaActual}`)
-      formData.append("archivo", archivo)
+      const participanteNombre = nombreParticipante || nombre || "Participante"
+      const tituloVideo = titulo || `Video ${nombreDiaActual}`
 
-      const res = await fetch("/api/casatalentos/crear-video", {
+      const prepararRes = await fetch("/api/casatalentos/preparar-upload", {
         method: "POST",
-        body: formData,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          participanteNombre,
+          titulo: tituloVideo,
+          fileName: archivo.name,
+          mimeType: archivo.type,
+          fileSize: archivo.size,
+        }),
+      })
+
+      const preparacion = await leerRespuestaJson<PrepararUploadResponse>(prepararRes)
+
+      if (!prepararRes.ok) {
+        setMensajeError(preparacion.error || "No se pudo preparar la subida del video.")
+        return
+      }
+
+      if (
+        !preparacion.bucket ||
+        !preparacion.storagePath ||
+        !preparacion.signedToken
+      ) {
+        setMensajeError("La preparación de subida vino incompleta.")
+        return
+      }
+
+      if (preparacion.maxBytes && archivo.size > preparacion.maxBytes) {
+        setMensajeError("El video es muy pesado. Máximo 50MB.")
+        return
+      }
+
+      setEstadoSubidaVideo("Subiendo video...")
+
+      const { error: uploadError } = await supabase.storage
+        .from(preparacion.bucket)
+        .uploadToSignedUrl(
+          preparacion.storagePath,
+          preparacion.signedToken,
+          archivo,
+          {
+            contentType: archivo.type,
+            upsert: false,
+          }
+        )
+
+      if (uploadError) {
+        setMensajeError(
+          uploadError.message ||
+            "No se pudo subir el video al storage. Probá nuevamente con buena conexión."
+        )
+        return
+      }
+
+      setEstadoSubidaVideo("Confirmando video...")
+
+      const confirmarRes = await fetch("/api/casatalentos/confirmar-video", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          participanteNombre,
+          titulo: tituloVideo,
+          storagePath: preparacion.storagePath,
+          mimeType: archivo.type,
+          fileSize: archivo.size,
+          diaClave: preparacion.diaClave,
+          fechaSemana: preparacion.fechaSemana,
+        }),
       })
 
       const data = await leerRespuestaJson<{
         video?: VideoItem
         error?: string
-      }>(res)
+      }>(confirmarRes)
 
-      if (!res.ok) {
-        setMensajeError(data.error || "No se pudo subir el video.")
+      if (!confirmarRes.ok) {
+        setMensajeError(data.error || "No se pudo confirmar el video.")
         return
       }
 
@@ -857,6 +937,7 @@ export default function CasaTalentosPage() {
       setMensajeError("Hubo un problema al cargar el video.")
       console.error(error)
     } finally {
+      setEstadoSubidaVideo("")
       setSubiendoVideo(false)
     }
   }
@@ -1504,6 +1585,12 @@ export default function CasaTalentosPage() {
                     >
                       {subiendoVideo ? "Subiendo..." : "Subir video"}
                     </button>
+
+                    {estadoSubidaVideo && (
+                      <p className="text-sm text-[var(--muted)]">
+                        {estadoSubidaVideo}
+                      </p>
+                    )}
 
                     {mensajeExito && (
                       <p className="text-green-700 text-sm font-medium">{mensajeExito}</p>
