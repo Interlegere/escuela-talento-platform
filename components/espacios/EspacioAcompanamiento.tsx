@@ -656,6 +656,46 @@ export default function EspacioAcompanamiento({
     }
   }
 
+  const eliminarMensaje = async (mensajeId: number) => {
+    const confirmar = window.confirm(
+      "El mensaje dejará de verse en la plataforma. No se borrarán archivos ni datos físicos. ¿Querés continuar?"
+    )
+
+    if (!confirmar) return
+
+    try {
+      setMensajeError("")
+      setMensajeInfo("")
+
+      const res = await fetch("/api/espacios/mensajes", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          actividadSlug,
+          participanteEmail: adminActivo ? participanteSeleccionado || undefined : undefined,
+          mensajeId,
+        }),
+      })
+
+      const data = await leerJson<{ error?: string }>(res)
+
+      if (!res.ok) {
+        setMensajeError(data.error || "No se pudo eliminar el mensaje.")
+        return
+      }
+
+      setMensajeInfo("Mensaje eliminado correctamente.")
+      await cargarResumen(
+        adminActivo ? participanteSeleccionado || undefined : undefined,
+        { silencioso: true }
+      )
+    } catch {
+      setMensajeError("Error eliminando el mensaje.")
+    }
+  }
+
   const guardarRecurso = async () => {
     try {
       setMensajeError("")
@@ -1023,23 +1063,34 @@ export default function EspacioAcompanamiento({
                               </p>
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const abriendo = !abierto
-                                setMensajesAbiertos((prev) => ({
-                                  ...prev,
-                                  [item.id]: abriendo,
-                                }))
+                            <div className="flex gap-3 flex-wrap">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const abriendo = !abierto
+                                  setMensajesAbiertos((prev) => ({
+                                    ...prev,
+                                    [item.id]: abriendo,
+                                  }))
 
-                                if (abriendo) {
-                                  marcarMensajeComoLeido(item)
-                                }
-                              }}
-                              className="workspace-button-secondary"
-                            >
-                              {abierto ? "Cerrar" : "Ver mensaje"}
-                            </button>
+                                  if (abriendo) {
+                                    marcarMensajeComoLeido(item)
+                                  }
+                                }}
+                                className="workspace-button-secondary"
+                              >
+                                {abierto ? "Cerrar" : "Ver mensaje"}
+                              </button>
+                              {adminActivo && (
+                                <button
+                                  type="button"
+                                  onClick={() => void eliminarMensaje(item.id)}
+                                  className="workspace-button-secondary"
+                                >
+                                  Eliminar mensaje
+                                </button>
+                              )}
+                            </div>
                           </div>
 
                           {abierto && (
@@ -1086,6 +1137,15 @@ export default function EspacioAcompanamiento({
                                         <p className="whitespace-pre-wrap text-sm text-gray-700">
                                           {respuesta.contenido_texto}
                                         </p>
+                                      )}
+                                      {adminActivo && (
+                                        <button
+                                          type="button"
+                                          onClick={() => void eliminarMensaje(respuesta.id)}
+                                          className="workspace-button-secondary mt-2"
+                                        >
+                                          Eliminar mensaje
+                                        </button>
                                       )}
                                     </div>
                                   ))}

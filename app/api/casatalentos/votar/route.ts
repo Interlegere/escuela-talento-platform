@@ -46,7 +46,9 @@ export async function POST(req: Request) {
       )
     }
 
-    if (!MODO_PRUEBA) {
+    const esAdmin = hasAnyPermission(auth.actor, ["casatalentos.admin"])
+
+    if (!MODO_PRUEBA && !esAdmin) {
       const ahora = obtenerPartesArgentina()
 
       if (ahora.weekdayShort !== "Thu") {

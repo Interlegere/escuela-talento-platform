@@ -25,6 +25,18 @@ type HonorarioRow = {
   activo?: boolean | null
 }
 
+function esModalidadSinCobro(modalidad?: string | null) {
+  return (
+    modalidad === "becado" ||
+    modalidad === "invitado" ||
+    modalidad === "sin_cobro"
+  )
+}
+
+function esModalidadPorSesion(modalidad?: string | null) {
+  return modalidad === "sesion" || modalidad === "por_sesion"
+}
+
 export async function POST(req: Request) {
   try {
     const auth = await requireAuthenticatedActor()
@@ -97,23 +109,14 @@ export async function POST(req: Request) {
     }
 
     const honorarioRow = honorario as HonorarioRow
+    const modalidadRaw = String(honorarioRow.modalidad_pago || "")
+      .trim()
+      .toLowerCase()
     const modalidadPago = normalizarModalidadPago(
       honorarioRow.modalidad_pago,
       actividadSlug
     )
     const nombreResuelto = honorarioRow.participante_nombre?.trim() || participanteNombre
-
-    if (modalidadPago === "sesion") {
-      return NextResponse.json(
-        {
-          error:
-            "Esta actividad se abona por sesión. El cobro se gestiona al reservar cada encuentro.",
-          modalidadPago,
-          actividad,
-        },
-        { status: 409 }
-      )
-    }
 
     const { data: inscripcionExistente, error: inscripcionError } = await supabase
       .from("inscripciones")
@@ -155,6 +158,36 @@ export async function POST(req: Request) {
       }
 
       inscripcion = nuevaInscripcion
+    }
+
+    if (esModalidadPorSesion(modalidadRaw) || modalidadPago === "sesion") {
+      return NextResponse.json({
+        ok: true,
+        accion: "no_generable",
+        motivo:
+          "Esta actividad se abona por sesión. El cobro se gestiona al reservar o confirmar cada encuentro.",
+        actividad,
+        inscripcion,
+        pago: null,
+        modalidadPago,
+      })
+    }
+
+    if (esModalidadSinCobro(modalidadRaw)) {
+      return NextResponse.json({
+        ok: true,
+        accion: "no_generable",
+        motivo:
+          modalidadRaw === "becado"
+            ? "La actividad está configurada como becada. No corresponde generar cobro mensual."
+            : modalidadRaw === "invitado"
+              ? "La actividad está configurada como invitada. No corresponde generar cobro mensual."
+              : "La actividad está configurada sin cobro. No corresponde generar cobro mensual.",
+        actividad,
+        inscripcion,
+        pago: null,
+        modalidadPago,
+      })
     }
 
     const ahora = new Date()
@@ -228,6 +261,8 @@ export async function POST(req: Request) {
 
         return NextResponse.json({
           ok: true,
+          accion: "existente",
+          motivo: "Ya existía un cobro para este período y se sincronizó con el honorario actual.",
           actividad,
           inscripcion,
           pago: pagoActualizado,
@@ -240,6 +275,8 @@ export async function POST(req: Request) {
 
       return NextResponse.json({
         ok: true,
+        accion: "existente",
+        motivo: "Ya existía un cobro para este período.",
         actividad,
         inscripcion,
         pago: pagoExistente,
@@ -276,6 +313,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       ok: true,
+      accion: "creado",
+      motivo: "Se creó el cobro del período vigente.",
       actividad,
       inscripcion,
       pago: nuevoPago,

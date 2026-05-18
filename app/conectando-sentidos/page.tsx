@@ -396,6 +396,46 @@ export default function ConectandoSentidosPage() {
     }
   }
 
+  const handleEliminarMensaje = async (mensajeId: number) => {
+    const confirmar = window.confirm(
+      "El mensaje dejará de verse en la plataforma. No se borrarán archivos ni datos físicos. ¿Querés continuar?"
+    )
+
+    if (!confirmar) return
+
+    try {
+      setGuardandoMensaje(true)
+      setMensajeExito("")
+      setMensajeError("")
+
+      const res = await fetch("/api/conectando-sentidos/mensajes", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          mensajeId,
+          previewEnabled: MODO_PRUEBA,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setMensajeError(data.error || "No se pudo eliminar el mensaje.")
+        return
+      }
+
+      setMensajeEditandoId(null)
+      setMensajeExito("Mensaje eliminado correctamente.")
+      await cargarMensajes()
+    } catch {
+      setMensajeError("Hubo un problema al eliminar el mensaje.")
+    } finally {
+      setGuardandoMensaje(false)
+    }
+  }
+
   if (!sesionLista) {
     return (
       <main className="workspace-page space-y-6">
@@ -670,21 +710,31 @@ export default function ConectandoSentidosPage() {
                       )}
 
                       {esAdmin && !editandoEsteMensaje && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setMensajeEditandoId(mensaje.id)
-                            setMensajeEditandoAsunto(mensaje.asunto || "")
-                            setMensajeEditandoContenido(mensaje.contenido)
-                            setMensajeEditandoContenidoHtml(
-                              mensaje.contenido_html ||
-                                textoPlanoAHtmlSeguro(mensaje.contenido)
-                            )
-                          }}
-                          className="workspace-button-secondary"
-                        >
-                          Editar mensaje
-                        </button>
+                        <div className="flex gap-3 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMensajeEditandoId(mensaje.id)
+                              setMensajeEditandoAsunto(mensaje.asunto || "")
+                              setMensajeEditandoContenido(mensaje.contenido)
+                              setMensajeEditandoContenidoHtml(
+                                mensaje.contenido_html ||
+                                  textoPlanoAHtmlSeguro(mensaje.contenido)
+                              )
+                            }}
+                            className="workspace-button-secondary"
+                          >
+                            Editar mensaje
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleEliminarMensaje(mensaje.id)}
+                            disabled={guardandoMensaje}
+                            className="workspace-button-secondary disabled:opacity-60"
+                          >
+                            Eliminar mensaje
+                          </button>
+                        </div>
                       )}
 
                       {mensajesAbiertos[mensaje.id] && !editandoEsteMensaje && (
@@ -780,21 +830,31 @@ export default function ConectandoSentidosPage() {
                                   )}
 
                                   {esAdmin && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setMensajeEditandoId(respuesta.id)
-                                        setMensajeEditandoAsunto("")
-                                        setMensajeEditandoContenido(respuesta.contenido)
-                                        setMensajeEditandoContenidoHtml(
-                                          respuesta.contenido_html ||
-                                            textoPlanoAHtmlSeguro(respuesta.contenido)
-                                        )
-                                      }}
-                                      className="workspace-button-secondary mt-2"
-                                    >
-                                      Editar mensaje
-                                    </button>
+                                    <div className="mt-2 flex gap-3 flex-wrap">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setMensajeEditandoId(respuesta.id)
+                                          setMensajeEditandoAsunto("")
+                                          setMensajeEditandoContenido(respuesta.contenido)
+                                          setMensajeEditandoContenidoHtml(
+                                            respuesta.contenido_html ||
+                                              textoPlanoAHtmlSeguro(respuesta.contenido)
+                                          )
+                                        }}
+                                        className="workspace-button-secondary"
+                                      >
+                                        Editar mensaje
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => void handleEliminarMensaje(respuesta.id)}
+                                        disabled={guardandoMensaje}
+                                        className="workspace-button-secondary disabled:opacity-60"
+                                      >
+                                        Eliminar mensaje
+                                      </button>
+                                    </div>
                                   )}
                                 </>
                               )}

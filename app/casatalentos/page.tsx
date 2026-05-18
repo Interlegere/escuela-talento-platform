@@ -1423,7 +1423,7 @@ export default function CasaTalentosPage() {
             </SeccionDesplegable>
           )}
 
-          {tieneRecurso("dispositivo_videos_casatalentos") && (
+          {(esAdmin || tieneRecurso("dispositivo_videos_casatalentos")) && (
             <SeccionDesplegable titulo="Dispositivo CasaTalentos">
               <div className="space-y-6">
                 {esAdmin && <CasaTalentosAdminResumenBlock resumen={resumenAdmin} />}

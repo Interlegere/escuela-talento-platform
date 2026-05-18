@@ -325,6 +325,21 @@ function crearDraftEconomia(
   }
 }
 
+function economiaDraftTieneCambios(
+  draft: EconomiaDraft,
+  economia?: EconomiaResumen | null
+) {
+  const base = crearDraftEconomia(economia)
+
+  return (
+    String(draft.monto || "").trim() !== String(base.monto || "").trim() ||
+    String(draft.moneda || "").trim().toUpperCase() !==
+      String(base.moneda || "").trim().toUpperCase() ||
+    draft.modalidad !== base.modalidad ||
+    draft.medioSugerido !== base.medioSugerido
+  )
+}
+
 function crearDraftAgenda(): AgendaDraft {
   return {
     fecha: "",
@@ -411,9 +426,15 @@ export default function AdminUsuariosPage() {
   const [economiaGuardandoKey, setEconomiaGuardandoKey] = useState<string | null>(
     null
   )
+  const [economiaMensajes, setEconomiaMensajes] = useState<
+    Record<string, { tipo: "exito" | "error" | "info"; texto: string }>
+  >({})
   const [pagoGuardandoKey, setPagoGuardandoKey] = useState<string | null>(null)
   const [agendaDrafts, setAgendaDrafts] = useState<Record<string, AgendaDraft>>({})
   const [agendaGuardandoKey, setAgendaGuardandoKey] = useState<string | null>(null)
+  const [agendaMensajes, setAgendaMensajes] = useState<
+    Record<string, { tipo: "exito" | "error"; texto: string }>
+  >({})
 
   const esAdmin = session?.user?.role === "admin"
   const editando = Boolean(form.id)
@@ -841,6 +862,11 @@ export default function AdminUsuariosPage() {
       try {
         setEconomiaGuardandoKey(key)
         setMensaje("")
+        setEconomiaMensajes((prev) => {
+          const siguiente = { ...prev }
+          delete siguiente[key]
+          return siguiente
+        })
 
         const actividadActual = persona.actividades.find(
           (item) => item.actividad === actividadSlug
@@ -875,16 +901,27 @@ export default function AdminUsuariosPage() {
           throw new Error(data.error || "No se pudo guardar la economía.")
         }
 
-        setMensaje(
-          data.advertencia
-            ? `Economía de ${nombreActividad(actividadSlug)} actualizada. ${data.advertencia}`
-            : `Economía de ${nombreActividad(actividadSlug)} actualizada.`
-        )
+        setEconomiaMensajes((prev) => ({
+          ...prev,
+          [key]: {
+            tipo: data.advertencia ? "info" : "exito",
+            texto: data.advertencia
+              ? `Economía de ${nombreActividad(actividadSlug)} actualizada. ${data.advertencia}`
+              : `Economía de ${nombreActividad(actividadSlug)} actualizada.`,
+          },
+        }))
         await recargarTodo()
       } catch (error) {
-        setMensaje(
-          error instanceof Error ? error.message : "No se pudo guardar la economía."
-        )
+        setEconomiaMensajes((prev) => ({
+          ...prev,
+          [key]: {
+            tipo: "error",
+            texto:
+              error instanceof Error
+                ? error.message
+                : "No se pudo guardar la economía.",
+          },
+        }))
       } finally {
         setEconomiaGuardandoKey(null)
       }
@@ -928,10 +965,25 @@ export default function AdminUsuariosPage() {
   const generarCobroDesdeFicha = useCallback(
     async (persona: PersonaResumen, actividadSlug: EconomiaResumen["actividad"]) => {
       const key = actividadKey(persona.email, `${actividadSlug}:cobro`)
+      const economiaKey = actividadKey(persona.email, actividadSlug)
+      const economiaBase =
+        persona.economia.find((item) => item.actividad === actividadSlug) || null
+      const draft = obtenerDraftEconomia(persona.email, actividadSlug, economiaBase)
 
       try {
         setPagoGuardandoKey(key)
         setMensaje("")
+        setEconomiaMensajes((prev) => {
+          const siguiente = { ...prev }
+          delete siguiente[economiaKey]
+          return siguiente
+        })
+
+        if (economiaDraftTieneCambios(draft, economiaBase)) {
+          throw new Error(
+            "Guardá primero los cambios de economía antes de generar el cobro."
+          )
+        }
 
         const res = await fetch("/api/pagos-mensuales/obtener-o-crear", {
           method: "POST",
@@ -943,23 +995,47 @@ export default function AdminUsuariosPage() {
           }),
         })
 
-        const data = await res.json()
+        const data = (await res.json()) as {
+          error?: string
+          accion?: "creado" | "existente" | "no_generable"
+          motivo?: string
+        }
 
         if (!res.ok) {
           throw new Error(data.error || "No se pudo generar el cobro.")
         }
 
-        setMensaje(`Cobro vigente de ${nombreActividad(actividadSlug)} listo.`)
+        const texto =
+          data.accion === "creado"
+            ? `Cobro vigente de ${nombreActividad(actividadSlug)} creado.`
+            : data.accion === "existente"
+              ? data.motivo || `Ya existía un cobro vigente de ${nombreActividad(actividadSlug)}.`
+              : data.motivo || "Esta modalidad no genera un cobro mensual."
+
+        setEconomiaMensajes((prev) => ({
+          ...prev,
+          [economiaKey]: {
+            tipo: data.accion === "no_generable" ? "info" : "exito",
+            texto,
+          },
+        }))
         await recargarTodo()
       } catch (error) {
-        setMensaje(
-          error instanceof Error ? error.message : "No se pudo generar el cobro."
-        )
+        setEconomiaMensajes((prev) => ({
+          ...prev,
+          [economiaKey]: {
+            tipo: "error",
+            texto:
+              error instanceof Error
+                ? error.message
+                : "No se pudo generar el cobro.",
+          },
+        }))
       } finally {
         setPagoGuardandoKey(null)
       }
     },
-    [recargarTodo]
+    [obtenerDraftEconomia, recargarTodo]
   )
 
   const resolverPagoDesdeFicha = useCallback(
@@ -1065,6 +1141,11 @@ export default function AdminUsuariosPage() {
       try {
         setAgendaGuardandoKey(key)
         setMensaje("")
+        setAgendaMensajes((prev) => {
+          const siguiente = { ...prev }
+          delete siguiente[key]
+          return siguiente
+        })
 
         if (!draft.fecha || !draft.hora) {
           throw new Error("Completá fecha y hora para crear el encuentro.")
@@ -1091,6 +1172,7 @@ export default function AdminUsuariosPage() {
                 precio: "0",
                 estado: "confirmada",
                 es_recurrente: false,
+                sync_status: "pendiente",
                 participante_email: persona.email,
                 participante_nombre: persona.perfil.nombreCompleto,
                 notas_documentos: draft.notasDocumentos,
@@ -1109,12 +1191,25 @@ export default function AdminUsuariosPage() {
           ...prev,
           [actividadKey(persona.email, actividadSlug)]: crearDraftAgenda(),
         }))
-        setMensaje(`Encuentro de ${nombreActividad(actividadSlug)} creado.`)
+        setAgendaMensajes((prev) => ({
+          ...prev,
+          [key]: {
+            tipo: "exito",
+            texto: `Encuentro de ${nombreActividad(actividadSlug)} creado.`,
+          },
+        }))
         await recargarTodo()
       } catch (error) {
-        setMensaje(
-          error instanceof Error ? error.message : "No se pudo crear el encuentro."
-        )
+        setAgendaMensajes((prev) => ({
+          ...prev,
+          [key]: {
+            tipo: "error",
+            texto:
+              error instanceof Error
+                ? error.message
+                : "No se pudo crear el encuentro.",
+          },
+        }))
       } finally {
         setAgendaGuardandoKey(null)
       }
@@ -1274,6 +1369,7 @@ export default function AdminUsuariosPage() {
     const key = actividadKey(persona.email, economia.actividad)
     const draft = obtenerDraftEconomia(persona.email, economia.actividad, economia)
     const guardando = economiaGuardandoKey === key
+    const mensajeEconomia = economiaMensajes[key]
 
     return (
       <div
@@ -1296,6 +1392,19 @@ export default function AdminUsuariosPage() {
         <p className="mt-1 text-gray-500">
           Medio sugerido: {economia.medioSugerido || "Sin definir"}
         </p>
+        {mensajeEconomia && (
+          <p
+            className={`mt-3 rounded-xl border px-3 py-2 text-xs font-medium ${
+              mensajeEconomia.tipo === "error"
+                ? "border-red-200 bg-red-50 text-red-700"
+                : mensajeEconomia.tipo === "info"
+                  ? "border-amber-200 bg-amber-50 text-amber-800"
+                  : "border-green-200 bg-green-50 text-green-700"
+            }`}
+          >
+            {mensajeEconomia.texto}
+          </p>
+        )}
 
         <div className="mt-3 grid gap-3 lg:grid-cols-4">
           <label className="space-y-1">
@@ -1428,9 +1537,10 @@ export default function AdminUsuariosPage() {
   }
 
   const renderAgenda = (persona: PersonaResumen, item: AgendaResumen) => {
-    const key = actividadKey(persona.email, item.actividad)
+    const agendaKey = actividadKey(persona.email, `${item.actividad}:agenda`)
     const draft = obtenerDraftAgenda(persona.email, item.actividad)
-    const guardando = agendaGuardandoKey === actividadKey(persona.email, `${item.actividad}:agenda`)
+    const guardando = agendaGuardandoKey === agendaKey
+    const mensajeAgenda = agendaMensajes[agendaKey]
 
     return (
       <div
@@ -1463,6 +1573,17 @@ export default function AdminUsuariosPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--sea)]">
               Crear encuentro individual
             </p>
+            {mensajeAgenda && (
+              <p
+                className={`rounded-xl border px-3 py-2 text-xs font-medium ${
+                  mensajeAgenda.tipo === "error"
+                    ? "border-red-200 bg-red-50 text-red-700"
+                    : "border-green-200 bg-green-50 text-green-700"
+                }`}
+              >
+                {mensajeAgenda.texto}
+              </p>
+            )}
             <div className="grid gap-3 md:grid-cols-2">
               <label className="space-y-1">
                 <span className="text-xs font-medium text-gray-600">Fecha</span>
