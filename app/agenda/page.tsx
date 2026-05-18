@@ -287,6 +287,7 @@ export default function AgendaPage() {
   const estrategiaActual = ACTIVITY_RULES[actividadSlug].agendaStrategy
   const requiereParticipante =
   actividadSlug === "mentorias" || actividadSlug === "terapia"
+  const esActividadGrupal = estrategiaActual === "grupo_fijo"
 
   const crearProgramacion = async () => {
     try {
@@ -327,7 +328,7 @@ export default function AgendaPage() {
             ? ("disponibilidad" as const)
             : ("actividad_fija" as const),
         duracion: duracion.trim(),
-        meet_link: "https://meet.google.com/new",
+        meet_link: esActividadGrupal ? "" : "https://meet.google.com/new",
         requiere_pago: false,
         precio: "",
         estado: "disponible" as const,

@@ -218,6 +218,8 @@ type DisponibilidadRow = {
   duracion?: string | null
   titulo?: string | null
   meet_link?: string | null
+  google_event_id?: string | null
+  sync_status?: string | null
   modo?: string | null
   estado?: string | null
 }
@@ -276,6 +278,41 @@ const ACTIVIDADES_ESCUELA = ACTIVIDADES_CATALOGO.filter(
 
 function normalizarEmail(email?: string | null) {
   return String(email || "").trim().toLowerCase()
+}
+
+function esMeetPlaceholder(meetLink?: string | null) {
+  return String(meetLink || "").trim() === "https://meet.google.com/new"
+}
+
+function meetLinkReal(meetLink?: string | null) {
+  const link = String(meetLink || "").trim()
+  return link && !esMeetPlaceholder(link) ? link : null
+}
+
+function compararDisponibilidadCanonica(
+  actual: DisponibilidadRow,
+  candidata: DisponibilidadRow
+) {
+  const actualTieneMeetReal = Boolean(meetLinkReal(actual.meet_link))
+  const candidataTieneMeetReal = Boolean(meetLinkReal(candidata.meet_link))
+  const actualTieneEventoYMeet = Boolean(actual.google_event_id && actualTieneMeetReal)
+  const candidataTieneEventoYMeet = Boolean(candidata.google_event_id && candidataTieneMeetReal)
+  const actualSincronizada = actual.sync_status === "sincronizado"
+  const candidataSincronizada = candidata.sync_status === "sincronizado"
+
+  if (actualTieneEventoYMeet !== candidataTieneEventoYMeet) {
+    return candidataTieneEventoYMeet ? candidata : actual
+  }
+
+  if (actualTieneMeetReal !== candidataTieneMeetReal) {
+    return candidataTieneMeetReal ? candidata : actual
+  }
+
+  if (actualSincronizada !== candidataSincronizada) {
+    return candidataSincronizada ? candidata : actual
+  }
+
+  return candidata.id < actual.id ? candidata : actual
 }
 
 function normalizarMonto(value?: string | number | null) {
@@ -598,7 +635,7 @@ export async function buildAdminPersonSummaries(): Promise<PersonaResumen[]> {
         ? supabase
             .from("disponibilidades")
             .select(
-              "id, actividad_slug, participante_email, fecha, hora, duracion, titulo, meet_link, modo, estado"
+              "id, actividad_slug, participante_email, fecha, hora, duracion, titulo, meet_link, google_event_id, sync_status, modo, estado"
             )
             .in("participante_email", emails)
             .in("actividad_slug", ["mentorias", "terapia"])
@@ -609,7 +646,7 @@ export async function buildAdminPersonSummaries(): Promise<PersonaResumen[]> {
       supabase
         .from("disponibilidades")
         .select(
-          "id, actividad_slug, participante_email, fecha, hora, duracion, titulo, meet_link, modo, estado"
+          "id, actividad_slug, participante_email, fecha, hora, duracion, titulo, meet_link, google_event_id, sync_status, modo, estado"
         )
         .eq("modo", "actividad_fija")
         .in("actividad_slug", ["casatalentos", "conectando-sentidos"])
@@ -794,7 +831,27 @@ export async function buildAdminPersonSummaries(): Promise<PersonaResumen[]> {
       | "casatalentos"
       | "conectando-sentidos"
       | null
-    if (!slug || proximasGrupales.get(slug)) continue
+
+    if (!slug) continue
+
+    if (slug === "conectando-sentidos") {
+      const actual = proximasGrupales.get(slug)
+
+      if (
+        actual &&
+        (actual.fecha !== item.fecha || actual.hora !== item.hora)
+      ) {
+        continue
+      }
+
+      proximasGrupales.set(
+        slug,
+        actual ? compararDisponibilidadCanonica(actual, item) : item
+      )
+      continue
+    }
+
+    if (proximasGrupales.get(slug)) continue
     proximasGrupales.set(slug, item)
   }
 
@@ -1018,7 +1075,7 @@ export async function buildAdminPersonSummaries(): Promise<PersonaResumen[]> {
                   formatearInicio(proximo.fecha, proximo.hora),
                   proximo.duracion
                 ),
-                meetLink: proximo.meet_link || null,
+                meetLink: meetLinkReal(proximo.meet_link),
                 titulo: proximo.titulo || "Encuentro grupal",
               }
             : null,

@@ -41,6 +41,13 @@ function esEncuentroIndividualFijo(item: DisponibilidadInsert) {
   )
 }
 
+function esGrupoConectandoFijo(item: DisponibilidadInsert) {
+  return (
+    item.modo === "actividad_fija" &&
+    item.actividad_slug === "conectando-sentidos"
+  )
+}
+
 function esErrorMigracionAgenda(error: unknown) {
   const err = error as { code?: string; message?: string }
   const mensaje = String(err?.message || "").toLowerCase()
@@ -83,6 +90,7 @@ export async function POST(req: Request) {
       const hora = item.hora?.trim() || ""
       const duracion = item.duracion?.trim() || ""
       const esEncuentroUnoAUno = esEncuentroIndividualFijo(item)
+      const esConectandoGrupal = esGrupoConectandoFijo(item)
 
       if (esEncuentroUnoAUno && !participanteEmail) {
         throw new ValidationError(
@@ -96,10 +104,16 @@ export async function POST(req: Request) {
         )
       }
 
-      if (esEncuentroUnoAUno) {
+      if (esConectandoGrupal && (!fecha || !hora)) {
+        throw new ValidationError(
+          "Fecha y hora son obligatorias para crear la sesión grupal de Conectando Sentidos."
+        )
+      }
+
+      if (esEncuentroUnoAUno || esConectandoGrupal) {
         const clave = [
           item.actividad_slug,
-          participanteEmail,
+          esEncuentroUnoAUno ? participanteEmail : "grupo",
           fecha,
           hora,
           item.modo,
@@ -107,7 +121,9 @@ export async function POST(req: Request) {
 
         if (clavesNuevas.has(clave)) {
           throw new ValidationError(
-            "Ya hay un encuentro igual en esta solicitud. Revisá fecha y hora antes de crear."
+            esConectandoGrupal
+              ? "Ya hay una sesión grupal de Conectando Sentidos igual en esta solicitud. Revisá fecha y hora antes de crear."
+              : "Ya hay un encuentro igual en esta solicitud. Revisá fecha y hora antes de crear."
           )
         }
 
@@ -132,19 +148,27 @@ export async function POST(req: Request) {
     const supabase = createAdminSupabaseClient()
 
     for (const item of itemsNormalizados) {
-      if (!esEncuentroIndividualFijo(item)) {
+      if (!esEncuentroIndividualFijo(item) && !esGrupoConectandoFijo(item)) {
         continue
       }
 
-      const { data: existente, error: existenteError } = await supabase
+      let consultaExistente = supabase
         .from("disponibilidades")
         .select("id")
         .eq("actividad_slug", item.actividad_slug)
-        .eq("participante_email", item.participante_email)
         .eq("fecha", item.fecha)
         .eq("hora", item.hora)
         .eq("modo", item.modo)
-        .maybeSingle()
+
+      if (esEncuentroIndividualFijo(item)) {
+        consultaExistente = consultaExistente.eq(
+          "participante_email",
+          item.participante_email
+        )
+      }
+
+      const { data: existente, error: existenteError } =
+        await consultaExistente.maybeSingle()
 
       if (existenteError) {
         if (esErrorMigracionAgenda(existenteError)) {
@@ -170,8 +194,9 @@ export async function POST(req: Request) {
       if (existente) {
         return NextResponse.json(
           {
-            error:
-              "Ya existe un encuentro individual para esa actividad, participante, fecha y hora.",
+            error: esGrupoConectandoFijo(item)
+              ? "Ya existe una sesión grupal de Conectando Sentidos para esa fecha y hora."
+              : "Ya existe un encuentro individual para esa actividad, participante, fecha y hora.",
           },
           { status: 409 }
         )

@@ -22,6 +22,8 @@ type DisponibilidadRow = {
   hora: string
   duracion: string
   meet_link?: string | null
+  google_event_id?: string | null
+  sync_status?: string | null
   requiere_pago?: boolean | null
   precio?: string | null
   estado: "disponible" | "pendiente_pago" | "confirmada"
@@ -101,6 +103,87 @@ export type AgendaUnificadaItem = {
   notasDocumentos?: DocumentoNota[]
   visibleParaParticipante: boolean
   eliminablePorAdmin: boolean
+}
+
+function esMeetPlaceholder(meetLink?: string | null) {
+  return String(meetLink || "").trim() === "https://meet.google.com/new"
+}
+
+function meetLinkReal(meetLink?: string | null) {
+  const link = String(meetLink || "").trim()
+  return link && !esMeetPlaceholder(link) ? link : null
+}
+
+function claveCanonicaConectando(item: DisponibilidadRow) {
+  if (
+    item.actividad_slug !== "conectando-sentidos" ||
+    item.modo !== "actividad_fija"
+  ) {
+    return null
+  }
+
+  return [
+    item.actividad_slug,
+    item.modo,
+    item.fecha,
+    item.hora,
+  ].join("|")
+}
+
+function compararDisponibilidadCanonica(
+  actual: DisponibilidadRow,
+  candidata: DisponibilidadRow
+) {
+  const actualTieneMeetReal = Boolean(meetLinkReal(actual.meet_link))
+  const candidataTieneMeetReal = Boolean(meetLinkReal(candidata.meet_link))
+  const actualTieneEventoYMeet = Boolean(actual.google_event_id && actualTieneMeetReal)
+  const candidataTieneEventoYMeet = Boolean(candidata.google_event_id && candidataTieneMeetReal)
+  const actualSincronizada = actual.sync_status === "sincronizado"
+  const candidataSincronizada = candidata.sync_status === "sincronizado"
+
+  if (actualTieneEventoYMeet !== candidataTieneEventoYMeet) {
+    return candidataTieneEventoYMeet ? candidata : actual
+  }
+
+  if (actualTieneMeetReal !== candidataTieneMeetReal) {
+    return candidataTieneMeetReal ? candidata : actual
+  }
+
+  if (actualSincronizada !== candidataSincronizada) {
+    return candidataSincronizada ? candidata : actual
+  }
+
+  return candidata.id < actual.id ? candidata : actual
+}
+
+function consolidarConectandoCanonico(disponibilidades: DisponibilidadRow[]) {
+  const canonicas = new Map<string, DisponibilidadRow>()
+  const sinClave: DisponibilidadRow[] = []
+
+  for (const item of disponibilidades) {
+    const clave = claveCanonicaConectando(item)
+
+    if (!clave) {
+      sinClave.push(item)
+      continue
+    }
+
+    const actual = canonicas.get(clave)
+    canonicas.set(
+      clave,
+      actual ? compararDisponibilidadCanonica(actual, item) : item
+    )
+  }
+
+  return [...sinClave, ...canonicas.values()].sort((a, b) => {
+    const fecha = a.fecha.localeCompare(b.fecha)
+    if (fecha !== 0) return fecha
+
+    const hora = a.hora.localeCompare(b.hora)
+    if (hora !== 0) return hora
+
+    return a.id - b.id
+  })
 }
 
 function describirEstadoPagoAdmin(
@@ -244,9 +327,13 @@ export async function listarAgendaUnificada(params: {
     reservaPorDisponibilidad.set(item.disponibilidad_id, item)
   }
 
+  const disponibilidadesCanonicas = consolidarConectandoCanonico(
+    ((disponibilidades as DisponibilidadRow[] | null) || [])
+  )
+
   const items: AgendaUnificadaItem[] = []
 
-  for (const item of ((disponibilidades as DisponibilidadRow[] | null) || [])) {
+  for (const item of disponibilidadesCanonicas) {
     const slug = item.actividad_slug
 
     if (
@@ -265,6 +352,7 @@ export async function listarAgendaUnificada(params: {
     const regla = getActivityRule(slug)
     const actividadNombre = actividadesMap.get(slug) || slug
     const reserva = reservaPorDisponibilidad.get(item.id)
+    const meetLink = meetLinkReal(item.meet_link)
     const pagoEspacio =
       !esAdmin && (slug === "mentorias" || slug === "terapia")
         ? pagoEspaciosByActivity.get(slug)
@@ -321,10 +409,10 @@ export async function listarAgendaUnificada(params: {
         visibleParaParticipante =
           accessGeneral?.motivo !== "sin_inscripcion" &&
           accessGeneral?.motivo !== "sin_email"
-        puedeIngresar = Boolean(accessGeneral?.acceso && item.meet_link)
+        puedeIngresar = Boolean(accessGeneral?.acceso && meetLink)
         motivoBloqueo = accessGeneral?.acceso
-          ? !item.meet_link
-            ? "Falta link de videollamada."
+          ? !meetLink
+            ? "Meet pendiente de sincronización."
             : null
           : accessGeneral?.motivo === "sin_pago" ||
               accessGeneral?.motivo === "pendiente" ||
@@ -337,13 +425,13 @@ export async function listarAgendaUnificada(params: {
         visibleParaParticipante =
           String(item.participante_email || "").trim().toLowerCase() === actor.email
         puedeIngresar = Boolean(
-          visibleParaParticipante &&
-            item.meet_link &&
+            visibleParaParticipante &&
+            meetLink &&
             (pagoEspacio?.habilitado || false)
         )
 
         if (visibleParaParticipante && !puedeIngresar) {
-          motivoBloqueo = !item.meet_link
+          motivoBloqueo = !meetLink
             ? "Falta link de videollamada."
             : "El acceso a la reunión se habilita cuando el pago mensual está al día."
         }
@@ -356,8 +444,8 @@ export async function listarAgendaUnificada(params: {
           visibleParaParticipante =
             String(item.participante_email || "").trim().toLowerCase() === actor.email
           puedeIngresar = Boolean(
-            visibleParaParticipante &&
-              item.meet_link &&
+              visibleParaParticipante &&
+              meetLink &&
               (pagoEspacio?.habilitado || false)
           )
           motivoBloqueo = visibleParaParticipante && !puedeIngresar
@@ -372,8 +460,8 @@ export async function listarAgendaUnificada(params: {
             String(reserva.participante_email || "").trim().toLowerCase() === actor.email
 
           puedeIngresar = Boolean(
-            visibleParaParticipante &&
-              item.meet_link &&
+              visibleParaParticipante &&
+              meetLink &&
               (estado === "confirmada" || estado === "realizada")
           )
 
@@ -381,7 +469,7 @@ export async function listarAgendaUnificada(params: {
             visibleParaParticipante && !puedeIngresar
               ? estado === "pendiente_pago"
                 ? "La sesión queda habilitada cuando se confirma el pago."
-                : !item.meet_link
+                : !meetLink
                   ? "Falta link de videollamada."
                   : "Esta sesión todavía no está habilitada."
               : null
@@ -394,8 +482,8 @@ export async function listarAgendaUnificada(params: {
     }
 
     if (esAdmin) {
-      if (!item.meet_link) {
-        motivoBloqueo = "Falta link de videollamada."
+      if (!meetLink) {
+        motivoBloqueo = "Meet pendiente de sincronización."
       } else if (estado === "pendiente_pago") {
         if (reserva?.medio_pago === "transferencia") {
           motivoBloqueo = reserva.comprobante_nombre_archivo
@@ -443,7 +531,7 @@ export async function listarAgendaUnificada(params: {
       estrategia: regla.agendaStrategy,
       origen: reserva ? "reserva" : "disponibilidad",
       estado,
-      meetLink: item.meet_link || null,
+      meetLink,
       participanteEmail,
       participanteNombre,
       requierePago,
