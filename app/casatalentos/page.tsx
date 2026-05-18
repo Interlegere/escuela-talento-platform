@@ -1804,6 +1804,18 @@ export default function CasaTalentosPage() {
 
           <SeccionDesplegable titulo={tituloMensajes}>
             <div className="space-y-6">
+              {(mensajeExito || mensajeError) && (
+                <div
+                  className={`rounded-2xl border px-4 py-3 text-sm font-medium ${
+                    mensajeError
+                      ? "border-red-200 bg-red-50 text-red-700"
+                      : "border-green-200 bg-green-50 text-green-700"
+                  }`}
+                >
+                  {mensajeError || mensajeExito}
+                </div>
+              )}
+
               <div className="workspace-panel-soft space-y-3">
                 <div className="space-y-1">
                   <p className="workspace-eyebrow">Nuevo hilo</p>

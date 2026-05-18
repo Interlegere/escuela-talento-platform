@@ -10,12 +10,18 @@ import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 type Body = {
   asunto?: string
   contenido: string
+  contenidoHtml?: string
   parentId?: number | null
   previewEnabled?: boolean
 }
 
 function permitePreview(valor?: boolean) {
   return allowRequestedPreview(valor)
+}
+
+function faltaColumnaActivo(error: unknown) {
+  const err = error as { code?: string; message?: string }
+  return err?.code === "42703" || String(err?.message || "").includes("activo")
 }
 
 export async function POST(req: Request) {
@@ -54,6 +60,7 @@ export async function POST(req: Request) {
     }
 
     const contenido = (body.contenido || "").trim()
+    const contenidoHtml = (body.contenidoHtml || "").trim()
     const asunto = (body.asunto || "").trim()
     const parentId = body.parentId ? Number(body.parentId) : null
 
@@ -74,11 +81,23 @@ export async function POST(req: Request) {
     const supabase = createAdminSupabaseClient()
 
     if (parentId) {
-      const { data: parent, error: parentError } = await supabase
+      let { data: parent, error: parentError } = await supabase
         .from("casatalentos_mensajes")
         .select("id")
         .eq("id", parentId)
+        .eq("activo", true)
         .single()
+
+      if (parentError && faltaColumnaActivo(parentError)) {
+        const retry = await supabase
+          .from("casatalentos_mensajes")
+          .select("id")
+          .eq("id", parentId)
+          .single()
+
+        parent = retry.data
+        parentError = retry.error
+      }
 
       if (parentError || !parent) {
         return NextResponse.json(
@@ -97,6 +116,9 @@ export async function POST(req: Request) {
         autor_email: actor.email || null,
         autor_rol: actor.role,
         contenido,
+        contenido_html: hasAnyPermission(actor, ["casatalentos.admin"])
+          ? contenidoHtml || null
+          : null,
       })
       .select("*")
       .single()
@@ -126,6 +148,7 @@ export async function PATCH(req: Request) {
       mensajeId?: number
       asunto?: string
       contenido?: string
+      contenidoHtml?: string
       previewEnabled?: boolean
     }
     const preview = permitePreview(body.previewEnabled)
@@ -158,6 +181,7 @@ export async function PATCH(req: Request) {
     const mensajeId = Number(body.mensajeId)
     const asunto = (body.asunto || "").trim()
     const contenido = (body.contenido || "").trim()
+    const contenidoHtml = (body.contenidoHtml || "").trim()
 
     if (!mensajeId || !contenido) {
       return NextResponse.json(
@@ -173,6 +197,7 @@ export async function PATCH(req: Request) {
       .update({
         asunto: asunto || null,
         contenido,
+        contenido_html: contenidoHtml || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", mensajeId)
@@ -191,6 +216,96 @@ export async function PATCH(req: Request) {
     return NextResponse.json(
       {
         error: "Error interno editando mensaje",
+        detalle: String(error),
+      },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const body = (await req.json()) as {
+      mensajeId?: number
+      previewEnabled?: boolean
+    }
+    const preview = permitePreview(body.previewEnabled)
+
+    const auth = preview
+      ? null
+      : await requireActivityAccess("casatalentos", "casatalentos.admin")
+
+    if (auth && "response" in auth) {
+      return auth.response
+    }
+
+    const actorPreview = preview ? await getCurrentActor() : null
+    const actor =
+      auth && "actor" in auth
+        ? auth.actor
+        : actorPreview || {
+            name: "Modo prueba",
+            email: "preview@escuela.local",
+            role: "admin" as const,
+          }
+
+    if (!hasAnyPermission(actor, ["casatalentos.admin"])) {
+      return NextResponse.json(
+        { error: "Solo admin puede eliminar mensajes." },
+        { status: 403 }
+      )
+    }
+
+    const mensajeId = Number(body.mensajeId)
+
+    if (!mensajeId) {
+      return NextResponse.json(
+        { error: "Falta el mensaje a eliminar." },
+        { status: 400 }
+      )
+    }
+
+    const supabase = createAdminSupabaseClient()
+
+    const { data, error } = await supabase
+      .from("casatalentos_mensajes")
+      .update({
+        activo: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", mensajeId)
+      .select("id")
+      .maybeSingle()
+
+    if (error) {
+      if (faltaColumnaActivo(error)) {
+        return NextResponse.json(
+          {
+            error:
+              "Falta aplicar la migración de soft delete de mensajes antes de eliminar.",
+          },
+          { status: 409 }
+        )
+      }
+
+      return NextResponse.json(
+        { error: "No se pudo eliminar el mensaje.", detalle: error.message },
+        { status: 500 }
+      )
+    }
+
+    if (!data) {
+      return NextResponse.json(
+        { error: "No se encontró el mensaje a eliminar." },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: "Error interno eliminando mensaje",
         detalle: String(error),
       },
       { status: 500 }

@@ -288,13 +288,15 @@ export async function DELETE(req: Request) {
 
     const supabase = createAdminSupabaseClient()
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("conectando_mensajes")
       .update({
         activo: false,
         updated_at: new Date().toISOString(),
       })
       .eq("id", mensajeId)
+      .select("id")
+      .maybeSingle()
 
     if (error) {
       if (faltaColumnaActivo(error)) {
@@ -310,6 +312,13 @@ export async function DELETE(req: Request) {
       return NextResponse.json(
         { error: "No se pudo eliminar el mensaje.", detalle: error.message },
         { status: 500 }
+      )
+    }
+
+    if (!data) {
+      return NextResponse.json(
+        { error: "No se encontró el mensaje a eliminar." },
+        { status: 404 }
       )
     }
 
