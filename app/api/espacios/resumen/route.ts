@@ -214,6 +214,7 @@ export async function POST(req: Request) {
         .select("*")
         .eq("actividad_slug", actividadSlug)
         .eq("modo", "actividad_fija")
+        .neq("estado", "cancelada")
         .gte("fecha", hoy)
         .order("fecha", { ascending: true })
         .order("hora", { ascending: true })
@@ -243,7 +244,8 @@ export async function POST(req: Request) {
         (item) =>
           item.disponibilidades?.actividad_slug === actividadSlug &&
           item.disponibilidades?.fecha &&
-          item.disponibilidades.fecha >= hoy
+          item.disponibilidades.fecha >= hoy &&
+          item.disponibilidades?.estado !== "cancelada"
       )
       .map((item) => {
         const link = item.disponibilidades?.meet_link || null

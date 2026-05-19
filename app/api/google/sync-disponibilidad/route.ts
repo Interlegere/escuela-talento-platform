@@ -42,7 +42,19 @@ function extractMeetLink(
   return fallback || null
 }
 
+function esMeetPlaceholder(meetLink?: string | null) {
+  return String(meetLink || "").trim() === "https://meet.google.com/new"
+}
+
+function meetLinkReal(meetLink?: string | null) {
+  const link = String(meetLink || "").trim()
+  return link && !esMeetPlaceholder(link) ? link : null
+}
+
 export async function POST(req: NextRequest) {
+  let disponibilidadId = 0
+  const supabase = createAdminSupabaseClient()
+
   try {
     const auth = await requirePermission("agenda.manage")
 
@@ -51,7 +63,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const disponibilidadId = Number(body.disponibilidadId)
+    disponibilidadId = Number(body.disponibilidadId)
 
     if (!disponibilidadId) {
       return NextResponse.json(
@@ -59,8 +71,6 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       )
     }
-
-    const supabase = createAdminSupabaseClient()
 
     const { data: disponibilidad, error: disponibilidadError } = await supabase
       .from("disponibilidades")
@@ -74,6 +84,11 @@ export async function POST(req: NextRequest) {
         { status: 404 }
       )
     }
+
+    await supabase
+      .from("disponibilidades")
+      .update({ sync_status: "sincronizando" })
+      .eq("id", disponibilidadId)
 
     const calendar = await getGoogleCalendarClient(auth.actor.email)
 
@@ -115,7 +130,7 @@ export async function POST(req: NextRequest) {
     let googleEventId = disponibilidad.google_event_id || null
     const calendarId = disponibilidad.google_calendar_id || "primary"
 
-    let meetLink = disponibilidad.meet_link || null
+    let meetLink = meetLinkReal(disponibilidad.meet_link)
 
     if (!googleEventId) {
       const insertRes = await calendar.events.insert({
@@ -128,7 +143,7 @@ export async function POST(req: NextRequest) {
       })
 
       googleEventId = insertRes.data.id || null
-      meetLink = extractMeetLink(insertRes.data, meetLink)
+      meetLink = meetLinkReal(extractMeetLink(insertRes.data, meetLink))
     } else {
       const existingEvent = await calendar.events.get({
         calendarId,
@@ -148,8 +163,27 @@ export async function POST(req: NextRequest) {
       })
 
       meetLink =
-        extractMeetLink(updateRes.data) ||
-        extractMeetLink(existingEvent.data, meetLink)
+        meetLinkReal(extractMeetLink(updateRes.data)) ||
+        meetLinkReal(extractMeetLink(existingEvent.data, meetLink))
+    }
+
+    if (!googleEventId || !meetLink) {
+      await supabase
+        .from("disponibilidades")
+        .update({ sync_status: "error" })
+        .eq("id", disponibilidadId)
+
+      return NextResponse.json(
+        {
+          error:
+            "Google Calendar respondió, pero no devolvió un Meet válido.",
+          disponibilidadId,
+          google_event_id: googleEventId,
+          meet_link: meetLink,
+          sync_status: "error",
+        },
+        { status: 502 }
+      )
     }
 
     const ahora = new Date().toISOString()
@@ -184,6 +218,22 @@ export async function POST(req: NextRequest) {
     })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error)
+
+    if (disponibilidadId) {
+      try {
+        await supabase
+          .from("disponibilidades")
+          .update({ sync_status: "error" })
+          .eq("id", disponibilidadId)
+      } catch (updateError) {
+        console.error("No se pudo marcar sync_status=error", updateError)
+      }
+    }
+
+    console.error("Error sincronizando disponibilidad con Google", {
+      disponibilidadId,
+      error: message,
+    })
 
     return NextResponse.json(
       { error: message || "Error sincronizando con Google Calendar" },

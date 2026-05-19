@@ -18,6 +18,9 @@ type ItemAgenda = {
   motivoBloqueo?: string | null
   meet_link?: string | null
   meetLink?: string | null
+  syncStatus?: string | null
+  lastSyncedAt?: string | null
+  serieId?: string | null
   notasDocumentos?: DocumentoNota[]
   eliminablePorAdmin?: boolean
 }
@@ -72,6 +75,30 @@ function renderDocumentosNotas(item: ItemAgenda) {
   )
 }
 
+function etiquetaSync(syncStatus?: string | null, meetLink?: string | null) {
+  if (syncStatus === "sincronizado" && meetLink) {
+    return "Meet generado por Google Calendar"
+  }
+
+  if (syncStatus === "manual") {
+    return "Meet manual"
+  }
+
+  if (syncStatus === "sincronizando") {
+    return "Generando Meet..."
+  }
+
+  if (syncStatus === "error") {
+    return "Google Calendar no pudo generar el Meet"
+  }
+
+  if (meetLink) {
+    return "Meet disponible"
+  }
+
+  return "Meet aún no generado"
+}
+
 export default function AgendaActividad({
   actividadSlug,
   tituloSeccion = "Próximos encuentros",
@@ -87,6 +114,7 @@ export default function AgendaActividad({
   const [error, setError] = useState("")
   const [mensaje, setMensaje] = useState("")
   const [eliminandoId, setEliminandoId] = useState<number | null>(null)
+  const [operandoId, setOperandoId] = useState<number | null>(null)
 
   const cargar = async () => {
     try {
@@ -156,6 +184,121 @@ export default function AgendaActividad({
     }
   }
 
+  const ejecutarAccion = async (
+    item: ItemAgenda,
+    accion: "sync" | "editar" | "meet_manual" | "cancelar",
+    alcance: "solo_este" | "serie_futura" = "solo_este"
+  ) => {
+    if (!item.disponibilidadId) return
+
+    if (alcance === "serie_futura" && !item.serieId) {
+      setError(
+        "Esta programación no tiene identificador de serie. Sólo se puede modificar este encuentro."
+      )
+      return
+    }
+
+    try {
+      setOperandoId(item.disponibilidadId)
+      setError("")
+      setMensaje("")
+
+      let res: Response
+
+      if (accion === "sync") {
+        res = await fetch("/api/google/sync-disponibilidad", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ disponibilidadId: item.disponibilidadId }),
+        })
+      } else if (accion === "meet_manual") {
+        const meetLink = window.prompt("Pegá el Meet real para este encuentro:", item.meetLink || "")
+        if (meetLink === null) return
+
+        res = await fetch("/api/agenda/admin/actualizar-disponibilidad", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            disponibilidadId: item.disponibilidadId,
+            modoActualizacion: "meet_manual",
+            meet_link: meetLink,
+          }),
+        })
+      } else if (accion === "cancelar") {
+        const confirmar = window.confirm(
+          alcance === "serie_futura"
+            ? "Este encuentro y los próximos de la misma serie se cancelarán y dejarán de verse en las agendas activas. ¿Querés continuar?"
+            : "El encuentro se cancelará y dejará de verse en las agendas activas. ¿Querés continuar?"
+        )
+        if (!confirmar) return
+
+        res = await fetch("/api/agenda/admin/actualizar-disponibilidad", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            disponibilidadId: item.disponibilidadId,
+            modoActualizacion: "cancelar",
+            alcance,
+          }),
+        })
+      } else {
+        const titulo = window.prompt("Título del encuentro:", item.titulo)
+        if (titulo === null) return
+        const fecha = window.prompt(
+          alcance === "serie_futura"
+            ? "Nueva fecha para este encuentro base (AAAA-MM-DD). Las próximas fechas se moverán con el mismo corrimiento:"
+            : "Fecha (AAAA-MM-DD):",
+          item.fecha
+        )
+        if (fecha === null) return
+        const hora = window.prompt("Hora (HH:mm):", item.hora)
+        if (hora === null) return
+        const duracion = window.prompt("Duración en minutos:", item.duracion)
+        if (duracion === null) return
+
+        res = await fetch("/api/agenda/admin/actualizar-disponibilidad", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            disponibilidadId: item.disponibilidadId,
+            modoActualizacion: "editar",
+            titulo,
+            fecha,
+            hora,
+            duracion,
+            alcance,
+          }),
+        })
+      }
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || "No se pudo completar la acción.")
+        return
+      }
+
+      setMensaje(
+        accion === "sync"
+          ? "Meet sincronizado correctamente."
+          : accion === "meet_manual"
+            ? "Meet manual guardado correctamente."
+            : accion === "cancelar"
+              ? data.afectados && data.afectados > 1
+                ? `${data.afectados} encuentros cancelados correctamente.`
+                : "Encuentro cancelado correctamente."
+              : data.afectados && data.afectados > 1
+                ? `${data.afectados} encuentros actualizados correctamente.`
+                : "Encuentro actualizado correctamente."
+      )
+      await cargar()
+    } catch {
+      setError("No se pudo completar la acción.")
+    } finally {
+      setOperandoId(null)
+    }
+  }
+
   const itemsVisibles = mostrarSoloProximo ? items.slice(0, 1) : items
   const esAdmin = session?.user?.role === "admin"
 
@@ -186,6 +329,11 @@ export default function AgendaActividad({
               {formatearFecha(item.fecha)} · {item.hora}
             </p>
             <p className="workspace-inline-note">Duración: {item.duracion} min</p>
+            {esAdmin && (
+              <p className="workspace-inline-note">
+                Meet: {etiquetaSync(item.syncStatus, item.meetLink || item.meet_link)}
+              </p>
+            )}
 
             {esAdmin && renderDocumentosNotas(item)}
 
@@ -209,16 +357,78 @@ export default function AgendaActividad({
             )}
 
             {esAdmin && item.eliminablePorAdmin && item.disponibilidadId && (
-              <button
-                type="button"
-                onClick={() => void eliminarEncuentro(item.disponibilidadId!)}
-                disabled={eliminandoId === item.disponibilidadId}
-                className="workspace-button-secondary disabled:opacity-60"
-              >
-                {eliminandoId === item.disponibilidadId
-                  ? "Eliminando..."
-                  : "Eliminar encuentro"}
-              </button>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => void ejecutarAccion(item, "sync")}
+                  disabled={operandoId === item.disponibilidadId}
+                  className="workspace-button-secondary disabled:opacity-60"
+                >
+                  {operandoId === item.disponibilidadId
+                    ? "Procesando..."
+                    : "Generar/Reintentar Meet"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void ejecutarAccion(item, "editar", "solo_este")}
+                  disabled={operandoId === item.disponibilidadId}
+                  className="workspace-button-secondary disabled:opacity-60"
+                >
+                  Editar este encuentro
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void ejecutarAccion(item, "editar", "serie_futura")}
+                  disabled={operandoId === item.disponibilidadId || !item.serieId}
+                  title={
+                    item.serieId
+                      ? "Editar este encuentro y los próximos de la misma serie"
+                      : "Esta programación no tiene identificador de serie. Sólo se puede modificar este encuentro."
+                  }
+                  className="workspace-button-secondary disabled:opacity-60"
+                >
+                  Editar esta y próximas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void ejecutarAccion(item, "meet_manual")}
+                  disabled={operandoId === item.disponibilidadId}
+                  className="workspace-button-secondary disabled:opacity-60"
+                >
+                  Configurar Meet manual
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void ejecutarAccion(item, "cancelar", "solo_este")}
+                  disabled={operandoId === item.disponibilidadId}
+                  className="workspace-button-secondary disabled:opacity-60"
+                >
+                  Cancelar este encuentro
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void ejecutarAccion(item, "cancelar", "serie_futura")}
+                  disabled={operandoId === item.disponibilidadId || !item.serieId}
+                  title={
+                    item.serieId
+                      ? "Cancelar este encuentro y los próximos de la misma serie"
+                      : "Esta programación no tiene identificador de serie. Sólo se puede modificar este encuentro."
+                  }
+                  className="workspace-button-secondary disabled:opacity-60"
+                >
+                  Cancelar esta y próximas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void eliminarEncuentro(item.disponibilidadId!)}
+                  disabled={eliminandoId === item.disponibilidadId}
+                  className="workspace-button-secondary disabled:opacity-60"
+                >
+                  {eliminandoId === item.disponibilidadId
+                    ? "Eliminando..."
+                    : "Eliminar encuentro"}
+                </button>
+              </div>
             )}
           </div>
         ))}

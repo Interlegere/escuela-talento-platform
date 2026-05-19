@@ -24,9 +24,11 @@ type DisponibilidadRow = {
   meet_link?: string | null
   google_event_id?: string | null
   sync_status?: string | null
+  last_synced_at?: string | null
+  serie_id?: string | null
   requiere_pago?: boolean | null
   precio?: string | null
-  estado: "disponible" | "pendiente_pago" | "confirmada"
+  estado: "disponible" | "pendiente_pago" | "confirmada" | "cancelada"
   reservado_por?: string | null
   participante_email?: string | null
   participante_nombre?: string | null
@@ -87,7 +89,11 @@ export type AgendaUnificadaItem = {
     | "confirmada"
     | "realizada"
     | "bloqueado"
+    | "cancelada"
   meetLink?: string | null
+  syncStatus?: string | null
+  lastSyncedAt?: string | null
+  serieId?: string | null
   participanteNombre?: string | null
   participanteEmail?: string | null
   requierePago: boolean
@@ -336,6 +342,10 @@ export async function listarAgendaUnificada(params: {
   for (const item of disponibilidadesCanonicas) {
     const slug = item.actividad_slug
 
+    if (item.estado === "cancelada") {
+      continue
+    }
+
     if (
       slug !== "casatalentos" &&
       slug !== "conectando-sentidos" &&
@@ -412,7 +422,7 @@ export async function listarAgendaUnificada(params: {
         puedeIngresar = Boolean(accessGeneral?.acceso && meetLink)
         motivoBloqueo = accessGeneral?.acceso
           ? !meetLink
-            ? "Meet pendiente de sincronización."
+            ? "Meet aún no generado."
             : null
           : accessGeneral?.motivo === "sin_pago" ||
               accessGeneral?.motivo === "pendiente" ||
@@ -483,7 +493,7 @@ export async function listarAgendaUnificada(params: {
 
     if (esAdmin) {
       if (!meetLink) {
-        motivoBloqueo = "Meet pendiente de sincronización."
+        motivoBloqueo = "Meet aún no generado."
       } else if (estado === "pendiente_pago") {
         if (reserva?.medio_pago === "transferencia") {
           motivoBloqueo = reserva.comprobante_nombre_archivo
@@ -532,6 +542,11 @@ export async function listarAgendaUnificada(params: {
       origen: reserva ? "reserva" : "disponibilidad",
       estado,
       meetLink,
+      syncStatus: item.sync_status || null,
+      lastSyncedAt: "last_synced_at" in item
+        ? String(item.last_synced_at || "") || null
+        : null,
+      serieId: "serie_id" in item ? String(item.serie_id || "") || null : null,
       participanteEmail,
       participanteNombre,
       requierePago,

@@ -638,8 +638,9 @@ export async function buildAdminPersonSummaries(): Promise<PersonaResumen[]> {
               "id, actividad_slug, participante_email, fecha, hora, duracion, titulo, meet_link, google_event_id, sync_status, modo, estado"
             )
             .in("participante_email", emails)
-            .in("actividad_slug", ["mentorias", "terapia"])
-            .gte("fecha", hoy)
+        .in("actividad_slug", ["mentorias", "terapia"])
+        .neq("estado", "cancelada")
+        .gte("fecha", hoy)
             .order("fecha", { ascending: true })
             .order("hora", { ascending: true })
         : Promise.resolve({ data: [], error: null }),
@@ -650,6 +651,7 @@ export async function buildAdminPersonSummaries(): Promise<PersonaResumen[]> {
         )
         .eq("modo", "actividad_fija")
         .in("actividad_slug", ["casatalentos", "conectando-sentidos"])
+        .neq("estado", "cancelada")
         .gte("fecha", hoy)
         .order("fecha", { ascending: true })
         .order("hora", { ascending: true }),

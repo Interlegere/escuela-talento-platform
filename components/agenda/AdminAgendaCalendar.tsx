@@ -21,8 +21,17 @@ type AgendaItem = {
   hora: string
   duracion: string
   origen: "disponibilidad" | "reserva"
-  estado: "disponible" | "pendiente_pago" | "confirmada" | "realizada" | "bloqueado"
+  estado:
+    | "disponible"
+    | "pendiente_pago"
+    | "confirmada"
+    | "realizada"
+    | "bloqueado"
+    | "cancelada"
   meetLink?: string | null
+  syncStatus?: string | null
+  lastSyncedAt?: string | null
+  serieId?: string | null
   participanteNombre?: string | null
   participanteEmail?: string | null
   requierePago: boolean
@@ -118,6 +127,8 @@ function colorEstado(estado: AgendaItem["estado"]) {
       return "bg-[rgba(44,103,117,0.12)] text-[var(--brand)] border-[rgba(44,103,117,0.24)]"
     case "realizada":
       return "bg-[rgba(93,78,55,0.12)] text-[rgb(93,78,55)] border-[rgba(93,78,55,0.2)]"
+    case "cancelada":
+      return "bg-[rgba(120,120,120,0.12)] text-[rgb(90,90,90)] border-[rgba(120,120,120,0.22)]"
     case "bloqueado":
       return "bg-[rgba(156,69,59,0.12)] text-[rgb(156,69,59)] border-[rgba(156,69,59,0.2)]"
   }
@@ -133,9 +144,35 @@ function etiquetaEstado(estado: AgendaItem["estado"]) {
       return "Confirmada"
     case "realizada":
       return "Realizada"
+    case "cancelada":
+      return "Cancelada"
     case "bloqueado":
       return "Bloqueada"
   }
+}
+
+function etiquetaSync(syncStatus?: string | null, meetLink?: string | null) {
+  if (syncStatus === "sincronizado" && meetLink) {
+    return "Meet generado por Google Calendar"
+  }
+
+  if (syncStatus === "manual") {
+    return "Meet manual"
+  }
+
+  if (syncStatus === "sincronizando") {
+    return "Generando Meet..."
+  }
+
+  if (syncStatus === "error") {
+    return "Google Calendar no pudo generar el Meet"
+  }
+
+  if (meetLink) {
+    return "Meet disponible"
+  }
+
+  return "Meet aún no generado"
 }
 
 function descripcionCobro(item: AgendaItem) {
@@ -284,6 +321,8 @@ export default function AdminAgendaCalendar({
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoFiltro>("todos")
   const [resolviendoReservaId, setResolviendoReservaId] = useState<number | null>(null)
   const [mensajeAccion, setMensajeAccion] = useState("")
+  const [errorAccion, setErrorAccion] = useState("")
+  const [operandoId, setOperandoId] = useState<number | null>(null)
 
   const itemsFiltrados = useMemo(() => {
     return items.filter((item) => {
@@ -316,6 +355,121 @@ export default function AdminAgendaCalendar({
 
     return mapa
   }, [itemsFiltrados])
+
+  const ejecutarAccion = async (
+    item: AgendaItem,
+    accion: "sync" | "editar" | "meet_manual" | "cancelar",
+    alcance: "solo_este" | "serie_futura" = "solo_este"
+  ) => {
+    if (!item.disponibilidadId) return
+
+    if (alcance === "serie_futura" && !item.serieId) {
+      setErrorAccion(
+        "Esta programación no tiene identificador de serie. Sólo se puede modificar este encuentro."
+      )
+      return
+    }
+
+    try {
+      setOperandoId(item.disponibilidadId)
+      setMensajeAccion("")
+      setErrorAccion("")
+
+      let res: Response
+
+      if (accion === "sync") {
+        res = await fetch("/api/google/sync-disponibilidad", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ disponibilidadId: item.disponibilidadId }),
+        })
+      } else if (accion === "meet_manual") {
+        const meetLink = window.prompt("Pegá el Meet real para este encuentro:", item.meetLink || "")
+        if (meetLink === null) return
+
+        res = await fetch("/api/agenda/admin/actualizar-disponibilidad", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            disponibilidadId: item.disponibilidadId,
+            modoActualizacion: "meet_manual",
+            meet_link: meetLink,
+          }),
+        })
+      } else if (accion === "cancelar") {
+        const confirmar = window.confirm(
+          alcance === "serie_futura"
+            ? "Este encuentro y los próximos de la misma serie se cancelarán y dejarán de verse en las agendas activas. ¿Querés continuar?"
+            : "El encuentro se cancelará y dejará de verse en las agendas activas. ¿Querés continuar?"
+        )
+        if (!confirmar) return
+
+        res = await fetch("/api/agenda/admin/actualizar-disponibilidad", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            disponibilidadId: item.disponibilidadId,
+            modoActualizacion: "cancelar",
+            alcance,
+          }),
+        })
+      } else {
+        const titulo = window.prompt("Título del encuentro:", item.titulo)
+        if (titulo === null) return
+        const fecha = window.prompt(
+          alcance === "serie_futura"
+            ? "Nueva fecha para este encuentro base (AAAA-MM-DD). Las próximas fechas se moverán con el mismo corrimiento:"
+            : "Fecha (AAAA-MM-DD):",
+          item.fecha
+        )
+        if (fecha === null) return
+        const hora = window.prompt("Hora (HH:mm):", item.hora)
+        if (hora === null) return
+        const duracion = window.prompt("Duración en minutos:", item.duracion)
+        if (duracion === null) return
+
+        res = await fetch("/api/agenda/admin/actualizar-disponibilidad", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            disponibilidadId: item.disponibilidadId,
+            modoActualizacion: "editar",
+            titulo,
+            fecha,
+            hora,
+            duracion,
+            alcance,
+          }),
+        })
+      }
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setErrorAccion(data.error || "No se pudo completar la acción.")
+        return
+      }
+
+      setMensajeAccion(
+        accion === "sync"
+          ? "Meet sincronizado correctamente."
+          : accion === "meet_manual"
+            ? "Meet manual guardado correctamente."
+            : accion === "cancelar"
+              ? data.afectados && data.afectados > 1
+                ? `${data.afectados} encuentros cancelados correctamente.`
+                : "Encuentro cancelado correctamente."
+              : data.afectados && data.afectados > 1
+                ? `${data.afectados} encuentros actualizados correctamente.`
+                : "Encuentro actualizado correctamente."
+      )
+      await onRefresh?.()
+    } catch {
+      setErrorAccion("No se pudo completar la acción.")
+    } finally {
+      setOperandoId(null)
+    }
+  }
 
   const fechaSeleccionadaActiva = useMemo(() => {
     if (!fechaSeleccionada) {
@@ -394,6 +548,7 @@ export default function AdminAgendaCalendar({
       confirmada: 0,
       realizada: 0,
       bloqueado: 0,
+      cancelada: 0,
     }
 
     for (const item of itemsFiltrados) {
@@ -679,6 +834,7 @@ export default function AdminAgendaCalendar({
                 <option value="confirmada">Confirmadas</option>
                 <option value="realizada">Realizadas</option>
                 <option value="bloqueado">Bloqueadas</option>
+                <option value="cancelada">Canceladas</option>
               </select>
             </label>
           </div>
@@ -687,6 +843,9 @@ export default function AdminAgendaCalendar({
 
       {mensajeAccion && (
         <div className="workspace-panel-soft text-sm">{mensajeAccion}</div>
+      )}
+      {errorAccion && (
+        <div className="workspace-panel-soft text-sm text-red-700">{errorAccion}</div>
       )}
 
       <div className="workspace-panel overflow-hidden">
@@ -896,6 +1055,20 @@ export default function AdminAgendaCalendar({
                       {item.detallePagoAdmin || item.motivoBloqueo || "Sin observaciones"}
                     </p>
                   </div>
+
+                  <div className="rounded-2xl border border-[var(--line)] bg-[rgba(255,250,242,0.72)] p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
+                      Google Meet
+                    </p>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {etiquetaSync(item.syncStatus, item.meetLink)}
+                    </p>
+                    {item.lastSyncedAt && (
+                      <p className="mt-1 text-xs text-[var(--muted)]">
+                        Última sincronización: {item.lastSyncedAt}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 {renderDocumentosNotas(item)}
@@ -961,6 +1134,71 @@ export default function AdminAgendaCalendar({
                   >
                     Ir al encuentro
                   </ConsentimientoMeetButton>
+                )}
+
+                {item.disponibilidadId && item.actividadSlug !== "membresia" && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => void ejecutarAccion(item, "sync")}
+                      disabled={operandoId === item.disponibilidadId}
+                      className="workspace-button-secondary disabled:opacity-60"
+                    >
+                      {operandoId === item.disponibilidadId
+                        ? "Procesando..."
+                        : "Generar/Reintentar Meet"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void ejecutarAccion(item, "editar", "solo_este")}
+                      disabled={operandoId === item.disponibilidadId}
+                      className="workspace-button-secondary disabled:opacity-60"
+                    >
+                      Editar este encuentro
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void ejecutarAccion(item, "editar", "serie_futura")}
+                      disabled={operandoId === item.disponibilidadId || !item.serieId}
+                      title={
+                        item.serieId
+                          ? "Editar este encuentro y los próximos de la misma serie"
+                          : "Esta programación no tiene identificador de serie. Sólo se puede modificar este encuentro."
+                      }
+                      className="workspace-button-secondary disabled:opacity-60"
+                    >
+                      Editar esta y próximas
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void ejecutarAccion(item, "meet_manual")}
+                      disabled={operandoId === item.disponibilidadId}
+                      className="workspace-button-secondary disabled:opacity-60"
+                    >
+                      Configurar Meet manual
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void ejecutarAccion(item, "cancelar", "solo_este")}
+                      disabled={operandoId === item.disponibilidadId}
+                      className="workspace-button-secondary disabled:opacity-60"
+                    >
+                      Cancelar este encuentro
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void ejecutarAccion(item, "cancelar", "serie_futura")}
+                      disabled={operandoId === item.disponibilidadId || !item.serieId}
+                      title={
+                        item.serieId
+                          ? "Cancelar este encuentro y los próximos de la misma serie"
+                          : "Esta programación no tiene identificador de serie. Sólo se puede modificar este encuentro."
+                      }
+                      className="workspace-button-secondary disabled:opacity-60"
+                    >
+                      Cancelar esta y próximas
+                    </button>
+                  </>
                 )}
 
                 {item.motivoBloqueo && (

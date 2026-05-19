@@ -23,6 +23,7 @@ type DisponibilidadInsert = {
   google_calendar_id?: string | null
   sync_status?: string | null
   last_synced_at?: string | null
+  serie_id?: string | null
   participante_email?: string | null
   participante_nombre?: string | null
   notas_documentos?: unknown
@@ -59,7 +60,8 @@ function esErrorMigracionAgenda(error: unknown) {
     mensaje.includes("participante_email") ||
     mensaje.includes("participante_nombre") ||
     mensaje.includes("notas_documentos") ||
-    mensaje.includes("sync_status")
+    mensaje.includes("sync_status") ||
+    mensaje.includes("serie_id")
   )
 }
 
@@ -138,6 +140,7 @@ export async function POST(req: Request) {
         meet_link: item.meet_link?.trim() || "",
         participante_email: esEncuentroUnoAUno ? participanteEmail : null,
         participante_nombre: esEncuentroUnoAUno ? participanteNombre : null,
+        serie_id: item.es_recurrente ? item.serie_id?.trim() || null : null,
         sync_status: esEncuentroUnoAUno
           ? item.sync_status?.trim() || "pendiente"
           : item.sync_status,

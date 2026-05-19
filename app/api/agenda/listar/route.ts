@@ -32,8 +32,12 @@ export async function GET() {
     }
 
     const disponibilidades = esAdmin
-      ? disponibilidadesCrudas || []
+      ? (disponibilidadesCrudas || []).filter((item) => item.estado !== "cancelada")
       : (disponibilidadesCrudas || []).filter((item) => {
+          if (item.estado === "cancelada") {
+            return false
+          }
+
           const participanteAsignado =
             String(item.participante_email || "").trim().toLowerCase()
           const esPropiaFijaUnoAUno =

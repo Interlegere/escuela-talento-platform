@@ -30,8 +30,17 @@ type AgendaItem = {
   duracion: string
   estrategia: AgendaStrategy
   origen: "disponibilidad" | "reserva"
-  estado: "disponible" | "pendiente_pago" | "confirmada" | "realizada" | "bloqueado"
+  estado:
+    | "disponible"
+    | "pendiente_pago"
+    | "confirmada"
+    | "realizada"
+    | "bloqueado"
+    | "cancelada"
   meetLink?: string | null
+  syncStatus?: string | null
+  lastSyncedAt?: string | null
+  serieId?: string | null
   participanteNombre?: string | null
   participanteEmail?: string | null
   requierePago: boolean
@@ -123,6 +132,14 @@ function sumarDias(base: Date, dias: number) {
   const copia = new Date(base)
   copia.setDate(copia.getDate() + dias)
   return copia
+}
+
+function generarSerieId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID()
+  }
+
+  return `serie-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
 
 async function leerJson<T>(res: Response): Promise<T> {
@@ -343,6 +360,7 @@ export default function AgendaPage() {
             ? "no_crear_hasta_reserva"
             : "pendiente",
         last_synced_at: null,
+        serie_id: null,
       }
 
       let itemsAInsertar: Array<Record<string, unknown>> = []
@@ -384,6 +402,7 @@ export default function AgendaPage() {
         }
 
         const fechasAInsertar: string[] = []
+        const serieId = generarSerieId()
         let cursor = new Date()
         let encontradas = 0
 
@@ -400,6 +419,7 @@ export default function AgendaPage() {
           ...basePayload,
           fecha: fechaGenerada,
           hora,
+          serie_id: serieId,
           es_recurrente: true,
           dia_semana: diaSemana,
           excepcion_fechas: "",
@@ -427,8 +447,10 @@ export default function AgendaPage() {
       }
 
       if (estrategiaActual !== "reserva_individual") {
+        const erroresSync: string[] = []
+
         for (const creado of data.items || []) {
-          await fetch("/api/google/sync-disponibilidad", {
+          const syncRes = await fetch("/api/google/sync-disponibilidad", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -437,10 +459,25 @@ export default function AgendaPage() {
               disponibilidadId: creado.id,
             }),
           })
+
+          const syncData = await leerJson<{ error?: string }>(syncRes)
+
+          if (!syncRes.ok) {
+            erroresSync.push(syncData.error || `No se pudo sincronizar ${creado.id}.`)
+          }
         }
+
+        if (erroresSync.length > 0) {
+          setError(
+            `Encuentro creado, pero Google Meet no pudo sincronizarse. ${erroresSync.join(" ")}`
+          )
+        } else {
+          setMensaje("Programación creada correctamente.")
+        }
+      } else {
+        setMensaje("Programación creada correctamente.")
       }
 
-      setMensaje("Programación creada correctamente.")
       setNotasDocumentos("")
       await cargarAgenda()
     } catch {
