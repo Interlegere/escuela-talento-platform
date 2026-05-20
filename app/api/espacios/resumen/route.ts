@@ -12,6 +12,7 @@ import {
   normalizarDocumentosNotas,
   type DocumentoNota,
 } from "@/lib/documentos-notas"
+import { ESTADOS_DISPONIBILIDAD_ACTIVA, esEstadoDisponibilidadActivo } from "@/lib/disponibilidades"
 import { obtenerFechaISOArgentina } from "@/lib/fechas"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
@@ -214,7 +215,7 @@ export async function POST(req: Request) {
         .select("*")
         .eq("actividad_slug", actividadSlug)
         .eq("modo", "actividad_fija")
-        .neq("estado", "cancelada")
+        .in("estado", ESTADOS_DISPONIBILIDAD_ACTIVA)
         .gte("fecha", hoy)
         .order("fecha", { ascending: true })
         .order("hora", { ascending: true })
@@ -245,7 +246,7 @@ export async function POST(req: Request) {
           item.disponibilidades?.actividad_slug === actividadSlug &&
           item.disponibilidades?.fecha &&
           item.disponibilidades.fecha >= hoy &&
-          item.disponibilidades?.estado !== "cancelada"
+          esEstadoDisponibilidadActivo(item.disponibilidades?.estado)
       )
       .map((item) => {
         const link = item.disponibilidades?.meet_link || null

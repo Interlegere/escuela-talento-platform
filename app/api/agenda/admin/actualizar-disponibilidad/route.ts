@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { requirePermission } from "@/lib/authz"
+import { ESTADOS_DISPONIBILIDAD_ACTIVA } from "@/lib/disponibilidades"
 import { normalizarDocumentosNotas } from "@/lib/documentos-notas"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
@@ -138,7 +139,7 @@ export async function POST(req: Request) {
         .select("*")
         .eq("serie_id", disponibilidadBase.serie_id)
         .gte("fecha", fechaInicioSerie)
-        .neq("estado", "cancelada")
+        .in("estado", ESTADOS_DISPONIBILIDAD_ACTIVA)
         .order("fecha", { ascending: true })
         .order("hora", { ascending: true })
 
@@ -330,7 +331,7 @@ export async function POST(req: Request) {
         .eq("fecha", actualizacion.fechaDestino)
         .eq("hora", hora)
         .not("id", "in", `(${idsObjetivo.join(",")})`)
-        .neq("estado", "cancelada")
+        .in("estado", ESTADOS_DISPONIBILIDAD_ACTIVA)
         .limit(1)
 
       if (actualizacion.item.participante_email) {

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server"
 import { requireAuthenticatedActor } from "@/lib/authz"
-import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 import { normalizarModalidadPago } from "@/lib/billing"
 import { asegurarActividadBase } from "@/lib/core-activities"
+import { esEstadoDisponibilidadActivo } from "@/lib/disponibilidades"
+import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
 export async function GET() {
   try {
@@ -32,9 +33,11 @@ export async function GET() {
     }
 
     const disponibilidades = esAdmin
-      ? (disponibilidadesCrudas || []).filter((item) => item.estado !== "cancelada")
+      ? (disponibilidadesCrudas || []).filter((item) =>
+          esEstadoDisponibilidadActivo(item.estado)
+        )
       : (disponibilidadesCrudas || []).filter((item) => {
-          if (item.estado === "cancelada") {
+          if (!esEstadoDisponibilidadActivo(item.estado)) {
             return false
           }
 

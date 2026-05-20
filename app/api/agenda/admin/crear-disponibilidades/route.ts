@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { requirePermission } from "@/lib/authz"
+import { ESTADOS_DISPONIBILIDAD_ACTIVA } from "@/lib/disponibilidades"
 import { normalizarDocumentosNotas } from "@/lib/documentos-notas"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
@@ -157,12 +158,13 @@ export async function POST(req: Request) {
 
       let consultaExistente = supabase
         .from("disponibilidades")
-        .select("id")
+        .select("id, fecha, hora, estado, modo, actividad_slug")
         .eq("actividad_slug", item.actividad_slug)
         .eq("fecha", item.fecha)
         .eq("hora", item.hora)
         .eq("modo", item.modo)
-        .neq("estado", "cancelada")
+        .in("estado", ESTADOS_DISPONIBILIDAD_ACTIVA)
+        .limit(1)
 
       if (esEncuentroIndividualFijo(item)) {
         consultaExistente = consultaExistente.eq(
@@ -171,8 +173,8 @@ export async function POST(req: Request) {
         )
       }
 
-      const { data: existente, error: existenteError } =
-        await consultaExistente.maybeSingle()
+      const { data: existentes, error: existenteError } =
+        await consultaExistente
 
       if (existenteError) {
         if (esErrorMigracionAgenda(existenteError)) {
@@ -195,7 +197,20 @@ export async function POST(req: Request) {
         )
       }
 
+      const existente = (existentes || [])[0]
+
       if (existente) {
+        if (esGrupoConectandoFijo(item)) {
+          console.info("Bloqueo duplicado Conectando Sentidos", {
+            id: existente.id,
+            fecha: existente.fecha,
+            hora: existente.hora,
+            estado: existente.estado,
+            modo: existente.modo,
+            actividad_slug: existente.actividad_slug,
+          })
+        }
+
         return NextResponse.json(
           {
             error: esGrupoConectandoFijo(item)

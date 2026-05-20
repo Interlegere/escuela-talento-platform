@@ -1,5 +1,6 @@
 import { estaDentroDeGraciaMensual } from "@/lib/activity-rules"
 import { normalizarModalidadPago, type BillingMode } from "@/lib/billing"
+import { ESTADOS_DISPONIBILIDAD_ACTIVA } from "@/lib/disponibilidades"
 import { normalizarDocumentosNotas } from "@/lib/documentos-notas"
 import { obtenerFechaISOArgentina } from "@/lib/fechas"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
@@ -639,7 +640,7 @@ export async function buildAdminPersonSummaries(): Promise<PersonaResumen[]> {
             )
             .in("participante_email", emails)
         .in("actividad_slug", ["mentorias", "terapia"])
-        .neq("estado", "cancelada")
+        .in("estado", ESTADOS_DISPONIBILIDAD_ACTIVA)
         .gte("fecha", hoy)
             .order("fecha", { ascending: true })
             .order("hora", { ascending: true })
@@ -651,7 +652,7 @@ export async function buildAdminPersonSummaries(): Promise<PersonaResumen[]> {
         )
         .eq("modo", "actividad_fija")
         .in("actividad_slug", ["casatalentos", "conectando-sentidos"])
-        .neq("estado", "cancelada")
+        .in("estado", ESTADOS_DISPONIBILIDAD_ACTIVA)
         .gte("fecha", hoy)
         .order("fecha", { ascending: true })
         .order("hora", { ascending: true }),

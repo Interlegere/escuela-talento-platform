@@ -1,6 +1,7 @@
 import type { Actor, ActivitySlug } from "@/lib/authz"
 import { resolveActivityAccess } from "@/lib/authz"
 import { getActivityRule } from "@/lib/activity-rules"
+import { esEstadoDisponibilidadActivo } from "@/lib/disponibilidades"
 import {
   normalizarDocumentosNotas,
   type DocumentoNota,
@@ -28,7 +29,7 @@ type DisponibilidadRow = {
   serie_id?: string | null
   requiere_pago?: boolean | null
   precio?: string | null
-  estado: "disponible" | "pendiente_pago" | "confirmada" | "cancelada"
+  estado: string
   reservado_por?: string | null
   participante_email?: string | null
   participante_nombre?: string | null
@@ -333,18 +334,18 @@ export async function listarAgendaUnificada(params: {
     reservaPorDisponibilidad.set(item.disponibilidad_id, item)
   }
 
+  const disponibilidadesActivas = (
+    (disponibilidades as DisponibilidadRow[] | null) || []
+  ).filter((item) => esEstadoDisponibilidadActivo(item.estado))
+
   const disponibilidadesCanonicas = consolidarConectandoCanonico(
-    ((disponibilidades as DisponibilidadRow[] | null) || [])
+    disponibilidadesActivas
   )
 
   const items: AgendaUnificadaItem[] = []
 
   for (const item of disponibilidadesCanonicas) {
     const slug = item.actividad_slug
-
-    if (item.estado === "cancelada") {
-      continue
-    }
 
     if (
       slug !== "casatalentos" &&
@@ -402,7 +403,11 @@ export async function listarAgendaUnificada(params: {
     let visibleParaParticipante = true
     let puedeIngresar = true
     let motivoBloqueo: string | null = null
-    let estado: AgendaUnificadaItem["estado"] = item.estado
+    let estado: AgendaUnificadaItem["estado"] = esEstadoDisponibilidadActivo(
+      item.estado
+    )
+      ? item.estado
+      : "disponible"
 
     if (reserva?.realizada_at) {
       estado = "realizada"
@@ -411,7 +416,9 @@ export async function listarAgendaUnificada(params: {
     } else if (reserva?.estado === "confirmada" || item.estado === "confirmada") {
       estado = "confirmada"
     } else {
-      estado = item.estado
+      estado = esEstadoDisponibilidadActivo(item.estado)
+        ? item.estado
+        : "disponible"
     }
 
     if (!esAdmin) {
