@@ -162,6 +162,7 @@ export async function POST(req: Request) {
         .eq("fecha", item.fecha)
         .eq("hora", item.hora)
         .eq("modo", item.modo)
+        .neq("estado", "cancelada")
 
       if (esEncuentroIndividualFijo(item)) {
         consultaExistente = consultaExistente.eq(

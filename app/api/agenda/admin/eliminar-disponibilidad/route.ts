@@ -52,12 +52,17 @@ export async function POST(req: Request) {
       )
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("disponibilidades")
-      .delete()
+      .update({
+        estado: "cancelada",
+        sync_status: "pendiente",
+      })
       .eq("id", disponibilidadId)
+      .select("id, estado")
+      .single()
 
-    if (error) {
+    if (error || !data) {
       return NextResponse.json(
         {
           error: "No se pudo eliminar la disponibilidad.",
