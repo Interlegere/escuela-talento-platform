@@ -391,16 +391,43 @@ export default function CasaTalentosPage() {
 
   useEffect(() => {
     setMounted(true)
+    let timeoutId: number | null = null
+
     const actualizarTiempo = () => {
       const ahora = obtenerAhoraArgentinaCliente()
       setAhoraArgentina(ahora)
       setNumeroDia(ahora.numeroDia)
     }
 
-    actualizarTiempo()
-    const interval = window.setInterval(actualizarTiempo, 60000)
+    const programarProximaActualizacion = () => {
+      const ahora = new Date()
+      const msHastaProximoMinuto =
+        (60 - ahora.getSeconds()) * 1000 - ahora.getMilliseconds() + 250
 
-    return () => window.clearInterval(interval)
+      timeoutId = window.setTimeout(() => {
+        actualizarTiempo()
+        programarProximaActualizacion()
+      }, Math.max(msHastaProximoMinuto, 1000))
+    }
+
+    const actualizarSiVuelveLaPestana = () => {
+      if (document.visibilityState === "visible") {
+        actualizarTiempo()
+      }
+    }
+
+    actualizarTiempo()
+    programarProximaActualizacion()
+    window.addEventListener("focus", actualizarTiempo)
+    document.addEventListener("visibilitychange", actualizarSiVuelveLaPestana)
+
+    return () => {
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId)
+      }
+      window.removeEventListener("focus", actualizarTiempo)
+      document.removeEventListener("visibilitychange", actualizarSiVuelveLaPestana)
+    }
   }, [])
 
   useEffect(() => {
@@ -633,6 +660,7 @@ export default function CasaTalentosPage() {
     })
 
     lista.sort((a, b) => {
+      if (a.elegible !== b.elegible) return a.elegible ? -1 : 1
       if (b.totalVotos !== a.totalVotos) return b.totalVotos - a.totalVotos
       return a.nombre.localeCompare(b.nombre)
     })
@@ -1981,7 +2009,7 @@ export default function CasaTalentosPage() {
                         </button>
                       )}
 
-                      {!esAdmin && (
+                      {MODO_PRUEBA && !esAdmin && (
                         <button
                           type="button"
                           onClick={handleLimpiarVideos}
