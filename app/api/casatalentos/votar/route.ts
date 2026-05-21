@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       ])
     ) {
       return NextResponse.json(
-        { error: "No tenés permisos para elegir videos." },
+        { error: "No tenés permisos para realizar la elección." },
         { status: 403 }
       )
     }

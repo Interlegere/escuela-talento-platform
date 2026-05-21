@@ -218,6 +218,28 @@ function ordenDia(dia?: string | null) {
   }
 }
 
+function ordenarVideosPorProceso(videos: VideoItem[]) {
+  return [...videos].sort((a, b) => {
+    const orden = ordenDia(a.dia_clave || a.dia) - ordenDia(b.dia_clave || b.dia)
+    if (orden !== 0) return orden
+
+    return String(a.created_at || "").localeCompare(String(b.created_at || ""))
+  })
+}
+
+function obtenerVideoRepresentativo(videos: VideoItem[]) {
+  const ordenados = ordenarVideosPorProceso(videos)
+  const miercoles = [...ordenados]
+    .reverse()
+    .find((video) => normalizarClaveDia(video.dia_clave || video.dia) === "miercoles")
+
+  if (miercoles) {
+    return miercoles
+  }
+
+  return ordenados[ordenados.length - 1] || ordenados[0] || null
+}
+
 function normalizarFechaSemana(fecha?: string | null) {
   if (!fecha) return ""
 
@@ -631,6 +653,34 @@ export default function CasaTalentosPage() {
     return { empate: false as const, participante: empatados[0] }
   }, [rankingParticipantes])
 
+  const opcionesEvaluacionProceso = useMemo(() => {
+    return rankingParticipantes
+      .map((participante) => {
+        const videoRepresentativo = obtenerVideoRepresentativo(participante.videos)
+        const idsVideosParticipante = new Set(
+          participante.videos.map((video) => video.id)
+        )
+        const aportesRecibidos = comentariosSemana.filter((comentario) =>
+          idsVideosParticipante.has(comentario.video_id)
+        ).length
+        const aportesRealizados = comentariosSemana.filter(
+          (comentario) => claveVotante({
+            votante_email: comentario.autor_email || null,
+            votante_nombre: comentario.autor_nombre,
+          }) === participante.clave
+        ).length
+
+        return {
+          ...participante,
+          videoRepresentativo,
+          aportesRecibidos,
+          aportesRealizados,
+        }
+      })
+      .filter((participante) => Boolean(participante.videoRepresentativo))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre))
+  }, [comentariosSemana, rankingParticipantes])
+
   const resumenSemana = useMemo(() => {
     return {
       videos: videosSemana.length,
@@ -948,13 +998,13 @@ export default function CasaTalentosPage() {
     setMensajeError("")
 
     if (elegidoSeleccionado === null) {
-      setMensajeError("Selecciona un video para elegir.")
+      setMensajeError("Seleccioná un proceso para evaluar.")
       return
     }
 
     const videoElegido = videosSemana.find((v) => v.id === elegidoSeleccionado)
     if (!videoElegido) {
-      setMensajeError("El video seleccionado no pertenece a la semana activa.")
+      setMensajeError("El proceso seleccionado no pertenece a la semana activa.")
       return
     }
 
@@ -1532,7 +1582,7 @@ export default function CasaTalentosPage() {
                     <p className="workspace-inline-note text-[var(--foreground)]">
                       Desde esta misma seccion podes subir tu video cuando
                       corresponda, dejar aportes escritos, realizar la
-                      eleccion/evaluacion semanal y seguir el ranking, el top 3 y
+                      elección/evaluación semanal y seguir el ranking, el top 3 y
                       el ganador sin salir del flujo del dispositivo.
                     </p>
                   </div>
@@ -1639,7 +1689,6 @@ export default function CasaTalentosPage() {
                   )}
 
                   {videosSemana.map((video) => {
-                    const cantidadVotos = votosPorVideo.get(video.id) || 0
                     const comentariosDeVideo = comentariosPorVideo.get(video.id) || []
                     const comentarioActual = comentariosDraft[video.id] || ""
                     const abierto = videoAbierto === video.video_url
@@ -1664,15 +1713,6 @@ export default function CasaTalentosPage() {
                           <p className="workspace-inline-note text-xs">
                             Semana: {formatearFecha(video.fecha_semana)}
                           </p>
-                          {resultadosVotacionVisibles ? (
-                            <p className="workspace-inline-note text-xs">
-                              Elecciones recibidas: {cantidadVotos}
-                            </p>
-                          ) : (
-                            <p className="workspace-inline-note text-xs">
-                              Elecciones recibidas: resultado oculto hasta el jueves a las 17:00 hs de Argentina.
-                            </p>
-                          )}
                         </div>
 
                         {video.video_url && (
@@ -1715,18 +1755,6 @@ export default function CasaTalentosPage() {
                               </div>
                             )}
                           </div>
-                        )}
-
-                        {mostrarControlesEvaluacion && (
-                          <label className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              name="video-elegido"
-                              checked={elegidoSeleccionado === video.id}
-                              onChange={() => setElegidoSeleccionado(video.id)}
-                            />
-                            Elegir este proceso
-                          </label>
                         )}
 
                         <div className="workspace-divider pt-4 space-y-3">
@@ -1777,31 +1805,102 @@ export default function CasaTalentosPage() {
                     )
                   })}
 
-                  <div className="flex gap-3 flex-wrap">
+                  <div className="workspace-panel-soft space-y-4">
+                    <div className="space-y-1">
+                      <h3 className="text-lg font-semibold">
+                        Elección del proceso semanal
+                      </h3>
+                      <p className="workspace-inline-note">
+                        La evaluación considera el recorrido completo de cada persona durante la semana.
+                      </p>
+                    </div>
+
                     {mostrarControlesEvaluacion ? (
-                      <button
-                        type="button"
-                        onClick={handleElegir}
-                        disabled={eligiendo || elegidoSeleccionado === null}
-                        className="workspace-button-primary disabled:opacity-60"
-                      >
-                        {eligiendo ? "Guardando evaluación..." : "Confirmar evaluación"}
-                      </button>
+                      <div className="space-y-4">
+                        {opcionesEvaluacionProceso.length === 0 && (
+                          <p className="workspace-inline-note">
+                            Todavía no hay procesos disponibles para evaluar esta semana.
+                          </p>
+                        )}
+
+                        {opcionesEvaluacionProceso.map((participante) => {
+                          const videoRepresentativo = participante.videoRepresentativo
+                          if (!videoRepresentativo) return null
+
+                          return (
+                            <label
+                              key={participante.clave}
+                              className="block cursor-pointer rounded-2xl border border-[var(--line)] bg-white/70 p-4 transition hover:border-[var(--accent)]"
+                            >
+                              <div className="flex items-start gap-3">
+                                <input
+                                  type="radio"
+                                  name="proceso-elegido"
+                                  className="mt-1"
+                                  checked={elegidoSeleccionado === videoRepresentativo.id}
+                                  onChange={() =>
+                                    setElegidoSeleccionado(videoRepresentativo.id)
+                                  }
+                                />
+                                <div className="space-y-2">
+                                  <p className="font-semibold">{participante.nombre}</p>
+                                  <div className="flex flex-wrap gap-2">
+                                    <span className="workspace-chip">
+                                      Video lunes: {participante.subioLunes ? "sí" : "no"}
+                                    </span>
+                                    <span className="workspace-chip">
+                                      Video miércoles: {participante.subioMiercoles ? "sí" : "no"}
+                                    </span>
+                                  </div>
+                                  <p className="workspace-inline-note text-xs">
+                                    Aportes recibidos: {participante.aportesRecibidos}
+                                  </p>
+                                  <p className="workspace-inline-note text-xs">
+                                    Aportes realizados: {participante.aportesRealizados}
+                                  </p>
+                                  {resultadosVotacionVisibles && (
+                                    <p className="workspace-inline-note text-xs">
+                                      Elecciones recibidas: {participante.totalVotos}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </label>
+                          )
+                        })}
+                      </div>
                     ) : (
                       <p className="workspace-inline-note">
-                        La evaluación se habilita el jueves.
+                        La elección del proceso semanal se habilita el jueves.
                       </p>
                     )}
 
-                    {!esAdmin && (
-                      <button
-                        type="button"
-                        onClick={handleLimpiarVideos}
-                        className="workspace-button-secondary"
-                      >
-                        Limpiar prueba
-                      </button>
-                    )}
+                    <div className="flex gap-3 flex-wrap">
+                      {mostrarControlesEvaluacion && (
+                        <button
+                          type="button"
+                          onClick={handleElegir}
+                          disabled={
+                            eligiendo ||
+                            elegidoSeleccionado === null ||
+                            opcionesEvaluacionProceso.length === 0
+                          }
+                          className="workspace-button-primary disabled:opacity-60"
+                        >
+                          {eligiendo ? "Guardando evaluación..." : "Confirmar evaluación"}
+                        </button>
+                      )}
+
+                      {!esAdmin && (
+                        <button
+                          type="button"
+                          onClick={handleLimpiarVideos}
+                          className="workspace-button-secondary"
+                        >
+                          Limpiar prueba
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
