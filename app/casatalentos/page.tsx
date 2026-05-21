@@ -355,6 +355,9 @@ export default function CasaTalentosPage() {
   const [nombreParticipante, setNombreParticipante] = useState("")
   const [videoAbierto, setVideoAbierto] = useState<string | null>(null)
   const [elegidoSeleccionado, setElegidoSeleccionado] = useState<number | null>(null)
+  const [subsolapaDispositivo, setSubsolapaDispositivo] = useState<
+    "referentes" | "videos" | "evaluacion"
+  >("referentes")
   const [numeroDia, setNumeroDia] = useState<number>(0)
   const [ahoraArgentina, setAhoraArgentina] = useState(() =>
     obtenerAhoraArgentinaCliente()
@@ -1530,48 +1533,83 @@ export default function CasaTalentosPage() {
                   </div>
                 )}
 
-                {!esAdmin && (
-                  <div className="workspace-panel-soft space-y-3">
-                    <h3 className="text-lg font-semibold">Referente general</h3>
-                    <div className="whitespace-pre-wrap text-[var(--muted)]">
-                      {textoReferentesGenerales}
-                    </div>
+                <div className="workspace-panel-soft space-y-3">
+                  <div className="flex flex-wrap gap-2" role="tablist" aria-label="Dispositivo CasaTalentos">
+                    {[
+                      { id: "referentes", label: "Referentes" },
+                      { id: "videos", label: "Videos de la semana" },
+                      { id: "evaluacion", label: "Evaluación" },
+                    ].map((tab) => {
+                      const activo = subsolapaDispositivo === tab.id
+
+                      return (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          role="tab"
+                          aria-selected={activo}
+                          onClick={() =>
+                            setSubsolapaDispositivo(
+                              tab.id as "referentes" | "videos" | "evaluacion"
+                            )
+                          }
+                          className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                            activo
+                              ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+                              : "border-[var(--line)] bg-white/70 text-[var(--foreground)] hover:border-[var(--accent)]"
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      )
+                    })}
                   </div>
-                )}
+                </div>
 
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Referente de la semana</h3>
-
-                  {!semanaEnUso && (
-                    <p className="text-gray-600">Todavía no hay semana seleccionada.</p>
-                  )}
-
-                  {semanaEnUso && !referenteSemanalActual && (
-                    <p className="text-gray-600">
-                      No hay referente semanal cargado para la semana del {formatearFecha(semanaEnUso)}.
-                    </p>
-                  )}
-
-                  {referenteSemanalActual && (
+                {subsolapaDispositivo === "referentes" && (
+                  <div className="space-y-4">
                     <div className="workspace-panel-soft space-y-3">
-                      <p className="font-medium">{referenteSemanalActual.titulo}</p>
+                      <h3 className="text-lg font-semibold">Referente general</h3>
+                      <div className="whitespace-pre-wrap text-[var(--muted)]">
+                        {textoReferentesGenerales}
+                      </div>
+                    </div>
 
-                      {referenteSemanalActual.descripcion && (
-                        <p className="whitespace-pre-wrap text-[var(--muted)]">
-                          {referenteSemanalActual.descripcion}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold">Referente de la semana</h3>
+
+                      {!semanaEnUso && (
+                        <p className="text-gray-600">Todavía no hay semana seleccionada.</p>
+                      )}
+
+                      {semanaEnUso && !referenteSemanalActual && (
+                        <p className="text-gray-600">
+                          No hay referente semanal cargado para la semana del {formatearFecha(semanaEnUso)}.
                         </p>
                       )}
 
-                      {referenteSemanalActual.video_url && (
-                        <video
-                          controls
-                          src={referenteSemanalActual.video_url}
-                          className="w-full rounded-xl border"
-                        />
+                      {referenteSemanalActual && (
+                        <div className="workspace-panel-soft space-y-3">
+                          <p className="font-medium">{referenteSemanalActual.titulo}</p>
+
+                          {referenteSemanalActual.descripcion && (
+                            <p className="whitespace-pre-wrap text-[var(--muted)]">
+                              {referenteSemanalActual.descripcion}
+                            </p>
+                          )}
+
+                          {referenteSemanalActual.video_url && (
+                            <video
+                              controls
+                              src={referenteSemanalActual.video_url}
+                              className="w-full rounded-xl border"
+                            />
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {esAdmin && (
                   <div className="workspace-panel-soft space-y-3 border border-[var(--line)] bg-[rgba(255,250,242,0.9)]">
@@ -1588,232 +1626,305 @@ export default function CasaTalentosPage() {
                   </div>
                 )}
 
-                {mostrarBloqueSubida && (
-                  <div className="workspace-divider pt-4 space-y-4">
-                    <h3 className="text-lg font-semibold">Subir tu video</h3>
-                    <p className="workspace-inline-note">
-                      Podés grabarlo ahora desde la cámara o elegir un archivo ya guardado. El
-                      martes el trabajo pasa por los aportes escritos a los videos del lunes.
-                    </p>
+                {subsolapaDispositivo === "videos" && (
+                  <div className="space-y-6">
+                    {mostrarBloqueSubida && (
+                      <div className="workspace-divider pt-4 space-y-4">
+                        <h3 className="text-lg font-semibold">Subir tu video</h3>
+                        <p className="workspace-inline-note">
+                          Podés grabarlo ahora desde la cámara o elegir un archivo ya guardado. El
+                          martes el trabajo pasa por los aportes escritos a los videos del lunes.
+                        </p>
 
-                    <input
-                      placeholder="Tu nombre"
-                      className="w-full rounded-2xl border border-[var(--line)] bg-[rgba(255,250,242,0.92)] p-3"
-                      value={nombreParticipante}
-                      onChange={(e) => setNombreParticipante(e.target.value)}
-                    />
+                        <input
+                          placeholder="Tu nombre"
+                          className="w-full rounded-2xl border border-[var(--line)] bg-[rgba(255,250,242,0.92)] p-3"
+                          value={nombreParticipante}
+                          onChange={(e) => setNombreParticipante(e.target.value)}
+                        />
 
-                    <input
-                      placeholder="Título del video"
-                      className="w-full rounded-2xl border border-[var(--line)] bg-[rgba(255,250,242,0.92)] p-3"
-                      value={titulo}
-                      onChange={(e) => setTitulo(e.target.value)}
-                    />
+                        <input
+                          placeholder="Título del video"
+                          className="w-full rounded-2xl border border-[var(--line)] bg-[rgba(255,250,242,0.92)] p-3"
+                          value={titulo}
+                          onChange={(e) => setTitulo(e.target.value)}
+                        />
 
-                    <GrabadorVideo
-                      onVideoListo={handleArchivo}
-                      disabled={subiendoVideo}
-                      maxSegundos={65}
-                    />
+                        <GrabadorVideo
+                          onVideoListo={handleArchivo}
+                          disabled={subiendoVideo}
+                          maxSegundos={65}
+                        />
 
-                    {!archivo && (
-                      <p className="workspace-inline-note">
-                        Cuando el video esté listo, podrás subirlo desde aquí.
-                      </p>
-                    )}
-
-                    {archivo && (
-                      <p className="text-green-700 text-sm">
-                        Video listo para subir: <strong>{archivo.name}</strong>
-                      </p>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={handleCargarVideo}
-                      disabled={subiendoVideo}
-                      className="workspace-button-primary disabled:opacity-60"
-                    >
-                      {subiendoVideo ? "Subiendo..." : "Subir video"}
-                    </button>
-
-                    {estadoSubidaVideo && (
-                      <p className="text-sm text-[var(--muted)]">
-                        {estadoSubidaVideo}
-                      </p>
-                    )}
-
-                    {mensajeExito && (
-                      <p className="text-green-700 text-sm font-medium">{mensajeExito}</p>
-                    )}
-
-                    {mensajeError && (
-                      <p className="text-red-700 text-sm font-medium">{mensajeError}</p>
-                    )}
-                  </div>
-                )}
-
-                {semanaEnUso === semanaActual && esMartesAportes && (
-                  <div className="workspace-panel-soft space-y-3 border border-[#D6C39A] bg-[#FFF6E4]/70">
-                    <h3 className="text-lg font-semibold text-[#6D4F17]">
-                      Martes de aportes
-                    </h3>
-                    <p className="workspace-inline-note text-[var(--foreground)]">
-                      Hoy no se sube video. El martes está dedicado a escribir aportes sobre los
-                      videos del lunes para acompañar la evolución del proceso.
-                    </p>
-                  </div>
-                )}
-
-                {semanaEnUso === semanaActual &&
-                  Boolean(diaActualClave) &&
-                  yaSubioVideoHoy && (
-                    <div className="border-t pt-4">
-                      <p className="text-sm font-medium text-green-700">
-                        Ya cargaste el video de hoy. Podras volver a subir cuando llegue el proximo dia del dispositivo.
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="workspace-divider pt-4 space-y-4">
-                    <h3 className="text-lg font-semibold">Videos de la semana</h3>
-                    <p className="workspace-inline-note">
-                      La elección/evaluación del jueves considera el proceso completo: video del
-                      lunes, aportes del martes y video del miércoles.
-                    </p>
-
-                  {videosSemana.length === 0 && (
-                    <p className="workspace-inline-note">
-                      No hay videos cargados para la semana actual.
-                    </p>
-                  )}
-
-                  {videosSemana.map((video) => {
-                    const comentariosDeVideo = comentariosPorVideo.get(video.id) || []
-                    const comentarioActual = comentariosDraft[video.id] || ""
-                    const abierto = videoAbierto === video.video_url
-
-                    return (
-                    <div key={video.id} className="workspace-card-link !rounded-[1.45rem] !p-5 space-y-4">
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between gap-3 flex-wrap">
-                            <p className="text-lg font-semibold tracking-[-0.02em]">
-                              {video.participante_nombre}
-                            </p>
-                            <span className="workspace-chip">
-                              {video.dia_clave || video.dia || "Día sin definir"}
-                            </span>
-                          </div>
-                          <p className="workspace-inline-note text-[var(--foreground)]">
-                            {video.titulo}
+                        {!archivo && (
+                          <p className="workspace-inline-note">
+                            Cuando el video esté listo, podrás subirlo desde aquí.
                           </p>
-                          <p className="workspace-inline-note text-xs">
-                            Día: {video.dia_clave || video.dia || "sin día"}
-                          </p>
-                          <p className="workspace-inline-note text-xs">
-                            Semana: {formatearFecha(video.fecha_semana)}
-                          </p>
-                        </div>
-
-                        {video.video_url && (
-                          <div className="space-y-3">
-                            {!abierto && (
-                              <div className="flex items-center gap-4 flex-wrap">
-                                <video
-                                  src={video.video_url}
-                                  className="h-28 w-28 rounded-[1.6rem] border border-[var(--line)] object-cover"
-                                  muted
-                                  playsInline
-                                  preload="metadata"
-                                />
-
-                                <button
-                                  type="button"
-                                  className="workspace-button-secondary"
-                                  onClick={() => setVideoAbierto(video.video_url || null)}
-                                >
-                                  Ver video
-                                </button>
-                              </div>
-                            )}
-
-                            {abierto && (
-                              <div className="space-y-3">
-                                <video
-                                  controls
-                                  src={video.video_url}
-                                  className="w-full max-w-xl rounded-xl border"
-                                />
-
-                                <button
-                                  type="button"
-                                  className="workspace-button-secondary"
-                                  onClick={() => setVideoAbierto(null)}
-                                >
-                                  Ocultar video
-                                </button>
-                              </div>
-                            )}
-                          </div>
                         )}
 
-                        <div className="workspace-divider pt-4 space-y-3">
-                          <h4 className="font-semibold">Aportes a este video</h4>
+                        {archivo && (
+                          <p className="text-green-700 text-sm">
+                            Video listo para subir: <strong>{archivo.name}</strong>
+                          </p>
+                        )}
 
-                          {comentariosDeVideo.length === 0 && (
-                            <p className="workspace-inline-note">
-                              Todavía no hay aportes para este video.
-                            </p>
-                          )}
+                        <button
+                          type="button"
+                          onClick={handleCargarVideo}
+                          disabled={subiendoVideo}
+                          className="workspace-button-primary disabled:opacity-60"
+                        >
+                          {subiendoVideo ? "Subiendo..." : "Subir video"}
+                        </button>
 
-                          {comentariosDeVideo.map((comentario) => (
-                            <div key={comentario.id} className="workspace-message-reply space-y-1">
-                              <p className="text-sm font-medium">{comentario.autor_nombre}</p>
-                              <p className="workspace-inline-note text-xs">
-                                {formatearFechaHora(comentario.created_at)}
+                        {estadoSubidaVideo && (
+                          <p className="text-sm text-[var(--muted)]">
+                            {estadoSubidaVideo}
+                          </p>
+                        )}
+
+                        {mensajeExito && (
+                          <p className="text-green-700 text-sm font-medium">{mensajeExito}</p>
+                        )}
+
+                        {mensajeError && (
+                          <p className="text-red-700 text-sm font-medium">{mensajeError}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {semanaEnUso === semanaActual && esMartesAportes && (
+                      <div className="workspace-panel-soft space-y-3 border border-[#D6C39A] bg-[#FFF6E4]/70">
+                        <h3 className="text-lg font-semibold text-[#6D4F17]">
+                          Martes de aportes
+                        </h3>
+                        <p className="workspace-inline-note text-[var(--foreground)]">
+                          Hoy no se sube video. El martes está dedicado a escribir aportes sobre los
+                          videos del lunes para acompañar la evolución del proceso.
+                        </p>
+                      </div>
+                    )}
+
+                    {semanaEnUso === semanaActual &&
+                      Boolean(diaActualClave) &&
+                      yaSubioVideoHoy && (
+                        <div className="border-t pt-4">
+                          <p className="text-sm font-medium text-green-700">
+                            Ya cargaste el video de hoy. Podras volver a subir cuando llegue el proximo dia del dispositivo.
+                          </p>
+                        </div>
+                      )}
+
+                    <div className="workspace-divider pt-4 space-y-4">
+                      <h3 className="text-lg font-semibold">Videos de la semana</h3>
+
+                      {videosSemana.length === 0 && (
+                        <p className="workspace-inline-note">
+                          No hay videos cargados para la semana actual.
+                        </p>
+                      )}
+
+                      {videosSemana.map((video) => {
+                        const comentariosDeVideo = comentariosPorVideo.get(video.id) || []
+                        const comentarioActual = comentariosDraft[video.id] || ""
+                        const abierto = videoAbierto === video.video_url
+
+                        return (
+                          <div key={video.id} className="workspace-card-link !rounded-[1.45rem] !p-5 space-y-4">
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between gap-3 flex-wrap">
+                                <p className="text-lg font-semibold tracking-[-0.02em]">
+                                  {video.participante_nombre}
+                                </p>
+                                <span className="workspace-chip">
+                                  {video.dia_clave || video.dia || "Día sin definir"}
+                                </span>
+                              </div>
+                              <p className="workspace-inline-note text-[var(--foreground)]">
+                                {video.titulo}
                               </p>
-                              <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                                {comentario.contenido}
+                              <p className="workspace-inline-note text-xs">
+                                Día: {video.dia_clave || video.dia || "sin día"}
+                              </p>
+                              <p className="workspace-inline-note text-xs">
+                                Semana: {formatearFecha(video.fecha_semana)}
                               </p>
                             </div>
-                          ))}
 
-                          <textarea
-                            className="workspace-field min-h-[90px]"
-                            placeholder="Escribí aquí tu aporte para este video..."
-                            value={comentarioActual}
-                            onChange={(e) =>
-                              setComentariosDraft((prev) => ({
-                                ...prev,
-                                [video.id]: e.target.value,
-                              }))
-                            }
-                          />
+                            {video.video_url && (
+                              <div className="space-y-3">
+                                {!abierto && (
+                                  <div className="flex items-center gap-4 flex-wrap">
+                                    <video
+                                      src={video.video_url}
+                                      className="h-28 w-28 rounded-[1.6rem] border border-[var(--line)] object-cover"
+                                      muted
+                                      playsInline
+                                      preload="metadata"
+                                    />
 
-                          <button
-                            type="button"
-                            onClick={() => handleComentar(video.id)}
-                            disabled={comentandoVideoId === video.id}
-                            className="workspace-button-secondary disabled:opacity-60"
-                          >
-                            {comentandoVideoId === video.id
-                              ? "Guardando aporte..."
-                              : "Enviar aporte"}
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  })}
+                                    <button
+                                      type="button"
+                                      className="workspace-button-secondary"
+                                      onClick={() => setVideoAbierto(video.video_url || null)}
+                                    >
+                                      Ver video
+                                    </button>
+                                  </div>
+                                )}
 
-                  <div className="workspace-panel-soft space-y-4">
-                    <div className="space-y-1">
-                      <h3 className="text-lg font-semibold">
-                        Elección del proceso semanal
-                      </h3>
-                      <p className="workspace-inline-note">
-                        La evaluación considera el recorrido completo de cada persona durante la semana.
-                      </p>
+                                {abierto && (
+                                  <div className="space-y-3">
+                                    <video
+                                      controls
+                                      src={video.video_url}
+                                      className="w-full max-w-xl rounded-xl border"
+                                    />
+
+                                    <button
+                                      type="button"
+                                      className="workspace-button-secondary"
+                                      onClick={() => setVideoAbierto(null)}
+                                    >
+                                      Ocultar video
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            <div className="workspace-divider pt-4 space-y-3">
+                              <h4 className="font-semibold">Aportes a este video</h4>
+
+                              {comentariosDeVideo.length === 0 && (
+                                <p className="workspace-inline-note">
+                                  Todavía no hay aportes para este video.
+                                </p>
+                              )}
+
+                              {comentariosDeVideo.map((comentario) => (
+                                <div key={comentario.id} className="workspace-message-reply space-y-1">
+                                  <p className="text-sm font-medium">{comentario.autor_nombre}</p>
+                                  <p className="workspace-inline-note text-xs">
+                                    {formatearFechaHora(comentario.created_at)}
+                                  </p>
+                                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                                    {comentario.contenido}
+                                  </p>
+                                </div>
+                              ))}
+
+                              <textarea
+                                className="workspace-field min-h-[90px]"
+                                placeholder="Escribí aquí tu aporte para este video..."
+                                value={comentarioActual}
+                                onChange={(e) =>
+                                  setComentariosDraft((prev) => ({
+                                    ...prev,
+                                    [video.id]: e.target.value,
+                                  }))
+                                }
+                              />
+
+                              <button
+                                type="button"
+                                onClick={() => handleComentar(video.id)}
+                                disabled={comentandoVideoId === video.id}
+                                className="workspace-button-secondary disabled:opacity-60"
+                              >
+                                {comentandoVideoId === video.id
+                                  ? "Guardando aporte..."
+                                  : "Enviar aporte"}
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
+
+                    <div className="workspace-divider pt-4 space-y-4">
+                      <h3 className="text-lg font-semibold">Ranking y resultado</h3>
+
+                      {!resultadosVotacionVisibles && (
+                        <div className="workspace-panel-soft space-y-2">
+                          <p className="font-medium">Evaluación en curso</p>
+                          <p className="workspace-inline-note">
+                            Hasta el jueves a las 17:00 hs de Argentina no se muestran resultados
+                            parciales ni ranking de la semana. El resultado se revela al cierre.
+                          </p>
+                        </div>
+                      )}
+
+                      {resultadosVotacionVisibles && top3.length === 0 && (
+                        <p className="workspace-inline-note">
+                          Aún no hay evaluación para la semana seleccionada.
+                        </p>
+                      )}
+
+                      {resultadosVotacionVisibles && top3.length > 0 && (
+                        <div className="space-y-4">
+                          <div className="space-y-3">
+                            {top3.map((item, index) => (
+                              <div key={item.clave} className="workspace-card-link !rounded-[1.35rem] !p-4 space-y-1">
+                                <p className="font-medium">
+                                  {index + 1}. {item.nombre}
+                                </p>
+                                <p className="workspace-inline-note text-xs">
+                                  Elecciones recibidas: {item.totalVotos}
+                                </p>
+                                <p className="workspace-inline-note text-xs">
+                                  Subió lunes y miércoles:{" "}
+                                  {item.subioLunes && item.subioMiercoles ? "sí" : "no"}
+                                </p>
+                                <p className="workspace-inline-note text-xs">
+                                  Participó en la elección: {item.participoEligiendo ? "sí" : "no"}
+                                </p>
+                                <p className="workspace-inline-note text-xs">
+                                  Elegible para ganar: {item.elegible ? "sí" : "no"}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="workspace-divider pt-4 space-y-3">
+                            <h4 className="text-base font-semibold">Ganador de la semana</h4>
+
+                            {!ganadorSemana && (
+                              <p className="workspace-inline-note">
+                                No hay ganador definido esta semana. Para ganar hay que subir los
+                                videos del lunes y miércoles, y además participar de la
+                                elección/evaluación del jueves.
+                              </p>
+                            )}
+
+                            {ganadorSemana && ganadorSemana.empate && (
+                              <p className="workspace-inline-note">
+                                Hay empate en el primer puesto entre participantes elegibles. No se define ganador automático.
+                              </p>
+                            )}
+
+                            {ganadorSemana && !ganadorSemana.empate && (
+                              <div className="space-y-1">
+                                <p className="font-medium">{ganadorSemana.participante.nombre}</p>
+                                <p className="workspace-inline-note text-xs">
+                                  Elecciones recibidas: {ganadorSemana.participante.totalVotos}
+                                </p>
+                                <p className="workspace-inline-note text-xs">
+                                  Cumplió con subir lunes y miércoles y además participó de la
+                                  elección/evaluación del jueves.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {subsolapaDispositivo === "evaluacion" && (
+                  <div className="workspace-panel-soft space-y-4">
+                    <h3 className="text-lg font-semibold">Evaluación</h3>
 
                     {mostrarControlesEvaluacion ? (
                       <div className="space-y-4">
@@ -1902,85 +2013,7 @@ export default function CasaTalentosPage() {
                       )}
                     </div>
                   </div>
-                </div>
-
-                <div className="workspace-divider pt-4 space-y-4">
-                  <h3 className="text-lg font-semibold">Ranking y resultado</h3>
-
-                  {!resultadosVotacionVisibles && (
-                    <div className="workspace-panel-soft space-y-2">
-                      <p className="font-medium">Evaluación en curso</p>
-                      <p className="workspace-inline-note">
-                        Hasta el jueves a las 17:00 hs de Argentina no se muestran resultados
-                        parciales ni ranking de la semana. El resultado se revela al cierre.
-                      </p>
-                    </div>
-                  )}
-
-                  {resultadosVotacionVisibles && top3.length === 0 && (
-                    <p className="workspace-inline-note">
-                      Aún no hay evaluación para la semana seleccionada.
-                    </p>
-                  )}
-
-                  {resultadosVotacionVisibles && top3.length > 0 && (
-                    <div className="space-y-4">
-                      <div className="space-y-3">
-                        {top3.map((item, index) => (
-                          <div key={item.clave} className="workspace-card-link !rounded-[1.35rem] !p-4 space-y-1">
-                            <p className="font-medium">
-                              {index + 1}. {item.nombre}
-                            </p>
-                            <p className="workspace-inline-note text-xs">
-                              Elecciones recibidas: {item.totalVotos}
-                            </p>
-                            <p className="workspace-inline-note text-xs">
-                              Subió lunes y miércoles:{" "}
-                              {item.subioLunes && item.subioMiercoles ? "sí" : "no"}
-                            </p>
-                            <p className="workspace-inline-note text-xs">
-                              Participó en la elección: {item.participoEligiendo ? "sí" : "no"}
-                            </p>
-                            <p className="workspace-inline-note text-xs">
-                              Elegible para ganar: {item.elegible ? "sí" : "no"}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="workspace-divider pt-4 space-y-3">
-                        <h4 className="text-base font-semibold">Ganador de la semana</h4>
-
-                        {!ganadorSemana && (
-                          <p className="workspace-inline-note">
-                            No hay ganador definido esta semana. Para ganar hay que subir los
-                            videos del lunes y miércoles, y además participar de la
-                            elección/evaluación del jueves.
-                          </p>
-                        )}
-
-                        {ganadorSemana && ganadorSemana.empate && (
-                          <p className="workspace-inline-note">
-                            Hay empate en el primer puesto entre participantes elegibles. No se define ganador automático.
-                          </p>
-                        )}
-
-                        {ganadorSemana && !ganadorSemana.empate && (
-                          <div className="space-y-1">
-                            <p className="font-medium">{ganadorSemana.participante.nombre}</p>
-                            <p className="workspace-inline-note text-xs">
-                              Elecciones recibidas: {ganadorSemana.participante.totalVotos}
-                            </p>
-                            <p className="workspace-inline-note text-xs">
-                              Cumplió con subir lunes y miércoles y además participó de la
-                              elección/evaluación del jueves.
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
             </SeccionDesplegable>
           )}
