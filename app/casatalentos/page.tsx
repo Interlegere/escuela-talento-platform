@@ -709,6 +709,19 @@ export default function CasaTalentosPage() {
     semanaEnUso,
   ])
 
+  const evaluacionCerrada = useMemo(() => {
+    if (!semanaEnUso || semanaEnUso !== semanaActual) return true
+
+    return resultadosDisponiblesSegunAhora(ahoraArgentina)
+  }, [
+    ahoraArgentina.hour,
+    ahoraArgentina.minute,
+    ahoraArgentina.numeroDia,
+    ahoraArgentina.weekday,
+    semanaActual,
+    semanaEnUso,
+  ])
+
   const diaActualClave = useMemo(() => {
     switch (numeroDia) {
       case 1:
@@ -736,6 +749,26 @@ export default function CasaTalentosPage() {
     semanaEnUso,
   ])
   const mostrarControlesEvaluacion = esAdmin || eleccionesHabilitadas
+
+  const claveActorEvaluacion = useMemo(() => {
+    return (email || nombre || "").trim().toLowerCase()
+  }, [email, nombre])
+
+  const yaParticipoEvaluacionSemana = useMemo(() => {
+    if (!claveActorEvaluacion) return false
+
+    return votosSemana.some((voto) => claveVotante(voto) === claveActorEvaluacion)
+  }, [claveActorEvaluacion, votosSemana])
+
+  const bloquearNuevaEvaluacion = yaParticipoEvaluacionSemana && !esAdmin
+  const mostrarEncuestaEvaluacion =
+    mostrarControlesEvaluacion && !bloquearNuevaEvaluacion
+
+  const nombreGanadorEntusiasmo = useMemo(() => {
+    if (!evaluacionCerrada || !ganadorSemana || ganadorSemana.empate) return ""
+
+    return ganadorSemana.participante.nombre
+  }, [evaluacionCerrada, ganadorSemana])
 
   const participantesSinVideoLunes = useMemo(() => {
     if (
@@ -1002,6 +1035,11 @@ export default function CasaTalentosPage() {
 
     if (elegidoSeleccionado === null) {
       setMensajeError("Seleccioná un proceso para evaluar.")
+      return
+    }
+
+    if (bloquearNuevaEvaluacion) {
+      setMensajeError("Ya realizaste tu evaluación esta semana.")
       return
     }
 
@@ -1849,7 +1887,21 @@ export default function CasaTalentosPage() {
                   <div className="workspace-panel-soft space-y-4">
                     <h3 className="text-lg font-semibold">Evaluación</h3>
 
-                    {mostrarControlesEvaluacion ? (
+                    {yaParticipoEvaluacionSemana && (
+                      <div className="rounded-2xl border border-[#D6C39A] bg-[#FFF6E4]/80 px-4 py-3 text-sm font-medium text-[#6D4F17]">
+                        Gracias por elegir. Los resultados se develarán a las 17 horas.
+                      </div>
+                    )}
+
+                    {nombreGanadorEntusiasmo && (
+                      <div className="rounded-3xl border border-[#D6C39A] bg-[#FFF1C7]/90 px-5 py-4 shadow-sm">
+                        <p className="text-lg font-semibold text-[#6D4F17]">
+                          ¡Felicitaciones {nombreGanadorEntusiasmo}, te ganaste el Entusiasmo esta semana!
+                        </p>
+                      </div>
+                    )}
+
+                    {mostrarEncuestaEvaluacion ? (
                       <div className="space-y-4">
                         {opcionesEvaluacionProceso.length === 0 && (
                           <p className="workspace-inline-note">
@@ -1903,14 +1955,18 @@ export default function CasaTalentosPage() {
                           )
                         })}
                       </div>
-                    ) : (
+                    ) : bloquearNuevaEvaluacion ? null : !mostrarControlesEvaluacion && !evaluacionCerrada ? (
                       <p className="workspace-inline-note">
                         La elección del proceso semanal se habilita el jueves.
                       </p>
-                    )}
+                    ) : mostrarControlesEvaluacion ? (
+                      <p className="workspace-inline-note">
+                        La evaluación ya fue registrada esta semana.
+                      </p>
+                    ) : null}
 
                     <div className="flex gap-3 flex-wrap">
-                      {mostrarControlesEvaluacion && (
+                      {mostrarEncuestaEvaluacion && (
                         <button
                           type="button"
                           onClick={handleElegir}
