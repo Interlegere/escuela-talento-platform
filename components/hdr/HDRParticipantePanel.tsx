@@ -158,6 +158,9 @@ export default function HDRParticipantePanel({
         )}
 
         {coordenadasVisibles.map((coordenada) => {
+          const propia = coordenada.respuestas.find(
+            (respuesta) => respuesta.participanteEmail === actorEmail
+          )
           const draft = drafts[coordenada.id] || {
             respuesta: "",
           }
@@ -202,6 +205,20 @@ export default function HDRParticipantePanel({
                     placeholder="Escribí aquí tu desarrollo principal."
                   />
                 </div>
+
+                {propia?.intervencionHtml && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">
+                      Intervención del coordinador
+                    </p>
+                    <div
+                      className="workspace-panel-soft prose prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{
+                        __html: propia.intervencionHtml,
+                      }}
+                    />
+                  </div>
+                )}
 
                 <button
                   type="button"

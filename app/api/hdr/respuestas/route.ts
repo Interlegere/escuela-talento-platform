@@ -56,7 +56,12 @@ export async function POST(req: Request) {
     const respuesta = await guardarRespuestaHDR(auth.actor, {
       actividadSlug,
       coordenadaId,
-      respuesta: String(body.respuesta || ""),
+      respuesta:
+        body.respuesta === undefined ? undefined : String(body.respuesta || ""),
+      intervencionHtml:
+        body.intervencionHtml === undefined
+          ? undefined
+          : String(body.intervencionHtml || ""),
       participanteEmail: String(body.participanteEmail || ""),
     })
 

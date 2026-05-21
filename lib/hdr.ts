@@ -36,6 +36,7 @@ export type HDRRespuestaRow = {
   coordenada_id: string
   participante_email: string
   respuesta?: string | null
+  intervencion_html?: string | null
   created_at?: string | null
   updated_at?: string | null
 }
@@ -91,6 +92,7 @@ type CoordenadaConDetalle = {
     participanteEmail: string
     participanteNombre: string
     respuesta: string
+    intervencionHtml: string
     updatedAt: string | null
     createdAt: string | null
   }>
@@ -149,6 +151,7 @@ export type GuardarRespuestaInput = {
   actividadSlug: HDRActividadSlug
   coordenadaId: string
   respuesta?: string
+  intervencionHtml?: string
   participanteEmail?: string
 }
 
@@ -360,6 +363,7 @@ export async function cargarHDRActividad(
       participanteNombre:
         participantesPorEmail.get(participanteEmail) || participanteEmail,
       respuesta: String(respuesta.respuesta || ""),
+      intervencionHtml: String(respuesta.intervencion_html || ""),
       updatedAt: respuesta.updated_at || null,
       createdAt: respuesta.created_at || null,
     })
@@ -526,10 +530,18 @@ export async function guardarRespuestaHDR(
     throw new Error("No podés editar la respuesta de otra persona.")
   }
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     coordenada_id: input.coordenadaId,
     participante_email: participanteEmail,
-    respuesta: String(input.respuesta || "").trim() || null,
+  }
+
+  if (input.respuesta !== undefined) {
+    payload.respuesta = String(input.respuesta || "").trim() || null
+  }
+
+  if (esAdmin && input.intervencionHtml !== undefined) {
+    payload.intervencion_html =
+      String(input.intervencionHtml || "").trim() || null
   }
 
   const { data, error } = await supabase

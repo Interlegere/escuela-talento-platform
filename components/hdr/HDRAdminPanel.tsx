@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import SeccionDesplegable from "@/components/SeccionDesplegable"
+import EditorMensajeAdmin from "@/components/espacios/EditorMensajeAdmin"
 import type { HDRActividadPayload } from "@/lib/hdr"
 
 type Props = {
@@ -29,6 +30,8 @@ type DraftsEdicion = Record<
     activo: boolean
   }
 >
+
+type DraftsIntervenciones = Record<string, string>
 
 async function leerJson<T>(res: Response): Promise<T> {
   const raw = await res.text()
@@ -70,7 +73,8 @@ export default function HDRAdminPanel({
     participanteEmail: "",
   })
   const [drafts, setDrafts] = useState<DraftsEdicion>({})
-  const [draftsRespuestas, setDraftsRespuestas] = useState<Record<string, string>>({})
+  const [draftsIntervenciones, setDraftsIntervenciones] =
+    useState<DraftsIntervenciones>({})
   const [guardandoCrear, setGuardandoCrear] = useState(false)
   const [guardandoCoordenadaId, setGuardandoCoordenadaId] = useState<string | null>(null)
   const [eliminandoCoordenadaId, setEliminandoCoordenadaId] = useState<string | null>(null)
@@ -187,12 +191,12 @@ export default function HDRAdminPanel({
     }
   }
 
-  const guardarRespuestaParticipante = async (
+  const guardarIntervencionParticipante = async (
     coordenadaId: string,
     participanteEmail: string
   ) => {
     const key = `${coordenadaId}:${participanteEmail}`
-    const contenido = String(draftsRespuestas[key] || "").trim()
+    const intervencionHtml = String(draftsIntervenciones[key] || "").trim()
 
     try {
       setGuardandoRespuestaKey(key)
@@ -209,21 +213,21 @@ export default function HDRAdminPanel({
           actividadSlug,
           coordenadaId,
           participanteEmail,
-          respuesta: contenido,
+          intervencionHtml,
         }),
       })
 
       const json = await leerJson<{ error?: string }>(res)
 
       if (!res.ok) {
-        setError(json.error || "No se pudo actualizar la respuesta.")
+        setError(json.error || "No se pudo actualizar la intervención.")
         return
       }
 
-      setMensaje("Respuesta actualizada correctamente.")
+      setMensaje("Intervención actualizada correctamente.")
       await onActualizado?.()
     } catch {
-      setError("Hubo un problema al actualizar la respuesta.")
+      setError("Hubo un problema al actualizar la intervención.")
     } finally {
       setGuardandoRespuestaKey(null)
     }
@@ -536,9 +540,11 @@ export default function HDRAdminPanel({
                   )
                   const key = `${coordenada.id}:${participante.email}`
                   const valorRespuesta =
-                    draftsRespuestas[key] !== undefined
-                      ? draftsRespuestas[key]
-                      : respuesta?.respuesta || ""
+                    respuesta?.respuesta || ""
+                  const valorIntervencion =
+                    draftsIntervenciones[key] !== undefined
+                      ? draftsIntervenciones[key]
+                      : respuesta?.intervencionHtml || ""
 
                   return (
                     <div
@@ -556,22 +562,48 @@ export default function HDRAdminPanel({
                         </p>
                       </div>
 
-                      <textarea
-                        className="workspace-field min-h-[120px]"
-                        value={valorRespuesta}
-                        onChange={(e) =>
-                          setDraftsRespuestas((prev) => ({
-                            ...prev,
-                            [key]: e.target.value,
-                          }))
-                        }
-                        placeholder="Respuesta del participante"
-                      />
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">
+                          Respuesta del participante
+                        </p>
+                        <div className="workspace-panel-soft whitespace-pre-wrap text-sm text-[var(--foreground)]">
+                          {valorRespuesta || "El participante todavía no escribió una respuesta."}
+                        </div>
+                      </div>
+
+                      {respuesta?.intervencionHtml && (
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium">
+                            Intervención actual
+                          </p>
+                          <div
+                            className="workspace-panel-soft prose prose-sm max-w-none"
+                            dangerouslySetInnerHTML={{
+                              __html: respuesta.intervencionHtml,
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">
+                          Intervención del coordinador
+                        </p>
+                        <EditorMensajeAdmin
+                          value={valorIntervencion}
+                          onChange={(value) =>
+                            setDraftsIntervenciones((prev) => ({
+                              ...prev,
+                              [key]: value,
+                            }))
+                          }
+                        />
+                      </div>
 
                       <button
                         type="button"
                         onClick={() =>
-                          guardarRespuestaParticipante(
+                          guardarIntervencionParticipante(
                             coordenada.id,
                             participante.email
                           )
