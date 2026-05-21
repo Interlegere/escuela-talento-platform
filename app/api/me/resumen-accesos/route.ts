@@ -6,13 +6,6 @@ import {
   resolveActivityAccess,
   type ActivitySlug,
 } from "@/lib/authz"
-import { createAdminSupabaseClient } from "@/lib/supabase-admin"
-import {
-  charlaIntroFechaTexto,
-  charlaIntroGrabacionUrl,
-  charlaIntroSubtitulo,
-  charlaIntroTitulo,
-} from "@/lib/mailing"
 
 const actividades: ActivitySlug[] = [
   "casatalentos",
@@ -66,10 +59,6 @@ export async function GET() {
       })
     )
 
-    const supabase = createAdminSupabaseClient()
-    const charlaIntroGrabacionActual = charlaIntroGrabacionUrl() || null
-    const charlaIntroGrabacionDisponible = Boolean(charlaIntroGrabacionActual)
-
     return NextResponse.json({
       ok: true,
       actor: {
@@ -79,18 +68,16 @@ export async function GET() {
       },
       permissions: listPermissionsForRole(auth.actor.role),
       usuario: {
-        charlaIntroHabilitada: true,
+        charlaIntroHabilitada: false,
       },
       charlaIntro: {
-        habilitada: true,
-        titulo: charlaIntroTitulo(),
-        subtitulo: charlaIntroSubtitulo(),
-        fechaTexto: charlaIntroFechaTexto() || null,
+        habilitada: false,
+        titulo: "",
+        subtitulo: "",
+        fechaTexto: null,
         meetUrl: null,
-        grabacionDisponible: charlaIntroGrabacionDisponible,
-        grabacionUrl: charlaIntroGrabacionDisponible
-          ? charlaIntroGrabacionActual
-          : null,
+        grabacionDisponible: false,
+        grabacionUrl: null,
       },
       accesos,
     })

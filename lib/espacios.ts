@@ -124,34 +124,65 @@ export async function listarParticipantesActividad(
     throw inscripcionesError
   }
 
-  const { data: espacios, error: espaciosError } = await supabase
-    .from("espacios_acompanamiento")
-    .select("participante_email, participante_nombre")
-    .eq("actividad_slug", actividadSlug)
+  const inscripcionesActivas = (inscripciones || []) as Array<{
+    participante_email?: string | null
+    participante_nombre?: string | null
+  }>
+  const emails = Array.from(
+    new Set(
+      inscripcionesActivas
+        .map((item) => item.participante_email?.trim().toLowerCase() || "")
+        .filter(Boolean)
+    )
+  )
 
-  if (espaciosError && !esTablaFaltante(espaciosError.message)) {
-    throw espaciosError
+  if (emails.length === 0) {
+    return []
+  }
+
+  const { data: usuarios, error: usuariosError } = await supabase
+    .from("usuarios_plataforma")
+    .select("nombre, apellido, email, activo")
+    .in("email", emails)
+    .eq("activo", true)
+
+  if (usuariosError) {
+    throw usuariosError
+  }
+
+  const usuariosPorEmail = new Map<
+    string,
+    {
+      nombre?: string | null
+      apellido?: string | null
+      email?: string | null
+      activo?: boolean | null
+    }
+  >()
+
+  for (const usuario of usuarios || []) {
+    const email = usuario.email?.trim().toLowerCase()
+    if (!email) continue
+    usuariosPorEmail.set(email, usuario)
   }
 
   const mapa = new Map<string, ParticipanteActividad>()
 
-  for (const item of inscripciones || []) {
+  for (const item of inscripcionesActivas) {
     const email = item.participante_email?.trim().toLowerCase()
     if (!email) continue
 
-    mapa.set(email, {
-      email,
-      nombre: item.participante_nombre?.trim() || email,
-    })
-  }
+    const usuario = usuariosPorEmail.get(email)
+    if (!usuario) continue
 
-  for (const item of espacios || []) {
-    const email = item.participante_email?.trim().toLowerCase()
-    if (!email || mapa.has(email)) continue
+    const nombreUsuario = [usuario?.nombre, usuario?.apellido]
+      .filter(Boolean)
+      .join(" ")
+      .trim()
 
     mapa.set(email, {
       email,
-      nombre: item.participante_nombre?.trim() || email,
+      nombre: nombreUsuario || item.participante_nombre?.trim() || email,
     })
   }
 

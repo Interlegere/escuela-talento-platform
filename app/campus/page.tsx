@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
-import ConsentimientoMeetButton from "@/components/consentimientos/ConsentimientoMeetButton"
 import { isDevelopmentPreviewEnabled } from "@/lib/dev-flags"
 import WorkspaceHero from "@/components/ui/WorkspaceHero"
 
@@ -140,50 +139,6 @@ function RecordatorioCard({
   )
 }
 
-function CharlaIntroCard({
-  titulo,
-  subtitulo,
-  grabacionUrl,
-}: {
-  titulo: string
-  subtitulo: string
-  grabacionUrl?: string | null
-}) {
-  return (
-    <section className="workspace-card-link !rounded-[1.7rem] !p-6">
-      <div className="space-y-3">
-        <p className="workspace-eyebrow !text-[0.7rem] !tracking-[0.22em]">
-          Charla introductoria
-        </p>
-        <h3 className="text-[1.8rem] font-semibold tracking-[-0.04em] text-[var(--foreground)]">
-          {titulo}
-        </h3>
-        <p className="max-w-3xl text-base leading-7 text-[var(--muted)]">
-          {subtitulo}
-        </p>
-        <div className="flex flex-wrap gap-3 pt-2">
-          {grabacionUrl ? (
-            <ConsentimientoMeetButton
-              actividad="charla-introductoria"
-              href={grabacionUrl}
-              className="workspace-button-primary workspace-button-primary-soft !bg-[#e0b15c] hover:!bg-[#e8c37b] !text-white !border-transparent"
-            >
-              Ver grabación
-            </ConsentimientoMeetButton>
-          ) : (
-            <span className="workspace-inline-note">
-              La grabación estará disponible próximamente.
-            </span>
-          )}
-          <a href="/perfil" className="workspace-button-secondary">
-            Ver tu perfil
-          </a>
-        </div>
-      </div>
-    </section>
-  )
-}
-
 export default function CampusPage() {
   const { data: session, status, error } = useAppSession()
   const router = useRouter()
@@ -207,7 +162,6 @@ export default function CampusPage() {
   const accesoTerapia = accesos.some(
     (item) => item.slug === "terapia" && item.acceso
   )
-  const accesoCharlaIntro = resumen?.charlaIntro?.habilitada === true
   const mostrarRecordatorioCasaTalentos =
     accesoCasaTalentos || VISTA_PREVIA_DESARROLLO
   const mostrarRecordatorioConectando =
@@ -431,7 +385,6 @@ export default function CampusPage() {
     accesoMentorias,
     accesoTerapia,
   ].filter(Boolean).length
-  const modoSoloCharla = accesoCharlaIntro && totalActividades === 0
 
   if (esAdmin) {
     return (
@@ -497,21 +450,10 @@ export default function CampusPage() {
         >
           <div className="flex flex-wrap gap-3">
             <span className="workspace-chip">
-              {modoSoloCharla ? "Charla introductoria" : "Actividades"}
+              Actividades
             </span>
           </div>
         </WorkspaceHero>
-
-      {resumen?.charlaIntro?.habilitada && (
-        <CharlaIntroCard
-          titulo={resumen.charlaIntro.titulo || "Charla introductoria"}
-          subtitulo={
-            resumen.charlaIntro.subtitulo ||
-            "Tu acceso a la grabación está habilitado desde este campus."
-          }
-          grabacionUrl={resumen.charlaIntro.grabacionUrl}
-        />
-      )}
 
       <section className="workspace-panel campus-priority-panel space-y-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -519,7 +461,7 @@ export default function CampusPage() {
             <h2 className="workspace-title-sm">Tus actividades</h2>
           </div>
           <span className="workspace-chip">
-            {modoSoloCharla ? "1 acceso activo" : `${totalActividades} activas`}
+            {`${totalActividades} activas`}
           </span>
         </div>
 
@@ -572,18 +514,11 @@ export default function CampusPage() {
           !accesoCasaTalentos &&
           !accesoConectando &&
           !accesoMentorias &&
-          !accesoTerapia &&
-          !accesoCharlaIntro && (
+          !accesoTerapia && (
             <p className="workspace-inline-note">
               Todavía no tenés accesos activos a módulos de participantes.
             </p>
           )}
-
-        {modoSoloCharla && (
-          <p className="workspace-inline-note">
-            Tu acceso actual está orientado a la charla introductoria. Desde acá vas a encontrar el acceso a la grabación.
-          </p>
-        )}
       </section>
 
       {recordatoriosEspacios.length > 0 && (
