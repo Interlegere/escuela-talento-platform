@@ -1842,83 +1842,6 @@ export default function CasaTalentosPage() {
                       })}
                     </div>
 
-                    <div className="workspace-divider pt-4 space-y-4">
-                      <h3 className="text-lg font-semibold">Ranking y resultado</h3>
-
-                      {!resultadosVotacionVisibles && (
-                        <div className="workspace-panel-soft space-y-2">
-                          <p className="font-medium">Evaluación en curso</p>
-                          <p className="workspace-inline-note">
-                            Hasta el jueves a las 17:00 hs de Argentina no se muestran resultados
-                            parciales ni ranking de la semana. El resultado se revela al cierre.
-                          </p>
-                        </div>
-                      )}
-
-                      {resultadosVotacionVisibles && top3.length === 0 && (
-                        <p className="workspace-inline-note">
-                          Aún no hay evaluación para la semana seleccionada.
-                        </p>
-                      )}
-
-                      {resultadosVotacionVisibles && top3.length > 0 && (
-                        <div className="space-y-4">
-                          <div className="space-y-3">
-                            {top3.map((item, index) => (
-                              <div key={item.clave} className="workspace-card-link !rounded-[1.35rem] !p-4 space-y-1">
-                                <p className="font-medium">
-                                  {index + 1}. {item.nombre}
-                                </p>
-                                <p className="workspace-inline-note text-xs">
-                                  Elecciones recibidas: {item.totalVotos}
-                                </p>
-                                <p className="workspace-inline-note text-xs">
-                                  Subió lunes y miércoles:{" "}
-                                  {item.subioLunes && item.subioMiercoles ? "sí" : "no"}
-                                </p>
-                                <p className="workspace-inline-note text-xs">
-                                  Participó en la elección: {item.participoEligiendo ? "sí" : "no"}
-                                </p>
-                                <p className="workspace-inline-note text-xs">
-                                  Elegible para ganar: {item.elegible ? "sí" : "no"}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="workspace-divider pt-4 space-y-3">
-                            <h4 className="text-base font-semibold">Ganador de la semana</h4>
-
-                            {!ganadorSemana && (
-                              <p className="workspace-inline-note">
-                                No hay ganador definido esta semana. Para ganar hay que subir los
-                                videos del lunes y miércoles, y además participar de la
-                                elección/evaluación del jueves.
-                              </p>
-                            )}
-
-                            {ganadorSemana && ganadorSemana.empate && (
-                              <p className="workspace-inline-note">
-                                Hay empate en el primer puesto entre participantes elegibles. No se define ganador automático.
-                              </p>
-                            )}
-
-                            {ganadorSemana && !ganadorSemana.empate && (
-                              <div className="space-y-1">
-                                <p className="font-medium">{ganadorSemana.participante.nombre}</p>
-                                <p className="workspace-inline-note text-xs">
-                                  Elecciones recibidas: {ganadorSemana.participante.totalVotos}
-                                </p>
-                                <p className="workspace-inline-note text-xs">
-                                  Cumplió con subir lunes y miércoles y además participó de la
-                                  elección/evaluación del jueves.
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
                   </div>
                 )}
 
@@ -2010,6 +1933,84 @@ export default function CasaTalentosPage() {
                         >
                           Limpiar prueba
                         </button>
+                      )}
+                    </div>
+
+                    <div className="workspace-divider pt-4 space-y-4">
+                      <h3 className="text-lg font-semibold">Ranking y resultado</h3>
+
+                      {!resultadosVotacionVisibles && (
+                        <div className="workspace-panel-soft space-y-2">
+                          <p className="font-medium">Evaluación en curso</p>
+                          <p className="workspace-inline-note">
+                            Hasta el jueves a las 17:00 hs de Argentina no se muestran resultados
+                            parciales ni ranking de la semana. El resultado se revela al cierre.
+                          </p>
+                        </div>
+                      )}
+
+                      {resultadosVotacionVisibles && top3.length === 0 && (
+                        <p className="workspace-inline-note">
+                          Aún no hay evaluación para la semana seleccionada.
+                        </p>
+                      )}
+
+                      {resultadosVotacionVisibles && top3.length > 0 && (
+                        <div className="space-y-4">
+                          <div className="space-y-3">
+                            {top3.map((item, index) => (
+                              <div key={item.clave} className="workspace-card-link !rounded-[1.35rem] !p-4 space-y-1">
+                                <p className="font-medium">
+                                  {index + 1}. {item.nombre}
+                                </p>
+                                <p className="workspace-inline-note text-xs">
+                                  Elecciones recibidas: {item.totalVotos}
+                                </p>
+                                <p className="workspace-inline-note text-xs">
+                                  Subió lunes y miércoles:{" "}
+                                  {item.subioLunes && item.subioMiercoles ? "sí" : "no"}
+                                </p>
+                                <p className="workspace-inline-note text-xs">
+                                  Participó en la elección: {item.participoEligiendo ? "sí" : "no"}
+                                </p>
+                                <p className="workspace-inline-note text-xs">
+                                  Elegible para ganar: {item.elegible ? "sí" : "no"}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="workspace-divider pt-4 space-y-3">
+                            <h4 className="text-base font-semibold">Ganador de la semana</h4>
+
+                            {!ganadorSemana && (
+                              <p className="workspace-inline-note">
+                                No hay ganador definido esta semana. Para ganar hay que subir los
+                                videos del lunes y miércoles, y además participar de la
+                                elección/evaluación del jueves.
+                              </p>
+                            )}
+
+                            {ganadorSemana && ganadorSemana.empate && (
+                              <p className="workspace-inline-note">
+                                Hay empate en el primer puesto entre participantes elegibles. No se define ganador automático.
+                              </p>
+                            )}
+
+                            {ganadorSemana && !ganadorSemana.empate && (
+                              <div className="space-y-1">
+                                <p className="font-medium">{ganadorSemana.participante.nombre}</p>
+                                <p className="workspace-inline-note text-xs">
+                                  Elecciones recibidas: {ganadorSemana.participante.totalVotos}
+                                </p>
+                                <p className="workspace-inline-note text-xs">
+                                  Cumplió con subir lunes y miércoles y además participó de la
+                                  elección/evaluación del jueves.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
