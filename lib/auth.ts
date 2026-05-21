@@ -43,7 +43,7 @@ export const authOptions: AuthOptions = {
       name: "Credentials",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
+        password: { label: "Clave de acceso", type: "password" },
       },
       async authorize(credentials) {
         const email = credentials?.email?.trim().toLowerCase() || ""

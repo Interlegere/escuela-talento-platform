@@ -41,7 +41,7 @@ function validarPassword(password: string, esNuevo: boolean) {
   }
 
   if (password.length < 4) {
-    return "La contraseña debe tener al menos 4 caracteres."
+    return "La clave de acceso debe tener al menos 4 caracteres."
   }
 
   return null

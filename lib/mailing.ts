@@ -89,7 +89,7 @@ function crearContenidoBienvenida(params: BienvenidaParams) {
     "",
     `Acceso: ${url}/login`,
     `Usuario: ${params.email}`,
-    `Contraseña inicial: ${params.password}`,
+    `Clave de acceso inicial: ${params.password}`,
     `Rol: ${role}`,
     "",
     "Por seguridad, conservá estas credenciales y avisá si necesitás cambiarlas.",
@@ -126,7 +126,7 @@ function crearContenidoBienvenida(params: BienvenidaParams) {
           <div style="border: 1px solid #e5dccb; border-radius: 18px; padding: 18px 20px; margin: 0 0 24px; background: #fffaf2;">
             <p style="margin: 0 0 10px;"><strong>Acceso:</strong> <a href="${url}/login">${url}/login</a></p>
             <p style="margin: 0 0 10px;"><strong>Usuario:</strong> ${escapeHtml(params.email)}</p>
-            <p style="margin: 0 0 10px;"><strong>Contraseña inicial:</strong> ${escapeHtml(params.password)}</p>
+            <p style="margin: 0 0 10px;"><strong>Clave de acceso inicial:</strong> ${escapeHtml(params.password)}</p>
             <p style="margin: 0;"><strong>Rol:</strong> ${escapeHtml(role)}</p>
           </div>
 

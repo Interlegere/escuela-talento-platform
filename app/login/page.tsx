@@ -29,7 +29,7 @@ function LoginPageContent() {
   const errorParam = searchParams.get("error")
   const errorQuery =
     errorParam === "CredentialsSignin"
-      ? "Email o contraseña incorrectos."
+      ? "Email o clave de acceso incorrectos."
       : errorParam
         ? "No se pudo iniciar sesión."
         : ""
@@ -132,7 +132,7 @@ function LoginPageContent() {
         <input
           type="password"
           name="password"
-          placeholder="Password"
+          placeholder="Clave de acceso"
           suppressHydrationWarning
           className="border p-2 w-full rounded"
           value={password}

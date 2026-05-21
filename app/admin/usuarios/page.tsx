@@ -632,7 +632,7 @@ export default function AdminUsuariosPage() {
       enviarBienvenida: false,
       actividades: resumen ? construirActividadesDesdePersona(resumen) : { ...ACTIVIDADES_FORM_INICIAL },
     })
-    setMensaje("Editando usuario. Dejá la contraseña vacía si no querés cambiarla.")
+    setMensaje("Editando usuario. Dejá la clave de acceso vacía si no querés cambiarla.")
   }
 
   const guardarUsuario = async (payload: FormState = form) => {
@@ -2242,7 +2242,7 @@ export default function AdminUsuariosPage() {
 
           <label className="space-y-2">
             <span className="text-sm font-medium text-gray-700">
-              {editando ? "Nueva contraseña opcional" : "Contraseña inicial"}
+              {editando ? "Nueva clave de acceso opcional" : "Clave de acceso inicial"}
             </span>
             <input
               className="workspace-field"
@@ -2314,7 +2314,7 @@ export default function AdminUsuariosPage() {
             <span>
               Usuario sólo charla introductoria
               <span className="block text-xs font-normal text-gray-500">
-                Al crear el usuario con esta opción y una contraseña cargada, se
+                Al crear el usuario con esta opción y una clave de acceso cargada, se
                 enviará el mail especial de la charla.
               </span>
             </span>
@@ -2332,8 +2332,8 @@ export default function AdminUsuariosPage() {
               }
             />
             {form.charlaIntroHabilitada
-              ? "Enviar email de invitación a la charla si hay contraseña cargada"
-              : "Enviar email de bienvenida si hay contraseña cargada"}
+              ? "Enviar email de invitación a la charla si hay clave de acceso cargada"
+              : "Enviar email de bienvenida si hay clave de acceso cargada"}
           </label>
         </div>
 
