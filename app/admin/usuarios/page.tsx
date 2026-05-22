@@ -17,6 +17,7 @@ import {
   normalizarDocumentosNotas,
   serializarDocumentosNotas,
 } from "@/lib/documentos-notas"
+import { normalizarMeetLink } from "@/lib/meet-links"
 
 type Usuario = {
   id: string
@@ -350,13 +351,8 @@ function crearDraftAgenda(): AgendaDraft {
   }
 }
 
-function esMeetPlaceholder(meetLink?: string | null) {
-  return String(meetLink || "").trim() === "https://meet.google.com/new"
-}
-
 function meetLinkReal(meetLink?: string | null) {
-  const link = String(meetLink || "").trim()
-  return link && !esMeetPlaceholder(link) ? link : ""
+  return normalizarMeetLink(meetLink) || ""
 }
 
 function construirActividadesDesdePersona(persona: PersonaResumen): ActividadesFormState {

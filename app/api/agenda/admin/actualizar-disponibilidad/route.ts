@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { requirePermission } from "@/lib/authz"
 import { ESTADOS_DISPONIBILIDAD_ACTIVA } from "@/lib/disponibilidades"
 import { normalizarDocumentosNotas } from "@/lib/documentos-notas"
+import { normalizarMeetLink } from "@/lib/meet-links"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
 type Body = {
@@ -30,13 +31,8 @@ type DisponibilidadAgenda = {
   participante_email?: string | null
 }
 
-function esMeetPlaceholder(meetLink?: string | null) {
-  return String(meetLink || "").trim() === "https://meet.google.com/new"
-}
-
 function meetLinkReal(meetLink?: string | null) {
-  const link = String(meetLink || "").trim()
-  return link && !esMeetPlaceholder(link) ? link : null
+  return normalizarMeetLink(meetLink)
 }
 
 function esErrorMigracionSerie(error: unknown) {

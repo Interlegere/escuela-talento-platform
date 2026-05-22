@@ -11,6 +11,7 @@ import {
   type EstadoPagoEspacio,
 } from "@/lib/espacios"
 import { obtenerFechaISOArgentina } from "@/lib/fechas"
+import { normalizarMeetLink } from "@/lib/meet-links"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
 type DisponibilidadRow = {
@@ -112,13 +113,8 @@ export type AgendaUnificadaItem = {
   eliminablePorAdmin: boolean
 }
 
-function esMeetPlaceholder(meetLink?: string | null) {
-  return String(meetLink || "").trim() === "https://meet.google.com/new"
-}
-
 function meetLinkReal(meetLink?: string | null) {
-  const link = String(meetLink || "").trim()
-  return link && !esMeetPlaceholder(link) ? link : null
+  return normalizarMeetLink(meetLink)
 }
 
 function claveCanonicaConectando(item: DisponibilidadRow) {

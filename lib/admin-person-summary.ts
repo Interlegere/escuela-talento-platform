@@ -3,6 +3,7 @@ import { normalizarModalidadPago, type BillingMode } from "@/lib/billing"
 import { ESTADOS_DISPONIBILIDAD_ACTIVA } from "@/lib/disponibilidades"
 import { normalizarDocumentosNotas } from "@/lib/documentos-notas"
 import { obtenerFechaISOArgentina } from "@/lib/fechas"
+import { normalizarMeetLink } from "@/lib/meet-links"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
 export type ActividadSlugResumen =
@@ -281,13 +282,8 @@ function normalizarEmail(email?: string | null) {
   return String(email || "").trim().toLowerCase()
 }
 
-function esMeetPlaceholder(meetLink?: string | null) {
-  return String(meetLink || "").trim() === "https://meet.google.com/new"
-}
-
 function meetLinkReal(meetLink?: string | null) {
-  const link = String(meetLink || "").trim()
-  return link && !esMeetPlaceholder(link) ? link : null
+  return normalizarMeetLink(meetLink)
 }
 
 function compararDisponibilidadCanonica(

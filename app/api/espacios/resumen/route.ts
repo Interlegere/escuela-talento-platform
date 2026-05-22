@@ -14,6 +14,7 @@ import {
 } from "@/lib/documentos-notas"
 import { ESTADOS_DISPONIBILIDAD_ACTIVA, esEstadoDisponibilidadActivo } from "@/lib/disponibilidades"
 import { obtenerFechaISOArgentina } from "@/lib/fechas"
+import { normalizarMeetLink } from "@/lib/meet-links"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
 function faltaColumnaActivo(error: unknown) {
@@ -21,13 +22,8 @@ function faltaColumnaActivo(error: unknown) {
   return err?.code === "42703" || String(err?.message || "").includes("activo")
 }
 
-function esMeetPlaceholder(meetLink?: string | null) {
-  return String(meetLink || "").trim() === "https://meet.google.com/new"
-}
-
 function meetLinkReal(meetLink?: string | null) {
-  const link = String(meetLink || "").trim()
-  return link && !esMeetPlaceholder(link) ? link : null
+  return normalizarMeetLink(meetLink)
 }
 
 type ReservaEspacioRow = {

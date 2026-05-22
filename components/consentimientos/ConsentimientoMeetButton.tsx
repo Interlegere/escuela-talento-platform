@@ -7,6 +7,7 @@ import {
   esActividadConsentimiento,
   type ConsentimientoActividadSlug,
 } from "@/lib/consentimientos"
+import { normalizarMeetLink } from "@/lib/meet-links"
 
 type Props = {
   actividad: string
@@ -35,7 +36,13 @@ async function leerJson<T>(res: Response): Promise<T> {
 }
 
 function abrirDestino(href: string) {
-  const popup = window.open(href, "_blank", "noopener,noreferrer")
+  const destino = normalizarMeetLink(href)
+
+  if (!destino) {
+    throw new Error("El link de Meet no es válido o todavía no fue generado.")
+  }
+
+  const popup = window.open(destino, "_blank", "noopener,noreferrer")
 
   if (!popup) {
     throw new Error(

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { requirePermission } from "@/lib/authz"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 import { getGoogleCalendarClient } from "@/lib/google-calendar"
+import { normalizarMeetLink } from "@/lib/meet-links"
 import { calendar_v3 } from "googleapis"
 
 function buildMeetConferenceData(
@@ -42,13 +43,8 @@ function extractMeetLink(
   return fallback || null
 }
 
-function esMeetPlaceholder(meetLink?: string | null) {
-  return String(meetLink || "").trim() === "https://meet.google.com/new"
-}
-
 function meetLinkReal(meetLink?: string | null) {
-  const link = String(meetLink || "").trim()
-  return link && !esMeetPlaceholder(link) ? link : null
+  return normalizarMeetLink(meetLink)
 }
 
 export async function POST(req: NextRequest) {
