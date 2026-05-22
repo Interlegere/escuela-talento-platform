@@ -449,7 +449,7 @@ export async function listarAgendaUnificada(params: {
 
         if (visibleParaParticipante && !puedeIngresar) {
           motivoBloqueo = !meetLink
-            ? "Falta link de videollamada."
+            ? "Meet aún no generado."
             : "El acceso a la reunión se habilita cuando el pago mensual está al día."
         }
       }
@@ -466,7 +466,9 @@ export async function listarAgendaUnificada(params: {
               (pagoEspacio?.habilitado || false)
           )
           motivoBloqueo = visibleParaParticipante && !puedeIngresar
-            ? "El acceso a la sesión se habilita cuando el pago está aprobado."
+            ? !meetLink
+              ? "Meet aún no generado."
+              : "El acceso a la sesión se habilita cuando el pago está aprobado."
             : null
         }
       }
@@ -487,7 +489,7 @@ export async function listarAgendaUnificada(params: {
               ? estado === "pendiente_pago"
                 ? "La sesión queda habilitada cuando se confirma el pago."
                 : !meetLink
-                  ? "Falta link de videollamada."
+                  ? "Meet aún no generado."
                   : "Esta sesión todavía no está habilitada."
               : null
         } else {

@@ -1143,7 +1143,7 @@ export async function buildAdminPersonSummaries(): Promise<PersonaResumen[]> {
               ),
               proximaReserva.disponibilidades?.duracion
             ),
-            meetLink: proximaReserva.disponibilidades?.meet_link || null,
+            meetLink: meetLinkReal(proximaReserva.disponibilidades?.meet_link),
             titulo: proximaReserva.disponibilidades?.titulo || "Encuentro",
           }
         : proximaDisponibilidad
@@ -1159,7 +1159,7 @@ export async function buildAdminPersonSummaries(): Promise<PersonaResumen[]> {
                 ),
                 proximaDisponibilidad.duracion
               ),
-              meetLink: proximaDisponibilidad.meet_link || null,
+              meetLink: meetLinkReal(proximaDisponibilidad.meet_link),
               titulo: proximaDisponibilidad.titulo || "Encuentro",
             }
           : null

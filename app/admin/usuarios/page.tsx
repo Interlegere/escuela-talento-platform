@@ -350,6 +350,15 @@ function crearDraftAgenda(): AgendaDraft {
   }
 }
 
+function esMeetPlaceholder(meetLink?: string | null) {
+  return String(meetLink || "").trim() === "https://meet.google.com/new"
+}
+
+function meetLinkReal(meetLink?: string | null) {
+  const link = String(meetLink || "").trim()
+  return link && !esMeetPlaceholder(link) ? link : ""
+}
+
 function construirActividadesDesdePersona(persona: PersonaResumen): ActividadesFormState {
   const porSlug = new Map(persona.actividades.map((item) => [item.actividad, item]))
   return {
@@ -1151,6 +1160,7 @@ export default function AdminUsuariosPage() {
           throw new Error("Completá fecha y hora para crear el encuentro.")
         }
 
+        const meetManual = meetLinkReal(draft.meetLink)
         const res = await fetch("/api/agenda/admin/crear-disponibilidades", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1167,12 +1177,12 @@ export default function AdminUsuariosPage() {
                 fecha: draft.fecha,
                 hora: draft.hora,
                 duracion: draft.duracion || "60",
-                meet_link: draft.meetLink.trim(),
+                meet_link: meetManual,
                 requiere_pago: true,
                 precio: "0",
                 estado: "confirmada",
                 es_recurrente: false,
-                sync_status: "pendiente",
+                sync_status: meetManual ? "manual" : "pendiente",
                 participante_email: persona.email,
                 participante_nombre: persona.perfil.nombreCompleto,
                 notas_documentos: draft.notasDocumentos,
@@ -1187,6 +1197,31 @@ export default function AdminUsuariosPage() {
           throw new Error(data.error || "No se pudo crear el encuentro.")
         }
 
+        const encuentrosCreados = Array.isArray(data.items) ? data.items : []
+        const erroresSync: string[] = []
+
+        if (!meetManual) {
+          for (const creado of encuentrosCreados) {
+            if (!creado?.id) continue
+
+            const syncRes = await fetch("/api/google/sync-disponibilidad", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                disponibilidadId: creado.id,
+              }),
+            })
+
+            const syncData = await syncRes.json().catch(() => ({}))
+
+            if (!syncRes.ok) {
+              erroresSync.push(
+                syncData.error || `No se pudo generar el Meet del encuentro ${creado.id}.`
+              )
+            }
+          }
+        }
+
         setAgendaDrafts((prev) => ({
           ...prev,
           [actividadKey(persona.email, actividadSlug)]: crearDraftAgenda(),
@@ -1194,8 +1229,11 @@ export default function AdminUsuariosPage() {
         setAgendaMensajes((prev) => ({
           ...prev,
           [key]: {
-            tipo: "exito",
-            texto: `Encuentro de ${nombreActividad(actividadSlug)} creado.`,
+            tipo: erroresSync.length > 0 ? "error" : "exito",
+            texto:
+              erroresSync.length > 0
+                ? `Encuentro creado, pero Meet aún no generado. ${erroresSync.join(" ")}`
+                : `Encuentro de ${nombreActividad(actividadSlug)} creado.`,
           },
         }))
         await recargarTodo()

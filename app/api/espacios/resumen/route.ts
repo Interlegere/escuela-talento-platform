@@ -21,6 +21,15 @@ function faltaColumnaActivo(error: unknown) {
   return err?.code === "42703" || String(err?.message || "").includes("activo")
 }
 
+function esMeetPlaceholder(meetLink?: string | null) {
+  return String(meetLink || "").trim() === "https://meet.google.com/new"
+}
+
+function meetLinkReal(meetLink?: string | null) {
+  const link = String(meetLink || "").trim()
+  return link && !esMeetPlaceholder(link) ? link : null
+}
+
 type ReservaEspacioRow = {
   id: number
   estado: string
@@ -249,7 +258,7 @@ export async function POST(req: Request) {
           esEstadoDisponibilidadActivo(item.disponibilidades?.estado)
       )
       .map((item) => {
-        const link = item.disponibilidades?.meet_link || null
+        const link = meetLinkReal(item.disponibilidades?.meet_link)
         const confirmada =
           item.estado === "confirmada" ||
           item.disponibilidades?.estado === "confirmada"
@@ -289,7 +298,7 @@ export async function POST(req: Request) {
                       estadoPago.modalidad === "sesion"))))
           ),
           motivoBloqueo: !link
-            ? "Falta link de videollamada."
+            ? "Meet aún no generado."
             : !contexto.esAdmin && requierePago && !estadoPago.habilitado
               ? actividadSlug === "terapia" &&
                 estadoPago.modalidad === "sesion" &&
@@ -314,7 +323,7 @@ export async function POST(req: Request) {
         return participanteAsignado === contexto.participanteEmail
       })
       .map((item) => {
-        const link = item.meet_link || null
+        const link = meetLinkReal(item.meet_link)
 
         return {
           id: `fija-${item.id}`,
@@ -334,7 +343,7 @@ export async function POST(req: Request) {
             : [],
           puedeIngresar: Boolean(link && (contexto.esAdmin || estadoPago.habilitado)),
           motivoBloqueo: !link
-            ? "Falta link de videollamada."
+            ? "Meet aún no generado."
             : !contexto.esAdmin && !estadoPago.habilitado
               ? motivoPagoParaEncuentro(actividadSlug, estadoPago.motivo)
               : null,
