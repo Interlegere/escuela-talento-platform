@@ -723,7 +723,7 @@ export default function CasaTalentosPage() {
     const empatados = elegibles.filter((p) => p.totalVotos === maxVotos)
 
     if (empatados.length > 1) {
-      return { empate: true as const, votos: maxVotos }
+      return { empate: true as const, votos: maxVotos, participantes: empatados }
     }
 
     return { empate: false as const, participante: empatados[0] }
@@ -838,7 +838,11 @@ export default function CasaTalentosPage() {
     mostrarControlesEvaluacion && !bloquearNuevaEvaluacion
 
   const nombreGanadorEntusiasmo = useMemo(() => {
-    if (!evaluacionCerrada || !ganadorSemana || ganadorSemana.empate) return ""
+    if (!evaluacionCerrada || !ganadorSemana) return ""
+
+    if (ganadorSemana.empate) {
+      return ganadorSemana.participantes.map((participante) => participante.nombre).join(" y ")
+    }
 
     return ganadorSemana.participante.nombre
   }, [evaluacionCerrada, ganadorSemana])
@@ -1969,7 +1973,9 @@ export default function CasaTalentosPage() {
                     {nombreGanadorEntusiasmo && (
                       <div className="rounded-3xl border border-[#D6C39A] bg-[#FFF1C7]/90 px-5 py-4 shadow-sm">
                         <p className="text-lg font-semibold text-[#6D4F17]">
-                          ¡Felicitaciones {nombreGanadorEntusiasmo}, te ganaste el Entusiasmo esta semana!
+                          {ganadorSemana?.empate
+                            ? `¡Felicitaciones ${nombreGanadorEntusiasmo}, se ganaron el Entusiasmo esta semana!`
+                            : `¡Felicitaciones ${nombreGanadorEntusiasmo}, te ganaste el Entusiasmo esta semana!`}
                         </p>
                       </div>
                     )}
@@ -2114,9 +2120,6 @@ export default function CasaTalentosPage() {
                                       {(eleccionesPorParticipante.get(item.clave) || []).map((eleccion) => (
                                         <p key={eleccion.id} className="workspace-inline-note text-xs">
                                           {eleccion.nombre}
-                                          {eleccion.rol === "admin" ? " · admin" : ""}
-                                          {" · "}
-                                          peso {eleccion.peso}
                                         </p>
                                       ))}
                                     </div>
@@ -2142,9 +2145,28 @@ export default function CasaTalentosPage() {
                             )}
 
                             {ganadorSemana && ganadorSemana.empate && (
-                              <p className="workspace-inline-note">
-                                Hay empate en el primer puesto entre participantes elegibles. No se define ganador automático.
-                              </p>
+                              <div className="space-y-3">
+                                <p className="font-medium">
+                                  {ganadorSemana.participantes.map((participante) => participante.nombre).join(" y ")}
+                                </p>
+                                <p className="workspace-inline-note text-xs">
+                                  Empate entre procesos elegibles.
+                                </p>
+                                {ganadorSemana.participantes.map((participante) => (
+                                  <div key={participante.clave} className="rounded-2xl border border-[#D6C39A] bg-[#FFF6E4]/75 p-3">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6D4F17]">
+                                      Eligieron a {participante.nombre}
+                                    </p>
+                                    <div className="mt-2 space-y-1">
+                                      {(eleccionesPorParticipante.get(participante.clave) || []).map((eleccion) => (
+                                        <p key={eleccion.id} className="workspace-inline-note text-xs">
+                                          {eleccion.nombre}
+                                        </p>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
                             )}
 
                             {ganadorSemana && !ganadorSemana.empate && (
@@ -2165,9 +2187,6 @@ export default function CasaTalentosPage() {
                                     {(eleccionesPorParticipante.get(ganadorSemana.participante.clave) || []).map((eleccion) => (
                                       <p key={eleccion.id} className="workspace-inline-note text-xs">
                                         {eleccion.nombre}
-                                        {eleccion.rol === "admin" ? " · admin" : ""}
-                                        {" · "}
-                                        peso {eleccion.peso}
                                       </p>
                                     ))}
                                   </div>
@@ -2199,9 +2218,6 @@ export default function CasaTalentosPage() {
                                   {(eleccionesPorParticipante.get(participante.clave) || []).map((eleccion) => (
                                     <p key={eleccion.id} className="workspace-inline-note text-xs">
                                       {eleccion.nombre}
-                                      {eleccion.rol === "admin" ? " · admin" : ""}
-                                      {" · "}
-                                      peso {eleccion.peso}
                                     </p>
                                   ))}
                                 </div>
