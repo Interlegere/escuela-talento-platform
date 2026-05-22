@@ -1533,7 +1533,7 @@ export default function CasaTalentosPage() {
             </section>
           )}
 
-          {tieneRecurso("reunion_semanal_casatalentos") && (
+          {(esAdmin || tieneRecurso("reunion_semanal_casatalentos")) && (
             <SeccionDesplegable titulo="Reunión semanal">
               <AgendaActividad
                 actividadSlug="casatalentos"

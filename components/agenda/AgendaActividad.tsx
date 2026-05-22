@@ -35,7 +35,7 @@ function formatearFecha(fecha: string) {
 }
 
 function renderDocumentosNotas(item: ItemAgenda) {
-  if (!(item.meetLink || item.meet_link)) {
+  if (!item.meetLink) {
     return null
   }
 
@@ -331,16 +331,16 @@ export default function AgendaActividad({
             <p className="workspace-inline-note">Duración: {item.duracion} min</p>
             {esAdmin && (
               <p className="workspace-inline-note">
-                Meet: {etiquetaSync(item.syncStatus, item.meetLink || item.meet_link)}
+                Meet: {etiquetaSync(item.syncStatus, item.meetLink)}
               </p>
             )}
 
             {esAdmin && renderDocumentosNotas(item)}
 
-            {(item.meetLink || item.meet_link) && item.puedeIngresar && (
+            {item.meetLink && item.puedeIngresar && (
               <ConsentimientoMeetButton
                 actividad={actividadSlug}
-                href={item.meetLink || item.meet_link || ""}
+                href={item.meetLink}
                 disponibilidadId={item.disponibilidadId}
                 fechaEncuentro={item.fecha}
                 horaEncuentro={item.hora}
