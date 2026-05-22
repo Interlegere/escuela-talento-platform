@@ -594,6 +594,51 @@ export default function CasaTalentosPage() {
     return mapa
   }, [votosSemana])
 
+  const eleccionesPorParticipante = useMemo(() => {
+    const participantePorVideo = new Map<number, { clave: string; nombre: string }>()
+    const mapa = new Map<
+      string,
+      {
+        id: number
+        nombre: string
+        email?: string | null
+        rol?: string | null
+        peso: number
+      }[]
+    >()
+
+    for (const video of videosSemana) {
+      participantePorVideo.set(video.id, {
+        clave: claveParticipante(video),
+        nombre: video.participante_nombre,
+      })
+    }
+
+    for (const voto of votosSemana) {
+      const participante = participantePorVideo.get(voto.video_id)
+      if (!participante) continue
+
+      const elecciones = mapa.get(participante.clave) || []
+      elecciones.push({
+        id: voto.id,
+        nombre: voto.votante_nombre,
+        email: voto.votante_email || null,
+        rol: voto.votante_rol || null,
+        peso: pesoEvaluacion(voto),
+      })
+      mapa.set(participante.clave, elecciones)
+    }
+
+    for (const elecciones of mapa.values()) {
+      elecciones.sort((a, b) => {
+        if (b.peso !== a.peso) return b.peso - a.peso
+        return a.nombre.localeCompare(b.nombre)
+      })
+    }
+
+    return mapa
+  }, [videosSemana, votosSemana])
+
   const referenteSemanalActual = useMemo(() => {
     return (
       referentesSemanales.find(
@@ -2060,6 +2105,27 @@ export default function CasaTalentosPage() {
                                 <p className="workspace-inline-note text-xs">
                                   Elegible para ganar: {item.elegible ? "sí" : "no"}
                                 </p>
+                                <div className="mt-3 rounded-2xl border border-[var(--line)] bg-white/60 p-3">
+                                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+                                    Quiénes eligieron este proceso
+                                  </p>
+                                  {(eleccionesPorParticipante.get(item.clave) || []).length > 0 ? (
+                                    <div className="mt-2 space-y-1">
+                                      {(eleccionesPorParticipante.get(item.clave) || []).map((eleccion) => (
+                                        <p key={eleccion.id} className="workspace-inline-note text-xs">
+                                          {eleccion.nombre}
+                                          {eleccion.rol === "admin" ? " · admin" : ""}
+                                          {" · "}
+                                          peso {eleccion.peso}
+                                        </p>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="mt-2 workspace-inline-note text-xs">
+                                      Todavía no recibió elecciones.
+                                    </p>
+                                  )}
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -2082,7 +2148,7 @@ export default function CasaTalentosPage() {
                             )}
 
                             {ganadorSemana && !ganadorSemana.empate && (
-                              <div className="space-y-1">
+                              <div className="space-y-3">
                                 <p className="font-medium">{ganadorSemana.participante.nombre}</p>
                                 <p className="workspace-inline-note text-xs">
                                   Elecciones recibidas: {ganadorSemana.participante.totalVotos}
@@ -2091,12 +2157,59 @@ export default function CasaTalentosPage() {
                                   Cumplió con subir lunes y miércoles y además participó de la
                                   elección/evaluación del jueves.
                                 </p>
+                                <div className="rounded-2xl border border-[#D6C39A] bg-[#FFF6E4]/75 p-3">
+                                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6D4F17]">
+                                    Eligieron este proceso
+                                  </p>
+                                  <div className="mt-2 space-y-1">
+                                    {(eleccionesPorParticipante.get(ganadorSemana.participante.clave) || []).map((eleccion) => (
+                                      <p key={eleccion.id} className="workspace-inline-note text-xs">
+                                        {eleccion.nombre}
+                                        {eleccion.rol === "admin" ? " · admin" : ""}
+                                        {" · "}
+                                        peso {eleccion.peso}
+                                      </p>
+                                    ))}
+                                  </div>
+                                </div>
                               </div>
                             )}
                           </div>
                         </div>
                       )}
                     </div>
+
+                    {resultadosVotacionVisibles && votosSemana.length > 0 && (
+                      <div className="workspace-divider pt-4 space-y-3">
+                        <h3 className="text-lg font-semibold">Detalle de elecciones</h3>
+                        <div className="space-y-3">
+                          {rankingParticipantes
+                            .filter((participante) =>
+                              (eleccionesPorParticipante.get(participante.clave) || []).length > 0
+                            )
+                            .map((participante) => (
+                              <div key={participante.clave} className="workspace-panel-soft space-y-2">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <p className="font-semibold">{participante.nombre}</p>
+                                  <span className="workspace-chip">
+                                    {participante.totalVotos} elecciones recibidas
+                                  </span>
+                                </div>
+                                <div className="space-y-1">
+                                  {(eleccionesPorParticipante.get(participante.clave) || []).map((eleccion) => (
+                                    <p key={eleccion.id} className="workspace-inline-note text-xs">
+                                      {eleccion.nombre}
+                                      {eleccion.rol === "admin" ? " · admin" : ""}
+                                      {" · "}
+                                      peso {eleccion.peso}
+                                    </p>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
