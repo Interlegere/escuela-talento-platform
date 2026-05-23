@@ -279,6 +279,13 @@ export default function AdminComunicacionesPage() {
     [segmento]
   )
 
+  const tieneDestinatariosEspecificosPendientes =
+    segmento === "destinatarios_especificos" &&
+    (destinatariosSeleccionados.length > 0 || emailsManual.trim().length > 0)
+
+  const puedeEnviarSegmento =
+    preview.length > 0 || tieneDestinatariosEspecificosPendientes
+
   const cargarPreview = useCallback(async () => {
     try {
       setPreviewCargando(true)
@@ -303,6 +310,7 @@ export default function AdminComunicacionesPage() {
 
       setPreview(data.destinatarios || [])
       setPreviewMensaje(`${data.total || 0} destinatario/s encontrados.`)
+      return (data.destinatarios || []) as DestinatarioPreview[]
     } catch (error) {
       setPreview([])
       setPreviewMensaje(
@@ -310,6 +318,7 @@ export default function AdminComunicacionesPage() {
           ? error.message
           : "No se pudo cargar el segmento."
       )
+      return [] as DestinatarioPreview[]
     } finally {
       setPreviewCargando(false)
     }
@@ -464,15 +473,23 @@ export default function AdminComunicacionesPage() {
       return
     }
 
-    if (modo === "segmento" && preview.length === 0) {
-      setMensaje("Primero cargá el preview del segmento.")
-      return
+    let destinatariosParaConfirmar = preview
+
+    if (modo === "segmento" && destinatariosParaConfirmar.length === 0) {
+      if (tieneDestinatariosEspecificosPendientes) {
+        destinatariosParaConfirmar = await cargarPreview()
+      }
+
+      if (destinatariosParaConfirmar.length === 0) {
+        setMensaje("Primero cargá el preview del segmento.")
+        return
+      }
     }
 
     if (
       modo === "segmento" &&
       !window.confirm(
-        `Vas a enviar esta comunicación a ${preview.length} destinatario/s. ¿Continuar?`
+        `Vas a enviar esta comunicación a ${destinatariosParaConfirmar.length} destinatario/s. ¿Continuar?`
       )
     ) {
       return
@@ -907,11 +924,15 @@ export default function AdminComunicacionesPage() {
             </button>
             <button
               type="button"
-              disabled={enviando || preview.length === 0}
+              disabled={enviando || !puedeEnviarSegmento}
               onClick={() => void enviar("segmento")}
               className="workspace-button !px-3 !py-1.5 text-xs"
             >
-              {enviando ? "Enviando..." : "Enviar comunicación"}
+              {enviando
+                ? "Enviando..."
+                : segmento === "destinatarios_especificos"
+                  ? "Enviar a destinatarios"
+                  : "Enviar comunicación"}
             </button>
           </div>
 
