@@ -38,6 +38,7 @@ export type SegmentoComunicacion =
   | "contactos_externos_activos"
   | "contactos_externos_todos"
   | "usuarios_y_contactos_activos"
+  | "destinatarios_especificos"
   | "lista_manual"
 
 export type DestinatarioComunicacion = {
@@ -54,11 +55,17 @@ export type DestinatarioComunicacion = {
   razon: string
 }
 
+export type DestinatarioSeleccionadoComunicacion = {
+  email?: string | null
+  fuente?: "usuario_plataforma" | "contacto_externo" | "manual" | string | null
+}
+
 export type ListarDestinatariosSegmentoParams =
   | SegmentoComunicacion
   | {
       segmento: SegmentoComunicacion
       emailsManual?: string | null
+      destinatariosSeleccionados?: DestinatarioSeleccionadoComunicacion[] | null
     }
 
 type PlantillaRow = {
@@ -147,6 +154,21 @@ function normalizarEmail(email?: string | null) {
   return String(email || "").trim().toLowerCase()
 }
 
+function esTablaContactosFaltante(error: unknown) {
+  const texto = String(
+    typeof error === "object" && error && "message" in error
+      ? (error as { message?: unknown }).message
+      : error || ""
+  ).toLowerCase()
+
+  return (
+    texto.includes("relation") ||
+    texto.includes("does not exist") ||
+    texto.includes("could not find the table") ||
+    texto.includes("comunicacion_contactos")
+  )
+}
+
 function nombreCompletoUsuario(usuario: UsuarioRow) {
   const nombre = String(usuario.nombre || "").trim()
   const apellido = String(usuario.apellido || "").trim()
@@ -232,6 +254,20 @@ function parsearEmailsManual(emailsManual?: string | null) {
     .filter(Boolean)
 }
 
+function emailSeleccionado(item: DestinatarioSeleccionadoComunicacion) {
+  return normalizarEmail(item.email)
+}
+
+function agregarDeduplicado(
+  mapa: Map<string, DestinatarioComunicacion>,
+  destinatario: DestinatarioComunicacion | null
+) {
+  if (!destinatario) return
+  if (!mapa.has(destinatario.email)) {
+    mapa.set(destinatario.email, destinatario)
+  }
+}
+
 function ordenarDestinatarios(
   destinatarios: DestinatarioComunicacion[]
 ) {
@@ -276,6 +312,173 @@ export function segmentoDisponible(segmento: SegmentoComunicacion) {
   return !SEGMENTOS_PROXIMAMENTE.has(segmento)
 }
 
+export async function resolverDestinatariosEspecificos({
+  destinatariosSeleccionados,
+  emailsManual,
+}: {
+  destinatariosSeleccionados?: DestinatarioSeleccionadoComunicacion[] | null
+  emailsManual?: string | null
+}) {
+  const emails = new Set<string>()
+
+  for (const item of destinatariosSeleccionados || []) {
+    const email = emailSeleccionado(item)
+    if (email) emails.add(email)
+  }
+
+  for (const email of parsearEmailsManual(emailsManual)) {
+    emails.add(email)
+  }
+
+  if (emails.size === 0) {
+    return [] as DestinatarioComunicacion[]
+  }
+
+  const emailList = Array.from(emails)
+  const supabase = createAdminSupabaseClient()
+  const deduplicados = new Map<string, DestinatarioComunicacion>()
+
+  const { data: usuariosData, error: usuariosError } = await supabase
+    .from("usuarios_plataforma")
+    .select("id, nombre, apellido, email, role, activo")
+    .in("email", emailList)
+
+  if (usuariosError) {
+    throw new Error(`No se pudieron cargar usuarios: ${usuariosError.message}`)
+  }
+
+  for (const usuario of (usuariosData || []) as UsuarioRow[]) {
+    agregarDeduplicado(
+      deduplicados,
+      destinatarioDesdeUsuario(
+        {
+          ...usuario,
+          email: normalizarEmail(usuario.email),
+        },
+        usuario.activo === false
+          ? "Usuario seleccionado inactivo"
+          : "Usuario seleccionado activo"
+      )
+    )
+  }
+
+  const { data: contactosData, error: contactosError } = await supabase
+    .from("comunicacion_contactos")
+    .select("id, email, nombre, apellido, telefono, origen, etiquetas, activo, notas, created_at, updated_at")
+    .in("email", emailList)
+
+  if (contactosError && !esTablaContactosFaltante(contactosError)) {
+    throw new Error(
+      `No se pudieron cargar contactos externos: ${contactosError.message}`
+    )
+  }
+
+  if (!contactosError) {
+    for (const contacto of (contactosData || []) as ContactoRow[]) {
+      agregarDeduplicado(
+        deduplicados,
+        destinatarioDesdeContacto(
+          {
+            ...contacto,
+            email: normalizarEmail(contacto.email),
+          },
+          contacto.activo === false
+            ? "Contacto externo seleccionado inactivo"
+            : "Contacto externo seleccionado activo"
+        )
+      )
+    }
+  }
+
+  for (const email of emailList) {
+    agregarDeduplicado(deduplicados, destinatarioManual(email))
+  }
+
+  return ordenarDestinatarios(Array.from(deduplicados.values()))
+}
+
+export async function buscarDestinatariosComunicacion(query: string) {
+  const q = String(query || "").trim().replace(/[,\n\r]/g, " ")
+  if (q.length < 2) {
+    return {
+      destinatarios: [] as DestinatarioComunicacion[],
+      advertencia: null as string | null,
+    }
+  }
+
+  const supabase = createAdminSupabaseClient()
+  const patron = `%${q}%`
+  const deduplicados = new Map<string, DestinatarioComunicacion>()
+  let advertencia: string | null = null
+
+  const { data: usuariosData, error: usuariosError } = await supabase
+    .from("usuarios_plataforma")
+    .select("id, nombre, apellido, email, role, activo")
+    .or(`nombre.ilike.${patron},apellido.ilike.${patron},email.ilike.${patron}`)
+    .limit(20)
+
+  if (usuariosError) {
+    throw new Error(`No se pudieron buscar usuarios: ${usuariosError.message}`)
+  }
+
+  for (const usuario of (usuariosData || []) as UsuarioRow[]) {
+    agregarDeduplicado(
+      deduplicados,
+      destinatarioDesdeUsuario(
+        {
+          ...usuario,
+          email: normalizarEmail(usuario.email),
+        },
+        usuario.activo === false
+          ? "Usuario registrado inactivo"
+          : "Usuario registrado activo"
+      )
+    )
+  }
+
+  const { data: contactosData, error: contactosError } = await supabase
+    .from("comunicacion_contactos")
+    .select("id, email, nombre, apellido, telefono, origen, etiquetas, activo, notas, created_at, updated_at")
+    .or(`nombre.ilike.${patron},apellido.ilike.${patron},email.ilike.${patron}`)
+    .limit(20)
+
+  if (contactosError) {
+    if (esTablaContactosFaltante(contactosError)) {
+      advertencia =
+        "La tabla de contactos externos no está disponible. Se muestran sólo usuarios registrados."
+    } else {
+      throw new Error(
+        `No se pudieron buscar contactos externos: ${contactosError.message}`
+      )
+    }
+  }
+
+  if (!contactosError) {
+    for (const contacto of (contactosData || []) as ContactoRow[]) {
+      agregarDeduplicado(
+        deduplicados,
+        destinatarioDesdeContacto(
+          {
+            ...contacto,
+            email: normalizarEmail(contacto.email),
+          },
+          contacto.activo === false
+            ? "Contacto externo inactivo"
+            : "Contacto externo activo"
+        )
+      )
+    }
+  }
+
+  return {
+    destinatarios: ordenarDestinatarios(Array.from(deduplicados.values())).slice(
+      0,
+      20
+    ),
+    advertencia,
+  }
+}
+
 export async function listarDestinatariosSegmento(
   params: ListarDestinatariosSegmentoParams
 ) {
@@ -283,6 +486,8 @@ export async function listarDestinatariosSegmento(
     typeof params === "string" ? params : params.segmento
   const emailsManual =
     typeof params === "string" ? "" : params.emailsManual || ""
+  const destinatariosSeleccionados =
+    typeof params === "string" ? [] : params.destinatariosSeleccionados || []
 
   if (!segmentoDisponible(segmento)) {
     return {
@@ -293,6 +498,17 @@ export async function listarDestinatariosSegmento(
   }
 
   const supabase = createAdminSupabaseClient()
+
+  if (segmento === "destinatarios_especificos") {
+    return {
+      destinatarios: await resolverDestinatariosEspecificos({
+        destinatariosSeleccionados,
+        emailsManual,
+      }),
+      deshabilitado: false,
+      motivo: null,
+    }
+  }
 
   if (segmento === "lista_manual") {
     const deduplicados = new Map<string, DestinatarioComunicacion>()

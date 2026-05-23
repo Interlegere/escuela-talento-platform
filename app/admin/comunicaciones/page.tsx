@@ -18,6 +18,7 @@ type Segmento =
   | "contactos_externos_activos"
   | "contactos_externos_todos"
   | "usuarios_y_contactos_activos"
+  | "destinatarios_especificos"
   | "lista_manual"
 
 type TipoComunicacion =
@@ -144,6 +145,11 @@ const SEGMENTOS: Array<{
     descripcion: "Usuarios activos y contactos externos activos deduplicados.",
   },
   {
+    value: "destinatarios_especificos",
+    label: "Destinatarios específicos",
+    descripcion: "Personas elegidas manualmente desde usuarios y contactos.",
+  },
+  {
     value: "lista_manual",
     label: "Lista manual de emails",
     descripcion: "Emails pegados manualmente para este envío.",
@@ -228,6 +234,15 @@ export default function AdminComunicacionesPage() {
   const [actividadSlug, setActividadSlug] = useState("")
   const [segmento, setSegmento] = useState<Segmento>("todos_activos")
   const [emailsManual, setEmailsManual] = useState("")
+  const [busquedaDestinatario, setBusquedaDestinatario] = useState("")
+  const [resultadosBusqueda, setResultadosBusqueda] = useState<
+    DestinatarioPreview[]
+  >([])
+  const [destinatariosSeleccionados, setDestinatariosSeleccionados] = useState<
+    DestinatarioPreview[]
+  >([])
+  const [buscandoDestinatarios, setBuscandoDestinatarios] = useState(false)
+  const [busquedaAdvertencia, setBusquedaAdvertencia] = useState("")
   const [pruebaEmail, setPruebaEmail] = useState(session?.user?.email || "")
   const [preview, setPreview] = useState<DestinatarioPreview[]>([])
   const [previewMensaje, setPreviewMensaje] = useState("")
@@ -273,7 +288,11 @@ export default function AdminComunicacionesPage() {
       const res = await fetch("/api/admin/comunicaciones/preview-segmento", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ segmento, emailsManual }),
+        body: JSON.stringify({
+          segmento,
+          emailsManual,
+          destinatariosSeleccionados,
+        }),
       })
 
       const data = await res.json()
@@ -294,7 +313,43 @@ export default function AdminComunicacionesPage() {
     } finally {
       setPreviewCargando(false)
     }
-  }, [emailsManual, segmento])
+  }, [destinatariosSeleccionados, emailsManual, segmento])
+
+  const buscarDestinatarios = useCallback(async () => {
+    const q = busquedaDestinatario.trim()
+    if (q.length < 2) {
+      setResultadosBusqueda([])
+      setBusquedaAdvertencia("Escribí al menos 2 caracteres para buscar.")
+      return
+    }
+
+    try {
+      setBuscandoDestinatarios(true)
+      setBusquedaAdvertencia("")
+
+      const res = await fetch(
+        `/api/admin/comunicaciones/buscar-destinatarios?q=${encodeURIComponent(q)}`,
+        { cache: "no-store" }
+      )
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "No se pudieron buscar destinatarios.")
+      }
+
+      setResultadosBusqueda(data.destinatarios || [])
+      setBusquedaAdvertencia(data.advertencia || "")
+    } catch (error) {
+      setResultadosBusqueda([])
+      setBusquedaAdvertencia(
+        error instanceof Error
+          ? error.message
+          : "No se pudieron buscar destinatarios."
+      )
+    } finally {
+      setBuscandoDestinatarios(false)
+    }
+  }, [busquedaDestinatario])
 
   const cargarContactos = useCallback(async () => {
     try {
@@ -387,6 +442,17 @@ export default function AdminComunicacionesPage() {
       return false
     }
 
+    if (
+      tipo === "pago" &&
+      segmento === "destinatarios_especificos" &&
+      preview.some((destinatario) => destinatario.fuente !== "usuario_plataforma")
+    ) {
+      setMensaje(
+        "Los contactos externos o emails manuales no deben usarse para comunicaciones transaccionales de pago."
+      )
+      return false
+    }
+
     return true
   }
 
@@ -426,6 +492,7 @@ export default function AdminComunicacionesPage() {
           actividadSlug: actividadSlug || null,
           segmento,
           emailsManual,
+          destinatariosSeleccionados,
           pruebaEmail: modo === "prueba" ? pruebaEmail : null,
         }),
       })
@@ -490,6 +557,22 @@ export default function AdminComunicacionesPage() {
     } finally {
       setContactosGuardando(false)
     }
+  }
+
+  const agregarDestinatarioSeleccionado = (destinatario: DestinatarioPreview) => {
+    setDestinatariosSeleccionados((prev) => {
+      if (prev.some((item) => item.email === destinatario.email)) {
+        return prev
+      }
+
+      return [...prev, destinatario]
+    })
+  }
+
+  const quitarDestinatarioSeleccionado = (email: string) => {
+    setDestinatariosSeleccionados((prev) =>
+      prev.filter((item) => item.email !== email)
+    )
   }
 
   const cambiarEstadoContacto = async (contacto: ContactoExterno) => {
@@ -691,10 +774,118 @@ export default function AdminComunicacionesPage() {
             <p className="text-sm text-gray-600">{segmentoActual.descripcion}</p>
           )}
 
-          {segmento === "lista_manual" && (
+          {segmento === "destinatarios_especificos" && (
+            <div className="space-y-3 rounded-2xl border border-[var(--line)] bg-white/70 p-3">
+              <label className="space-y-2">
+                <span className="text-sm font-medium text-gray-700">
+                  Buscar usuario o contacto
+                </span>
+                <div className="flex gap-2">
+                  <input
+                    className="workspace-field"
+                    value={busquedaDestinatario}
+                    onChange={(e) => setBusquedaDestinatario(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        void buscarDestinatarios()
+                      }
+                    }}
+                    placeholder="Nombre, apellido o email"
+                  />
+                  <button
+                    type="button"
+                    disabled={buscandoDestinatarios}
+                    onClick={() => void buscarDestinatarios()}
+                    className="workspace-button-secondary !px-3 !py-1.5 text-xs"
+                  >
+                    {buscandoDestinatarios ? "Buscando..." : "Buscar"}
+                  </button>
+                </div>
+              </label>
+
+              {busquedaAdvertencia && (
+                <p className="rounded-xl border border-[var(--line)] bg-[rgba(255,250,242,0.7)] px-3 py-2 text-xs text-gray-600">
+                  {busquedaAdvertencia}
+                </p>
+              )}
+
+              {resultadosBusqueda.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--sea)]">
+                    Resultados
+                  </p>
+                  {resultadosBusqueda.map((destinatario) => (
+                    <button
+                      key={destinatario.email}
+                      type="button"
+                      onClick={() => agregarDestinatarioSeleccionado(destinatario)}
+                      className="w-full rounded-xl border border-[var(--line)] bg-white/80 p-3 text-left text-sm transition hover:border-[var(--sea)]"
+                    >
+                      <span className="block font-semibold text-gray-800">
+                        {destinatario.nombreCompleto || destinatario.email}
+                      </span>
+                      <span className="block text-xs text-gray-500">
+                        {destinatario.email}
+                      </span>
+                      <span className="mt-2 flex flex-wrap gap-2">
+                        <span className="workspace-chip">
+                          {fuenteLabel(destinatario.fuente)}
+                        </span>
+                        <span
+                          className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                            destinatario.activo
+                              ? "border-green-200 bg-green-50 text-green-700"
+                              : "border-red-200 bg-red-50 text-red-700"
+                          }`}
+                        >
+                          {destinatario.activo ? "Activo" : "Inactivo"}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--sea)]">
+                  Seleccionados
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {destinatariosSeleccionados.map((destinatario) => (
+                    <span
+                      key={destinatario.email}
+                      className="inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[rgba(255,250,242,0.8)] px-3 py-1 text-xs text-gray-700"
+                    >
+                      {destinatario.nombreCompleto || destinatario.email}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          quitarDestinatarioSeleccionado(destinatario.email)
+                        }
+                        className="font-semibold text-[rgb(156,69,59)]"
+                      >
+                        Quitar
+                      </button>
+                    </span>
+                  ))}
+                  {destinatariosSeleccionados.length === 0 && (
+                    <span className="text-sm text-gray-600">
+                      Todavía no seleccionaste destinatarios.
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {(segmento === "lista_manual" ||
+            segmento === "destinatarios_especificos") && (
             <label className="space-y-2">
               <span className="text-sm font-medium text-gray-700">
-                Emails manuales
+                {segmento === "destinatarios_especificos"
+                  ? "Emails manuales adicionales"
+                  : "Emails manuales"}
               </span>
               <textarea
                 className="workspace-field min-h-32"

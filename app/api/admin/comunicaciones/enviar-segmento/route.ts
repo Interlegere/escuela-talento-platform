@@ -16,6 +16,7 @@ type Body = {
   segmento?: SegmentoComunicacion
   pruebaEmail?: string | null
   emailsManual?: string | null
+  destinatariosSeleccionados?: Array<{ email?: string | null; fuente?: string | null }>
 }
 
 function normalizarEmail(email?: string | null) {
@@ -107,6 +108,7 @@ export async function POST(req: Request) {
       const resultado = await listarDestinatariosSegmento({
         segmento,
         emailsManual: body.emailsManual || "",
+        destinatariosSeleccionados: body.destinatariosSeleccionados || [],
       })
       if (resultado.deshabilitado) {
         return NextResponse.json(
@@ -116,6 +118,20 @@ export async function POST(req: Request) {
       }
 
       destinatarios = resultado.destinatarios
+
+      if (
+        tipoEnvio === "pago" &&
+        segmento === "destinatarios_especificos" &&
+        destinatarios.some((item) => item.fuente !== "usuario_plataforma")
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Los contactos externos o emails manuales no deben usarse para comunicaciones transaccionales de pago.",
+          },
+          { status: 400 }
+        )
+      }
     }
 
     if (destinatarios.length === 0) {

@@ -8,6 +8,7 @@ import {
 type Body = {
   segmento?: SegmentoComunicacion
   emailsManual?: string | null
+  destinatariosSeleccionados?: Array<{ email?: string | null; fuente?: string | null }>
 }
 
 export async function POST(req: Request) {
@@ -31,6 +32,7 @@ export async function POST(req: Request) {
     const resultado = await listarDestinatariosSegmento({
       segmento,
       emailsManual: body.emailsManual || "",
+      destinatariosSeleccionados: body.destinatariosSeleccionados || [],
     })
 
     return NextResponse.json({
