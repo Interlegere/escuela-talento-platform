@@ -4,6 +4,7 @@ import {
   enviarBienvenidaUsuario,
   enviarInvitacionCharlaIntro,
 } from "@/lib/mailing"
+import { registrarEnvioComunicacion } from "@/lib/comunicaciones"
 import {
   normalizarDocumentosNotas,
   parsearDocumentosNotasDesdeTexto,
@@ -45,6 +46,39 @@ function validarPassword(password: string, esNuevo: boolean) {
   }
 
   return null
+}
+
+async function registrarMailUsuario({
+  mailing,
+  nombre,
+  email,
+  tipo,
+  asunto,
+  plantillaClave,
+}: {
+  mailing:
+    | { enviado: true; proveedor: string; proveedorId?: string | null }
+    | { enviado: false; motivo: string }
+  nombre: string
+  email: string
+  tipo: string
+  asunto: string
+  plantillaClave: string
+}) {
+  await registrarEnvioComunicacion({
+    destinatarioEmail: email,
+    destinatarioNombre: nombre,
+    tipo,
+    asunto,
+    estado: mailing.enviado ? "enviado" : "error",
+    proveedor: mailing.enviado ? mailing.proveedor : "resend",
+    proveedorId: mailing.enviado ? mailing.proveedorId || null : null,
+    error: mailing.enviado ? null : mailing.motivo,
+    metadata: {
+      origen: "admin_usuarios",
+      plantillaClave,
+    },
+  })
 }
 
 export async function GET() {
@@ -172,6 +206,21 @@ export async function POST(req: Request) {
               motivo: "Bienvenida por email omitida.",
             }
 
+      if (enviarBienvenida && password) {
+        await registrarMailUsuario({
+          mailing,
+          nombre,
+          email,
+          tipo: charlaIntroHabilitada ? "charla_intro" : "bienvenida",
+          asunto: charlaIntroHabilitada
+            ? "Grabación charla introductoria: Las Claves no evidentes para gestionar eficazmente tu tiempo."
+            : "Bienvenido/a a Entheos",
+          plantillaClave: charlaIntroHabilitada
+            ? "charla_intro"
+            : "bienvenida_usuario",
+        })
+      }
+
       return NextResponse.json({ ok: true, usuario: data, mailing })
     }
 
@@ -209,6 +258,21 @@ export async function POST(req: Request) {
               role,
             })
         : null
+
+    if (mailing) {
+      await registrarMailUsuario({
+        mailing,
+        nombre,
+        email,
+        tipo: charlaIntroHabilitada ? "charla_intro" : "bienvenida",
+        asunto: charlaIntroHabilitada
+          ? "Grabación charla introductoria: Las Claves no evidentes para gestionar eficazmente tu tiempo."
+          : "Bienvenido/a a Entheos",
+        plantillaClave: charlaIntroHabilitada
+          ? "charla_intro"
+          : "bienvenida_usuario",
+      })
+    }
 
     return NextResponse.json({ ok: true, usuario: data, mailing })
   } catch (error) {

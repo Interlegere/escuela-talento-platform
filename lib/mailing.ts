@@ -12,7 +12,7 @@ type CharlaIntroParams = {
 }
 
 type MailingResult =
-  | { enviado: true; proveedor: string }
+  | { enviado: true; proveedor: string; proveedorId?: string | null }
   | { enviado: false; motivo: string }
 
 function appUrl() {
@@ -265,7 +265,7 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
   }
 }
 
-async function enviarEmail({
+export async function enviarEmail({
   to,
   subject,
   text,
@@ -302,8 +302,9 @@ async function enviarEmail({
     }),
   })
 
+  const detalle = await res.text().catch(() => "")
+
   if (!res.ok) {
-    const detalle = await res.text().catch(() => "")
 
     return {
       enviado: false,
@@ -311,9 +312,18 @@ async function enviarEmail({
     }
   }
 
+  let proveedorId: string | null = null
+  try {
+    const parsed = JSON.parse(detalle) as { id?: string }
+    proveedorId = parsed.id || null
+  } catch {
+    proveedorId = null
+  }
+
   return {
     enviado: true,
     proveedor: "resend",
+    proveedorId,
   }
 }
 

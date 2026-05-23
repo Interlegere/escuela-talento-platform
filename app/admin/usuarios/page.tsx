@@ -81,6 +81,23 @@ type AgendaDraft = {
   notasDocumentos: string
 }
 
+type ComunicacionDraft = {
+  asunto: string
+  texto: string
+  actividadSlug: string
+}
+
+type ComunicacionEnvio = {
+  id: number
+  actividad_slug?: string | null
+  tipo?: string | null
+  asunto: string
+  estado: "enviado" | "error" | "omitido" | string
+  error?: string | null
+  created_at?: string | null
+  sent_at?: string | null
+}
+
 const ACTIVIDADES_FORM_INICIAL: ActividadesFormState = {
   casatalentos: false,
   "conectando-sentidos": false,
@@ -310,6 +327,42 @@ function actividadKey(email: string, actividad: string) {
   return `${email}:${actividad}`
 }
 
+function crearDraftComunicacion(persona?: PersonaResumen | null): ComunicacionDraft {
+  return {
+    asunto: "",
+    texto: persona?.perfil.nombre
+      ? `Hola ${persona.perfil.nombre},\n\n`
+      : "",
+    actividadSlug: "",
+  }
+}
+
+function renderComunicacionPreview(
+  contenido: string,
+  persona: PersonaResumen
+) {
+  const nombre = persona.perfil.nombre || ""
+  const apellido = persona.perfil.apellido || ""
+  const nombreCompleto = persona.perfil.nombreCompleto || [nombre, apellido].filter(Boolean).join(" ")
+
+  return contenido.replace(/{{\s*([a-zA-Z0-9_]+)\s*}}/g, (_, key: string) => {
+    const valores: Record<string, string> = {
+      nombre,
+      apellido,
+      nombre_completo: nombreCompleto,
+      email: persona.email,
+      link_login:
+        typeof window !== "undefined"
+          ? `${window.location.origin}/login`
+          : "/login",
+      clave_acceso: "",
+      actividad: "",
+    }
+
+    return valores[key] ?? ""
+  })
+}
+
 function crearDraftEconomia(
   economia?: EconomiaResumen | null
 ): EconomiaDraft {
@@ -440,6 +493,20 @@ export default function AdminUsuariosPage() {
   const [agendaMensajes, setAgendaMensajes] = useState<
     Record<string, { tipo: "exito" | "error"; texto: string }>
   >({})
+  const [comunicacionDrafts, setComunicacionDrafts] = useState<
+    Record<string, ComunicacionDraft>
+  >({})
+  const [comunicacionGuardandoKey, setComunicacionGuardandoKey] = useState<
+    string | null
+  >(null)
+  const [comunicacionMensajes, setComunicacionMensajes] = useState<
+    Record<string, { tipo: "exito" | "error"; texto: string }>
+  >({})
+  const [comunicacionHistorial, setComunicacionHistorial] = useState<
+    Record<string, ComunicacionEnvio[]>
+  >({})
+  const [comunicacionHistorialCargando, setComunicacionHistorialCargando] =
+    useState<Record<string, boolean>>({})
 
   const esAdmin = session?.user?.role === "admin"
   const editando = Boolean(form.id)
@@ -619,6 +686,76 @@ export default function AdminUsuariosPage() {
     },
     [agendaDrafts]
   )
+
+  const actualizarDraftComunicacion = useCallback(
+    (
+      email: string,
+      patch: Partial<ComunicacionDraft>,
+      persona?: PersonaResumen | null
+    ) => {
+      const key = actividadKey(email, "comunicacion")
+      setComunicacionDrafts((prev) => ({
+        ...prev,
+        [key]: {
+          ...(prev[key] || crearDraftComunicacion(persona)),
+          ...patch,
+        },
+      }))
+    },
+    []
+  )
+
+  const obtenerDraftComunicacion = useCallback(
+    (email: string, persona?: PersonaResumen | null) => {
+      const key = actividadKey(email, "comunicacion")
+      return comunicacionDrafts[key] || crearDraftComunicacion(persona)
+    },
+    [comunicacionDrafts]
+  )
+
+  const cargarHistorialComunicaciones = useCallback(async (email: string) => {
+    const key = actividadKey(email, "comunicacion")
+
+    try {
+      setComunicacionHistorialCargando((prev) => ({
+        ...prev,
+        [key]: true,
+      }))
+
+      const res = await fetch(
+        `/api/admin/comunicaciones/historial?email=${encodeURIComponent(email)}`,
+        { cache: "no-store" }
+      )
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(
+          data.error || "No se pudo cargar el historial de comunicaciones."
+        )
+      }
+
+      setComunicacionHistorial((prev) => ({
+        ...prev,
+        [key]: data.envios || [],
+      }))
+    } catch (error) {
+      setComunicacionMensajes((prev) => ({
+        ...prev,
+        [key]: {
+          tipo: "error",
+          texto:
+            error instanceof Error
+              ? error.message
+              : "No se pudo cargar el historial de comunicaciones.",
+        },
+      }))
+    } finally {
+      setComunicacionHistorialCargando((prev) => ({
+        ...prev,
+        [key]: false,
+      }))
+    }
+  }, [])
 
   const editarUsuario = (usuario: Usuario, persona?: PersonaResumen) => {
     const resumen = persona || personas.find((item) => item.email === usuario.email.trim().toLowerCase())
@@ -1249,6 +1386,75 @@ export default function AdminUsuariosPage() {
       }
     },
     [obtenerDraftAgenda, recargarTodo]
+  )
+
+  const enviarComunicacionDesdeFicha = useCallback(
+    async (persona: PersonaResumen) => {
+      const key = actividadKey(persona.email, "comunicacion")
+      const draft = obtenerDraftComunicacion(persona.email, persona)
+
+      try {
+        setComunicacionGuardandoKey(key)
+        setComunicacionMensajes((prev) => {
+          const siguiente = { ...prev }
+          delete siguiente[key]
+          return siguiente
+        })
+
+        if (!draft.asunto.trim()) {
+          throw new Error("Completá el asunto de la comunicación.")
+        }
+
+        if (!draft.texto.trim()) {
+          throw new Error("Completá el contenido de la comunicación.")
+        }
+
+        const res = await fetch("/api/admin/comunicaciones/enviar-individual", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            destinatarioEmail: persona.email,
+            asunto: draft.asunto,
+            texto: draft.texto,
+            tipo: "individual",
+            actividadSlug: draft.actividadSlug || null,
+          }),
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+          throw new Error(data.error || "No se pudo enviar la comunicación.")
+        }
+
+        setComunicacionMensajes((prev) => ({
+          ...prev,
+          [key]: {
+            tipo: "exito",
+            texto: "Comunicación enviada y registrada.",
+          },
+        }))
+        setComunicacionDrafts((prev) => ({
+          ...prev,
+          [key]: crearDraftComunicacion(persona),
+        }))
+        await cargarHistorialComunicaciones(persona.email)
+      } catch (error) {
+        setComunicacionMensajes((prev) => ({
+          ...prev,
+          [key]: {
+            tipo: "error",
+            texto:
+              error instanceof Error
+                ? error.message
+                : "No se pudo enviar la comunicación.",
+          },
+        }))
+      } finally {
+        setComunicacionGuardandoKey(null)
+      }
+    },
+    [cargarHistorialComunicaciones, obtenerDraftComunicacion]
   )
 
   const renderActividad = (persona: PersonaResumen, actividad: ActividadResumen) => {
@@ -1910,6 +2116,154 @@ export default function AdminUsuariosPage() {
     </div>
   )
 
+  const renderComunicaciones = (persona: PersonaResumen) => {
+    const key = actividadKey(persona.email, "comunicacion")
+    const draft = obtenerDraftComunicacion(persona.email, persona)
+    const mensajeComunicacion = comunicacionMensajes[key]
+    const historial = comunicacionHistorial[key] || []
+    const cargandoHistorial = comunicacionHistorialCargando[key] === true
+    const enviando = comunicacionGuardandoKey === key
+    const asuntoPreview = renderComunicacionPreview(draft.asunto, persona)
+    const textoPreview = renderComunicacionPreview(draft.texto, persona)
+
+    return (
+      <div className="space-y-3 text-sm">
+        {mensajeComunicacion && (
+          <p
+            className={`rounded-xl border px-3 py-2 text-xs font-medium ${
+              mensajeComunicacion.tipo === "error"
+                ? "border-red-200 bg-red-50 text-red-700"
+                : "border-green-200 bg-green-50 text-green-700"
+            }`}
+          >
+            {mensajeComunicacion.texto}
+          </p>
+        )}
+
+        <div className="grid gap-3">
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-gray-600">Asunto</span>
+            <input
+              className="workspace-field"
+              value={draft.asunto}
+              onChange={(e) =>
+                actualizarDraftComunicacion(
+                  persona.email,
+                  { asunto: e.target.value },
+                  persona
+                )
+              }
+              placeholder="Asunto del email"
+            />
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-gray-600">
+              Actividad relacionada
+            </span>
+            <select
+              className="workspace-field"
+              value={draft.actividadSlug}
+              onChange={(e) =>
+                actualizarDraftComunicacion(
+                  persona.email,
+                  { actividadSlug: e.target.value },
+                  persona
+                )
+              }
+            >
+              <option value="">General</option>
+              {persona.actividades
+                .filter((actividad) => actividad.estadoVisible === "activa")
+                .map((actividad) => (
+                  <option key={actividad.actividad} value={actividad.actividad}>
+                    {actividad.etiqueta}
+                  </option>
+                ))}
+            </select>
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-gray-600">Contenido</span>
+            <textarea
+              className="workspace-field min-h-32"
+              value={draft.texto}
+              onChange={(e) =>
+                actualizarDraftComunicacion(
+                  persona.email,
+                  { texto: e.target.value },
+                  persona
+                )
+              }
+              placeholder="Escribí el mensaje para esta persona."
+            />
+          </label>
+        </div>
+
+        <div className="rounded-xl border border-[var(--line)] bg-[rgba(255,250,242,0.7)] p-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--sea)]">
+            Preview
+          </p>
+          <p className="mt-2 font-semibold text-gray-800">
+            {asuntoPreview || "Sin asunto"}
+          </p>
+          <pre className="mt-2 whitespace-pre-wrap text-xs text-gray-600">
+            {textoPreview || "Sin contenido"}
+          </pre>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={enviando}
+            onClick={() => void enviarComunicacionDesdeFicha(persona)}
+            className="workspace-button-secondary !px-3 !py-1.5 text-xs"
+          >
+            {enviando ? "Enviando..." : "Enviar comunicación"}
+          </button>
+          <button
+            type="button"
+            disabled={cargandoHistorial}
+            onClick={() => void cargarHistorialComunicaciones(persona.email)}
+            className="workspace-button-secondary !px-3 !py-1.5 text-xs"
+          >
+            {cargandoHistorial ? "Cargando..." : "Ver historial"}
+          </button>
+        </div>
+
+        {historial.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--sea)]">
+              Últimos envíos
+            </p>
+            {historial.slice(0, 5).map((envio) => (
+              <div
+                key={envio.id}
+                className="rounded-xl border border-[var(--line)] bg-white/80 p-3 text-xs"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <strong>{envio.asunto}</strong>
+                  <span className="workspace-chip">{envio.estado}</span>
+                  {envio.actividad_slug && (
+                    <span className="workspace-chip">
+                      {nombreActividad(envio.actividad_slug)}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-gray-500">
+                  {envio.sent_at || envio.created_at || "Sin fecha visible"}
+                </p>
+                {envio.error && (
+                  <p className="mt-1 text-[rgb(156,69,59)]">{envio.error}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const renderPersonaCard = (persona: PersonaResumen) => {
     const usuario = usuarioBasePorEmail.get(persona.email)
     const documentos = usuario
@@ -2081,6 +2435,10 @@ export default function AdminUsuariosPage() {
                   )}
                 </div>
               )}
+            </BloqueFicha>
+
+            <BloqueFicha titulo="Comunicaciones">
+              {renderComunicaciones(persona)}
             </BloqueFicha>
 
             <BloqueFicha titulo="Notas y documentos">

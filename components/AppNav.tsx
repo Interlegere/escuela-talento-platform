@@ -81,6 +81,7 @@ export default function AppNav() {
         { href: "/admin/consentimientos", label: "Admin Consentimientos" },
         { href: "/admin/pagos", label: "Admin Pagos" },
         { href: "/admin/usuarios", label: "Admin Usuarios" },
+        { href: "/admin/comunicaciones", label: "Comunicaciones" },
         { href: "/admin/casatalentos", label: "CasaTalentos" },
         { href: "/admin/conectando-sentidos", label: "Conectando Sentidos" },
         { href: "/mentorias", label: "Mentorías" },

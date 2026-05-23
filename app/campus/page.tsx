@@ -422,6 +422,13 @@ export default function CampusPage() {
             href="/admin/usuarios"
             subtitulo="Accesos"
           />
+
+          <Card
+            titulo="Comunicaciones"
+            descripcion="Prepará envíos por segmento, mandá pruebas y revisá el historial de comunicaciones."
+            href="/admin/comunicaciones"
+            subtitulo="Mails"
+          />
         </section>
 
         <section className="workspace-panel-soft flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
