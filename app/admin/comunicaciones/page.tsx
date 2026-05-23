@@ -6,6 +6,8 @@ import { useAppSession } from "@/components/auth/AppSessionProvider"
 
 type Segmento =
   | "todos_activos"
+  | "todos_registrados"
+  | "usuarios_inactivos"
   | "casatalentos_activos"
   | "conectando_sentidos_activos"
   | "mentorias_activos"
@@ -13,6 +15,10 @@ type Segmento =
   | "pagos_pendientes"
   | "pagos_al_dia"
   | "equipo_interno"
+  | "contactos_externos_activos"
+  | "contactos_externos_todos"
+  | "usuarios_y_contactos_activos"
+  | "lista_manual"
 
 type TipoComunicacion =
   | "general"
@@ -25,7 +31,30 @@ type DestinatarioPreview = {
   email: string
   nombreCompleto: string
   actividadSlug?: string | null
+  fuente: "usuario_plataforma" | "contacto_externo" | "manual"
+  activo: boolean
   razon: string
+}
+
+type ContactoExterno = {
+  id: number
+  email: string
+  nombre?: string | null
+  apellido?: string | null
+  telefono?: string | null
+  origen?: string | null
+  activo?: boolean | null
+  notas?: string | null
+  created_at?: string | null
+}
+
+type ContactoDraft = {
+  email: string
+  nombre: string
+  apellido: string
+  telefono: string
+  origen: string
+  notas: string
 }
 
 type HistorialEnvio = {
@@ -51,6 +80,16 @@ const SEGMENTOS: Array<{
     value: "todos_activos",
     label: "Todos los usuarios activos",
     descripcion: "Usuarios activos de la plataforma.",
+  },
+  {
+    value: "todos_registrados",
+    label: "Todos los usuarios registrados",
+    descripcion: "Usuarios activos e inactivos de la plataforma.",
+  },
+  {
+    value: "usuarios_inactivos",
+    label: "Usuarios inactivos",
+    descripcion: "Usuarios registrados actualmente inactivos.",
   },
   {
     value: "casatalentos_activos",
@@ -88,6 +127,26 @@ const SEGMENTOS: Array<{
     value: "equipo_interno",
     label: "Equipo interno",
     descripcion: "Admins y colaboradores activos.",
+  },
+  {
+    value: "contactos_externos_activos",
+    label: "Contactos externos activos",
+    descripcion: "Contactos guardados sin usuario de plataforma.",
+  },
+  {
+    value: "contactos_externos_todos",
+    label: "Contactos externos, todos",
+    descripcion: "Contactos externos activos e inactivos.",
+  },
+  {
+    value: "usuarios_y_contactos_activos",
+    label: "Usuarios + contactos activos",
+    descripcion: "Usuarios activos y contactos externos activos deduplicados.",
+  },
+  {
+    value: "lista_manual",
+    label: "Lista manual de emails",
+    descripcion: "Emails pegados manualmente para este envío.",
   },
 ]
 
@@ -134,6 +193,30 @@ function estadoClassName(estado: string) {
   return "border-[var(--line)] bg-white text-gray-600"
 }
 
+function fuenteLabel(fuente: DestinatarioPreview["fuente"]) {
+  switch (fuente) {
+    case "usuario_plataforma":
+      return "Usuario"
+    case "contacto_externo":
+      return "Contacto externo"
+    case "manual":
+      return "Manual"
+  }
+}
+
+function contactoNombre(contacto: ContactoExterno) {
+  return [contacto.nombre, contacto.apellido].filter(Boolean).join(" ") || contacto.email
+}
+
+const CONTACTO_DRAFT_INICIAL: ContactoDraft = {
+  email: "",
+  nombre: "",
+  apellido: "",
+  telefono: "",
+  origen: "",
+  notas: "",
+}
+
 export default function AdminComunicacionesPage() {
   const { data: session, status } = useAppSession()
   const router = useRouter()
@@ -144,6 +227,7 @@ export default function AdminComunicacionesPage() {
   const [tipo, setTipo] = useState<TipoComunicacion>("general")
   const [actividadSlug, setActividadSlug] = useState("")
   const [segmento, setSegmento] = useState<Segmento>("todos_activos")
+  const [emailsManual, setEmailsManual] = useState("")
   const [pruebaEmail, setPruebaEmail] = useState(session?.user?.email || "")
   const [preview, setPreview] = useState<DestinatarioPreview[]>([])
   const [previewMensaje, setPreviewMensaje] = useState("")
@@ -155,6 +239,13 @@ export default function AdminComunicacionesPage() {
   const [filtroEmail, setFiltroEmail] = useState("")
   const [filtroEstado, setFiltroEstado] = useState("")
   const [filtroTipo, setFiltroTipo] = useState("")
+  const [contactos, setContactos] = useState<ContactoExterno[]>([])
+  const [contactoDraft, setContactoDraft] = useState<ContactoDraft>(
+    CONTACTO_DRAFT_INICIAL
+  )
+  const [contactosCargando, setContactosCargando] = useState(false)
+  const [contactosGuardando, setContactosGuardando] = useState(false)
+  const [contactosMensaje, setContactosMensaje] = useState("")
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -182,7 +273,7 @@ export default function AdminComunicacionesPage() {
       const res = await fetch("/api/admin/comunicaciones/preview-segmento", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ segmento }),
+        body: JSON.stringify({ segmento, emailsManual }),
       })
 
       const data = await res.json()
@@ -203,7 +294,33 @@ export default function AdminComunicacionesPage() {
     } finally {
       setPreviewCargando(false)
     }
-  }, [segmento])
+  }, [emailsManual, segmento])
+
+  const cargarContactos = useCallback(async () => {
+    try {
+      setContactosCargando(true)
+      setContactosMensaje("")
+
+      const res = await fetch("/api/admin/comunicaciones/contactos", {
+        cache: "no-store",
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "No se pudieron cargar los contactos.")
+      }
+
+      setContactos(data.contactos || [])
+    } catch (error) {
+      setContactosMensaje(
+        error instanceof Error
+          ? error.message
+          : "No se pudieron cargar los contactos."
+      )
+    } finally {
+      setContactosCargando(false)
+    }
+  }, [])
 
   const cargarHistorial = useCallback(async () => {
     try {
@@ -240,8 +357,9 @@ export default function AdminComunicacionesPage() {
     if (status === "authenticated" && esAdmin) {
       void cargarPreview()
       void cargarHistorial()
+      void cargarContactos()
     }
-  }, [cargarHistorial, cargarPreview, esAdmin, status])
+  }, [cargarContactos, cargarHistorial, cargarPreview, esAdmin, status])
 
   const validarContenido = () => {
     if (!asunto.trim()) {
@@ -251,6 +369,21 @@ export default function AdminComunicacionesPage() {
 
     if (!contenido.trim()) {
       setMensaje("Completá el contenido.")
+      return false
+    }
+
+    if (
+      tipo === "pago" &&
+      [
+        "contactos_externos_activos",
+        "contactos_externos_todos",
+        "usuarios_y_contactos_activos",
+        "lista_manual",
+      ].includes(segmento)
+    ) {
+      setMensaje(
+        "Los contactos externos no deben usarse para comunicaciones transaccionales de pago."
+      )
       return false
     }
 
@@ -292,6 +425,7 @@ export default function AdminComunicacionesPage() {
           tipo,
           actividadSlug: actividadSlug || null,
           segmento,
+          emailsManual,
           pruebaEmail: modo === "prueba" ? pruebaEmail : null,
         }),
       })
@@ -317,6 +451,84 @@ export default function AdminComunicacionesPage() {
       )
     } finally {
       setEnviando(false)
+    }
+  }
+
+  const crearContacto = async () => {
+    try {
+      setContactosGuardando(true)
+      setContactosMensaje("")
+
+      const res = await fetch("/api/admin/comunicaciones/contactos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(contactoDraft),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "No se pudo crear el contacto.")
+      }
+
+      setContactoDraft(CONTACTO_DRAFT_INICIAL)
+      setContactosMensaje("Contacto externo creado.")
+      await cargarContactos()
+      if (
+        segmento === "contactos_externos_activos" ||
+        segmento === "contactos_externos_todos" ||
+        segmento === "usuarios_y_contactos_activos"
+      ) {
+        await cargarPreview()
+      }
+    } catch (error) {
+      setContactosMensaje(
+        error instanceof Error
+          ? error.message
+          : "No se pudo crear el contacto."
+      )
+    } finally {
+      setContactosGuardando(false)
+    }
+  }
+
+  const cambiarEstadoContacto = async (contacto: ContactoExterno) => {
+    try {
+      setContactosGuardando(true)
+      setContactosMensaje("")
+
+      const res = await fetch("/api/admin/comunicaciones/contactos", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: contacto.id,
+          activo: contacto.activo === false,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "No se pudo actualizar el contacto.")
+      }
+
+      setContactosMensaje("Contacto externo actualizado.")
+      await cargarContactos()
+      if (
+        segmento === "contactos_externos_activos" ||
+        segmento === "contactos_externos_todos" ||
+        segmento === "usuarios_y_contactos_activos"
+      ) {
+        await cargarPreview()
+      }
+    } catch (error) {
+      setContactosMensaje(
+        error instanceof Error
+          ? error.message
+          : "No se pudo actualizar el contacto."
+      )
+    } finally {
+      setContactosGuardando(false)
     }
   }
 
@@ -479,6 +691,20 @@ export default function AdminComunicacionesPage() {
             <p className="text-sm text-gray-600">{segmentoActual.descripcion}</p>
           )}
 
+          {segmento === "lista_manual" && (
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-gray-700">
+                Emails manuales
+              </span>
+              <textarea
+                className="workspace-field min-h-32"
+                value={emailsManual}
+                onChange={(e) => setEmailsManual(e.target.value)}
+                placeholder="Pegá emails separados por comas, espacios o líneas."
+              />
+            </label>
+          )}
+
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -515,6 +741,18 @@ export default function AdminComunicacionesPage() {
                 </p>
                 <p className="text-xs text-gray-500">{destinatario.email}</p>
                 <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="workspace-chip">
+                    {fuenteLabel(destinatario.fuente)}
+                  </span>
+                  <span
+                    className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                      destinatario.activo
+                        ? "border-green-200 bg-green-50 text-green-700"
+                        : "border-red-200 bg-red-50 text-red-700"
+                    }`}
+                  >
+                    {destinatario.activo ? "Activo" : "Inactivo"}
+                  </span>
                   {destinatario.actividadSlug && (
                     <span className="workspace-chip">
                       {nombreActividad(destinatario.actividadSlug)}
@@ -532,6 +770,165 @@ export default function AdminComunicacionesPage() {
             )}
           </div>
         </aside>
+      </section>
+
+      <section className="workspace-panel space-y-4">
+        <div className="space-y-1">
+          <p className="workspace-eyebrow">Contactos externos</p>
+          <h2 className="workspace-title-sm">Base externa</h2>
+          <p className="workspace-inline-note">
+            Contactos sin acceso a plataforma. Usalos para comunicaciones
+            generales o newsletters, no para transaccionales de plataforma.
+          </p>
+        </div>
+
+        {contactosMensaje && (
+          <p className="rounded-xl border border-[var(--line)] bg-[rgba(255,250,242,0.7)] px-3 py-2 text-sm text-gray-700">
+            {contactosMensaje}
+          </p>
+        )}
+
+        <div className="grid gap-3 lg:grid-cols-3">
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-gray-700">Email</span>
+            <input
+              className="workspace-field"
+              type="email"
+              value={contactoDraft.email}
+              onChange={(e) =>
+                setContactoDraft((prev) => ({ ...prev, email: e.target.value }))
+              }
+              placeholder="contacto@email.com"
+            />
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-gray-700">Nombre</span>
+            <input
+              className="workspace-field"
+              value={contactoDraft.nombre}
+              onChange={(e) =>
+                setContactoDraft((prev) => ({ ...prev, nombre: e.target.value }))
+              }
+              placeholder="Nombre"
+            />
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-gray-700">Apellido</span>
+            <input
+              className="workspace-field"
+              value={contactoDraft.apellido}
+              onChange={(e) =>
+                setContactoDraft((prev) => ({
+                  ...prev,
+                  apellido: e.target.value,
+                }))
+              }
+              placeholder="Apellido"
+            />
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-gray-700">Teléfono</span>
+            <input
+              className="workspace-field"
+              value={contactoDraft.telefono}
+              onChange={(e) =>
+                setContactoDraft((prev) => ({
+                  ...prev,
+                  telefono: e.target.value,
+                }))
+              }
+              placeholder="+54 9 ..."
+            />
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-gray-700">Origen</span>
+            <input
+              className="workspace-field"
+              value={contactoDraft.origen}
+              onChange={(e) =>
+                setContactoDraft((prev) => ({ ...prev, origen: e.target.value }))
+              }
+              placeholder="Newsletter, evento, referido..."
+            />
+          </label>
+          <label className="space-y-2 lg:col-span-3">
+            <span className="text-sm font-medium text-gray-700">Notas</span>
+            <textarea
+              className="workspace-field min-h-24"
+              value={contactoDraft.notas}
+              onChange={(e) =>
+                setContactoDraft((prev) => ({ ...prev, notas: e.target.value }))
+              }
+              placeholder="Notas internas"
+            />
+          </label>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={contactosGuardando}
+            onClick={() => void crearContacto()}
+            className="workspace-button-secondary"
+          >
+            {contactosGuardando ? "Guardando..." : "Crear contacto"}
+          </button>
+          <button
+            type="button"
+            disabled={contactosCargando}
+            onClick={() => void cargarContactos()}
+            className="workspace-button-secondary"
+          >
+            {contactosCargando ? "Cargando..." : "Actualizar contactos"}
+          </button>
+        </div>
+
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {contactos.map((contacto) => (
+            <div
+              key={contacto.id}
+              className="rounded-xl border border-[var(--line)] bg-white/75 p-3 text-sm"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <strong>{contactoNombre(contacto)}</strong>
+                <span
+                  className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                    contacto.activo === false
+                      ? "border-red-200 bg-red-50 text-red-700"
+                      : "border-green-200 bg-green-50 text-green-700"
+                  }`}
+                >
+                  {contacto.activo === false ? "Inactivo" : "Activo"}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-gray-500">{contacto.email}</p>
+              {contacto.origen && (
+                <p className="mt-1 text-xs text-gray-500">
+                  Origen: {contacto.origen}
+                </p>
+              )}
+              {contacto.notas && (
+                <p className="mt-2 whitespace-pre-wrap text-xs text-gray-600">
+                  {contacto.notas}
+                </p>
+              )}
+              <button
+                type="button"
+                disabled={contactosGuardando}
+                onClick={() => void cambiarEstadoContacto(contacto)}
+                className="workspace-button-secondary mt-3 !px-3 !py-1.5 text-xs"
+              >
+                {contacto.activo === false ? "Activar" : "Desactivar"}
+              </button>
+            </div>
+          ))}
+
+          {contactos.length === 0 && (
+            <p className="text-sm text-gray-600">
+              Todavía no hay contactos externos cargados.
+            </p>
+          )}
+        </div>
       </section>
 
       <section className="workspace-panel space-y-4">

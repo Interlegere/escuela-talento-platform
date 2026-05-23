@@ -26,6 +26,8 @@ export type EnviarComunicacionIndividualParams = {
 
 export type SegmentoComunicacion =
   | "todos_activos"
+  | "todos_registrados"
+  | "usuarios_inactivos"
   | "casatalentos_activos"
   | "conectando_sentidos_activos"
   | "mentorias_activos"
@@ -33,6 +35,10 @@ export type SegmentoComunicacion =
   | "pagos_pendientes"
   | "pagos_al_dia"
   | "equipo_interno"
+  | "contactos_externos_activos"
+  | "contactos_externos_todos"
+  | "usuarios_y_contactos_activos"
+  | "lista_manual"
 
 export type DestinatarioComunicacion = {
   email: string
@@ -41,8 +47,19 @@ export type DestinatarioComunicacion = {
   nombreCompleto: string
   role: string
   actividadSlug: string | null
+  fuente: "usuario_plataforma" | "contacto_externo" | "manual"
+  activo: boolean
+  contactoId: number | null
+  usuarioId: string | number | null
   razon: string
 }
+
+export type ListarDestinatariosSegmentoParams =
+  | SegmentoComunicacion
+  | {
+      segmento: SegmentoComunicacion
+      emailsManual?: string | null
+    }
 
 type PlantillaRow = {
   id: number
@@ -74,6 +91,20 @@ type InscripcionRow = {
   participante_email?: string | null
   actividad_id?: number | null
   estado?: string | null
+}
+
+type ContactoRow = {
+  id: number
+  email?: string | null
+  nombre?: string | null
+  apellido?: string | null
+  telefono?: string | null
+  origen?: string | null
+  etiquetas?: unknown
+  activo?: boolean | null
+  notas?: string | null
+  created_at?: string | null
+  updated_at?: string | null
 }
 
 const ACTIVIDAD_SEGMENTO: Partial<Record<SegmentoComunicacion, string>> = {
@@ -141,8 +172,64 @@ function destinatarioDesdeUsuario(
     nombreCompleto,
     role: String(usuario.role || "").trim(),
     actividadSlug: actividadSlug || null,
+    fuente: "usuario_plataforma",
+    activo: usuario.activo !== false,
+    contactoId: null,
+    usuarioId: usuario.id || null,
     razon,
   }
+}
+
+function destinatarioDesdeContacto(
+  contacto: ContactoRow,
+  razon: string
+): DestinatarioComunicacion | null {
+  const email = normalizarEmail(contacto.email)
+  if (!email) return null
+
+  const nombre = String(contacto.nombre || "").trim()
+  const apellido = String(contacto.apellido || "").trim()
+  const nombreCompleto = [nombre, apellido].filter(Boolean).join(" ") || email
+
+  return {
+    email,
+    nombre,
+    apellido,
+    nombreCompleto,
+    role: "contacto_externo",
+    actividadSlug: null,
+    fuente: "contacto_externo",
+    activo: contacto.activo !== false,
+    contactoId: contacto.id,
+    usuarioId: null,
+    razon,
+  }
+}
+
+function destinatarioManual(email: string): DestinatarioComunicacion | null {
+  const normalizado = normalizarEmail(email)
+  if (!normalizado || !normalizado.includes("@")) return null
+
+  return {
+    email: normalizado,
+    nombre: "",
+    apellido: "",
+    nombreCompleto: normalizado,
+    role: "manual",
+    actividadSlug: null,
+    fuente: "manual",
+    activo: true,
+    contactoId: null,
+    usuarioId: null,
+    razon: "Lista manual",
+  }
+}
+
+function parsearEmailsManual(emailsManual?: string | null) {
+  return String(emailsManual || "")
+    .split(/[\s,;]+/g)
+    .map((item) => normalizarEmail(item))
+    .filter(Boolean)
 }
 
 function ordenarDestinatarios(
@@ -190,8 +277,13 @@ export function segmentoDisponible(segmento: SegmentoComunicacion) {
 }
 
 export async function listarDestinatariosSegmento(
-  segmento: SegmentoComunicacion
+  params: ListarDestinatariosSegmentoParams
 ) {
+  const segmento =
+    typeof params === "string" ? params : params.segmento
+  const emailsManual =
+    typeof params === "string" ? "" : params.emailsManual || ""
+
   if (!segmentoDisponible(segmento)) {
     return {
       destinatarios: [] as DestinatarioComunicacion[],
@@ -202,10 +294,25 @@ export async function listarDestinatariosSegmento(
 
   const supabase = createAdminSupabaseClient()
 
+  if (segmento === "lista_manual") {
+    const deduplicados = new Map<string, DestinatarioComunicacion>()
+    for (const email of parsearEmailsManual(emailsManual)) {
+      const destinatario = destinatarioManual(email)
+      if (destinatario && !deduplicados.has(destinatario.email)) {
+        deduplicados.set(destinatario.email, destinatario)
+      }
+    }
+
+    return {
+      destinatarios: ordenarDestinatarios(Array.from(deduplicados.values())),
+      deshabilitado: false,
+      motivo: null,
+    }
+  }
+
   const { data: usuariosData, error: usuariosError } = await supabase
     .from("usuarios_plataforma")
     .select("id, nombre, apellido, email, role, activo")
-    .eq("activo", true)
     .order("nombre", { ascending: true })
 
   if (usuariosError) {
@@ -219,10 +326,51 @@ export async function listarDestinatariosSegmento(
     }))
     .filter((usuario) => usuario.email)
 
+  const usuariosActivos = usuarios.filter((usuario) => usuario.activo !== false)
+  const usuariosInactivos = usuarios.filter((usuario) => usuario.activo === false)
+
   if (segmento === "todos_activos") {
     const deduplicados = new Map<string, DestinatarioComunicacion>()
-    for (const usuario of usuarios) {
+    for (const usuario of usuariosActivos) {
       const destinatario = destinatarioDesdeUsuario(usuario, "Usuario activo")
+      if (destinatario && !deduplicados.has(destinatario.email)) {
+        deduplicados.set(destinatario.email, destinatario)
+      }
+    }
+
+    return {
+      destinatarios: ordenarDestinatarios(Array.from(deduplicados.values())),
+      deshabilitado: false,
+      motivo: null,
+    }
+  }
+
+  if (segmento === "todos_registrados") {
+    const deduplicados = new Map<string, DestinatarioComunicacion>()
+    for (const usuario of usuarios) {
+      const destinatario = destinatarioDesdeUsuario(
+        usuario,
+        usuario.activo === false ? "Usuario registrado inactivo" : "Usuario registrado activo"
+      )
+      if (destinatario && !deduplicados.has(destinatario.email)) {
+        deduplicados.set(destinatario.email, destinatario)
+      }
+    }
+
+    return {
+      destinatarios: ordenarDestinatarios(Array.from(deduplicados.values())),
+      deshabilitado: false,
+      motivo: null,
+    }
+  }
+
+  if (segmento === "usuarios_inactivos") {
+    const deduplicados = new Map<string, DestinatarioComunicacion>()
+    for (const usuario of usuariosInactivos) {
+      const destinatario = destinatarioDesdeUsuario(
+        usuario,
+        "Usuario registrado inactivo"
+      )
       if (destinatario && !deduplicados.has(destinatario.email)) {
         deduplicados.set(destinatario.email, destinatario)
       }
@@ -237,12 +385,78 @@ export async function listarDestinatariosSegmento(
 
   if (segmento === "equipo_interno") {
     const deduplicados = new Map<string, DestinatarioComunicacion>()
-    for (const usuario of usuarios) {
+    for (const usuario of usuariosActivos) {
       if (usuario.role !== "admin" && usuario.role !== "colaborador") {
         continue
       }
 
       const destinatario = destinatarioDesdeUsuario(usuario, "Equipo interno")
+      if (destinatario && !deduplicados.has(destinatario.email)) {
+        deduplicados.set(destinatario.email, destinatario)
+      }
+    }
+
+    return {
+      destinatarios: ordenarDestinatarios(Array.from(deduplicados.values())),
+      deshabilitado: false,
+      motivo: null,
+    }
+  }
+
+  if (
+    segmento === "contactos_externos_activos" ||
+    segmento === "contactos_externos_todos" ||
+    segmento === "usuarios_y_contactos_activos"
+  ) {
+    const { data: contactosData, error: contactosError } = await supabase
+      .from("comunicacion_contactos")
+      .select(
+        "id, email, nombre, apellido, telefono, origen, etiquetas, activo, notas, created_at, updated_at"
+      )
+      .order("nombre", { ascending: true })
+
+    if (contactosError) {
+      throw new Error(
+        `No se pudieron cargar contactos externos: ${contactosError.message}`
+      )
+    }
+
+    const contactos = ((contactosData || []) as ContactoRow[])
+      .map((contacto) => ({
+        ...contacto,
+        email: normalizarEmail(contacto.email),
+      }))
+      .filter((contacto) => contacto.email)
+
+    const deduplicados = new Map<string, DestinatarioComunicacion>()
+
+    if (segmento === "usuarios_y_contactos_activos") {
+      for (const usuario of usuariosActivos) {
+        const destinatario = destinatarioDesdeUsuario(
+          usuario,
+          "Usuario activo"
+        )
+        if (destinatario && !deduplicados.has(destinatario.email)) {
+          deduplicados.set(destinatario.email, destinatario)
+        }
+      }
+    }
+
+    for (const contacto of contactos) {
+      if (
+        (segmento === "contactos_externos_activos" ||
+          segmento === "usuarios_y_contactos_activos") &&
+        contacto.activo === false
+      ) {
+        continue
+      }
+
+      const razon =
+        contacto.activo === false
+          ? "Contacto externo inactivo"
+          : "Contacto externo activo"
+      const destinatario = destinatarioDesdeContacto(contacto, razon)
+
       if (destinatario && !deduplicados.has(destinatario.email)) {
         deduplicados.set(destinatario.email, destinatario)
       }
@@ -292,7 +506,7 @@ export async function listarDestinatariosSegmento(
   }
 
   const usuariosPorEmail = new Map<string, UsuarioRow>()
-  for (const usuario of usuarios) {
+  for (const usuario of usuariosActivos) {
     const email = normalizarEmail(usuario.email)
     if (email && !usuariosPorEmail.has(email)) {
       usuariosPorEmail.set(email, usuario)

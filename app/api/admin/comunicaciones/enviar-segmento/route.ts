@@ -15,6 +15,7 @@ type Body = {
   actividadSlug?: string | null
   segmento?: SegmentoComunicacion
   pruebaEmail?: string | null
+  emailsManual?: string | null
 }
 
 function normalizarEmail(email?: string | null) {
@@ -38,8 +39,21 @@ function destinatarioPrueba(email: string): DestinatarioComunicacion {
     nombreCompleto: "Prueba",
     role: "admin",
     actividadSlug: null,
+    fuente: "manual",
+    activo: true,
+    contactoId: null,
+    usuarioId: null,
     razon: "Envío de prueba",
   }
+}
+
+function segmentoIncluyeContactosExternos(segmento?: SegmentoComunicacion | null) {
+  return (
+    segmento === "contactos_externos_activos" ||
+    segmento === "contactos_externos_todos" ||
+    segmento === "usuarios_y_contactos_activos" ||
+    segmento === "lista_manual"
+  )
 }
 
 export async function POST(req: Request) {
@@ -79,7 +93,21 @@ export async function POST(req: Request) {
         )
       }
 
-      const resultado = await listarDestinatariosSegmento(segmento)
+      const tipoEnvio = tipoValido(body.tipo)
+      if (tipoEnvio === "pago" && segmentoIncluyeContactosExternos(segmento)) {
+        return NextResponse.json(
+          {
+            error:
+              "Los contactos externos no deben usarse para comunicaciones transaccionales de pago.",
+          },
+          { status: 400 }
+        )
+      }
+
+      const resultado = await listarDestinatariosSegmento({
+        segmento,
+        emailsManual: body.emailsManual || "",
+      })
       if (resultado.deshabilitado) {
         return NextResponse.json(
           { error: resultado.motivo || "Segmento no disponible." },
@@ -133,6 +161,9 @@ export async function POST(req: Request) {
               : "admin_comunicaciones_segmento",
             segmento,
             razon: destinatario.razon,
+            fuente: destinatario.fuente,
+            contactoId: destinatario.contactoId,
+            usuarioId: destinatario.usuarioId,
             enviadoPor: auth.actor.email,
           },
         })
