@@ -278,6 +278,7 @@ export async function enviarEmail({
 }): Promise<MailingResult> {
   const resendApiKey = process.env.RESEND_API_KEY
   const from = process.env.MAIL_FROM || process.env.RESEND_FROM
+  const replyTo = process.env.MAIL_REPLY_TO || process.env.REPLY_TO
 
   if (!resendApiKey || !from) {
     return {
@@ -299,6 +300,7 @@ export async function enviarEmail({
       subject,
       text,
       html,
+      ...(replyTo ? { reply_to: replyTo } : {}),
     }),
   })
 
