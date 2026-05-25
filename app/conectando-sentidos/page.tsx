@@ -534,8 +534,8 @@ export default function ConectandoSentidosPage() {
 
         {!cargandoAcceso && (acceso || MODO_PRUEBA) && (
           <div className="space-y-4">
-            {tieneRecurso("sesion_grupal_conectando") && (
-              <SeccionDesplegable titulo="Sesión Conectando Sentidos">
+            {!esAdmin && tieneRecurso("sesion_grupal_conectando") && (
+              <SeccionDesplegable titulo="Próxima reunión">
                 <AgendaActividad
                   actividadSlug="conectando-sentidos"
                   tituloSeccion="Próximo encuentro de Conectando Sentidos"
