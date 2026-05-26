@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import BibliotecaGrabaciones from "@/components/BibliotecaGrabaciones"
 import SeccionDesplegable from "@/components/SeccionDesplegable"
-import AgendaActividad from "@/components/agenda/AgendaActividad"
 import { isDevelopmentPreviewEnabled } from "@/lib/dev-flags"
 
 type Grabacion = {
@@ -346,14 +345,6 @@ export default function ConectandoAdminPanel() {
       </div>
 
       {mensaje && <div className="border rounded-xl p-3">{mensaje}</div>}
-
-      <SeccionDesplegable titulo="Próxima reunión">
-        <AgendaActividad
-          actividadSlug="conectando-sentidos"
-          tituloSeccion="Próximo encuentro de Conectando Sentidos"
-          mostrarSoloProximo
-        />
-      </SeccionDesplegable>
 
       <SeccionDesplegable titulo="Grabaciones y biblioteca">
         <div className="space-y-6">

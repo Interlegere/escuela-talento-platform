@@ -906,6 +906,16 @@ export default function ConectandoSentidosPage() {
               </div>
             </SeccionDesplegable>
 
+            {esAdmin && (
+              <SeccionDesplegable titulo="Próxima reunión">
+                <AgendaActividad
+                  actividadSlug="conectando-sentidos"
+                  tituloSeccion="Próximo encuentro de Conectando Sentidos"
+                  mostrarSoloProximo
+                />
+              </SeccionDesplegable>
+            )}
+
             {esAdmin && <ConectandoAdminPanel />}
 
             {tieneRecurso("grabaciones_conectando") && !esAdmin && (
