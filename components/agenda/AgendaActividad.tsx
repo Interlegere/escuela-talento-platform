@@ -113,7 +113,6 @@ export default function AgendaActividad({
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState("")
   const [mensaje, setMensaje] = useState("")
-  const [eliminandoId, setEliminandoId] = useState<number | null>(null)
   const [operandoId, setOperandoId] = useState<number | null>(null)
 
   const cargar = async () => {
@@ -147,42 +146,6 @@ export default function AgendaActividad({
   useEffect(() => {
     void cargar()
   }, [actividadSlug])
-
-  const eliminarEncuentro = async (disponibilidadId: number) => {
-    const confirmar = window.confirm(
-      "El encuentro se eliminará de la agenda de la plataforma. ¿Querés continuar?"
-    )
-
-    if (!confirmar) return
-
-    try {
-      setEliminandoId(disponibilidadId)
-      setError("")
-      setMensaje("")
-
-      const res = await fetch("/api/agenda/admin/eliminar-disponibilidad", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ disponibilidadId }),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        setError(data.error || "No se pudo eliminar el encuentro.")
-        return
-      }
-
-      setMensaje("Encuentro eliminado correctamente.")
-      await cargar()
-    } catch {
-      setError("Error eliminando el encuentro.")
-    } finally {
-      setEliminandoId(null)
-    }
-  }
 
   const ejecutarAccion = async (
     item: ItemAgenda,
@@ -417,16 +380,6 @@ export default function AgendaActividad({
                   className="workspace-button-secondary disabled:opacity-60"
                 >
                   Cancelar esta y próximas
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void eliminarEncuentro(item.disponibilidadId!)}
-                  disabled={eliminandoId === item.disponibilidadId}
-                  className="workspace-button-secondary disabled:opacity-60"
-                >
-                  {eliminandoId === item.disponibilidadId
-                    ? "Eliminando..."
-                    : "Eliminar encuentro"}
                 </button>
               </div>
             )}

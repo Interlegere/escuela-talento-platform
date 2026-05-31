@@ -167,7 +167,6 @@ export default function AgendaPage() {
   const [mensaje, setMensaje] = useState("")
   const [error, setError] = useState("")
   const [guardando, setGuardando] = useState(false)
-  const [eliminandoId, setEliminandoId] = useState<number | null>(null)
 
   const [actividadSlug, setActividadSlug] =
     useState<ActividadGestionable>("terapia")
@@ -326,9 +325,17 @@ export default function AgendaPage() {
         return
       }
 
+      const participanteEmailNormalizado =
+        participanteEmail.trim().toLowerCase()
       const participante = participantesMentoria.find(
-        (item) => item.email === participanteEmail
+        (item) => item.email.trim().toLowerCase() === participanteEmailNormalizado
       )
+      const esSesionAsignada =
+        requiereParticipante && Boolean(participanteEmailNormalizado)
+      const modoAgenda =
+        esSesionAsignada || estrategiaActual !== "reserva_individual"
+          ? ("actividad_fija" as const)
+          : ("disponibilidad" as const)
 
       const basePayload = {
         titulo: titulo.trim(),
@@ -339,25 +346,20 @@ export default function AgendaPage() {
               ? "Mentoría"
               : "Actividad grupal",
         actividad_slug: actividadSlug,
-        modo:
-          estrategiaActual === "reserva_individual"
-            ? ("disponibilidad" as const)
-            : ("actividad_fija" as const),
+        modo: modoAgenda,
         duracion: duracion.trim(),
         meet_link: "",
         requiere_pago: false,
         precio: "",
-        estado: "disponible" as const,
+        estado: esSesionAsignada ? ("confirmada" as const) : ("disponible" as const),
         reservado_por: null,
-        participante_email: requiereParticipante ? participanteEmail : null,
-        participante_nombre: requiereParticipante ? participante?.nombre || null : null,
+        participante_email: esSesionAsignada ? participanteEmailNormalizado : null,
+        participante_nombre: esSesionAsignada ? participante?.nombre || null : null,
         notas_documentos: parsearDocumentosNotasDesdeTexto(notasDocumentos),
         google_event_id: null,
         google_calendar_id: null,
         sync_status:
-          estrategiaActual === "reserva_individual"
-            ? "no_crear_hasta_reserva"
-            : "pendiente",
+          modoAgenda === "disponibilidad" ? "no_crear_hasta_reserva" : "pendiente",
         last_synced_at: null,
         serie_id: null,
       }
@@ -445,7 +447,7 @@ export default function AgendaPage() {
         return
       }
 
-      if (estrategiaActual !== "reserva_individual") {
+      if (modoAgenda !== "disponibilidad") {
         const erroresSync: string[] = []
 
         for (const creado of data.items || []) {
@@ -483,38 +485,6 @@ export default function AgendaPage() {
       setError("Error creando la programación.")
     } finally {
       setGuardando(false)
-    }
-  }
-
-  const eliminarDisponibilidad = async (disponibilidadId: number) => {
-    try {
-      setEliminandoId(disponibilidadId)
-      setError("")
-      setMensaje("")
-
-      const res = await fetch("/api/agenda/admin/eliminar-disponibilidad", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          disponibilidadId,
-        }),
-      })
-
-      const data = await leerJson<{ error?: string }>(res)
-
-      if (!res.ok) {
-        setError(data.error || "No se pudo eliminar el encuentro.")
-        return
-      }
-
-      setMensaje("Encuentro eliminado correctamente.")
-      await cargarAgenda()
-    } catch {
-      setError("Error eliminando el encuentro.")
-    } finally {
-      setEliminandoId(null)
     }
   }
 
@@ -737,11 +707,7 @@ export default function AgendaPage() {
         {esAdmin ? (
           <AdminAgendaCalendar
             items={items}
-            eliminandoId={eliminandoId}
             onRefresh={cargarAgenda}
-            onEliminar={(disponibilidadId) => {
-              void eliminarDisponibilidad(disponibilidadId)
-            }}
           />
         ) : (
           <div className="space-y-5">

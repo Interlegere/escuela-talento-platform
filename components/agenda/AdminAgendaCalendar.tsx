@@ -50,8 +50,6 @@ type AgendaItem = {
 
 type Props = {
   items: AgendaItem[]
-  eliminandoId: number | null
-  onEliminar: (disponibilidadId: number) => void
   onRefresh?: () => Promise<void> | void
 }
 
@@ -303,8 +301,6 @@ function etiquetaPagoAdmin(estado?: string | null) {
 
 export default function AdminAgendaCalendar({
   items,
-  eliminandoId,
-  onEliminar,
   onRefresh,
 }: Props) {
   const hoyIso = useMemo(() => formatearFechaIso(new Date()), [])
@@ -1220,18 +1216,6 @@ export default function AdminAgendaCalendar({
                   </p>
                 )}
 
-                {item.eliminablePorAdmin && item.disponibilidadId && (
-                  <button
-                    type="button"
-                    onClick={() => onEliminar(item.disponibilidadId!)}
-                    disabled={eliminandoId === item.disponibilidadId}
-                    className="workspace-button-secondary disabled:opacity-60"
-                  >
-                    {eliminandoId === item.disponibilidadId
-                      ? "Eliminando..."
-                      : "Eliminar"}
-                  </button>
-                )}
               </div>
             </article>
           ))}

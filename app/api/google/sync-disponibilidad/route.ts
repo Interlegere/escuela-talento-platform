@@ -47,6 +47,21 @@ function meetLinkReal(meetLink?: string | null) {
   return normalizarMeetLink(meetLink)
 }
 
+function mensajeGoogleCalendar(error: string) {
+  const mensaje = error.toLowerCase()
+
+  if (
+    mensaje.includes("no se encontró token de google calendar") ||
+    mensaje.includes("google_calendar_owner_email") ||
+    mensaje.includes("invalid_grant") ||
+    mensaje.includes("unauthorized")
+  ) {
+    return "No hay una cuenta de Google Calendar conectada para generar el Meet. Conectá la cuenta configurada o cargá un Meet manual."
+  }
+
+  return error || "Error sincronizando con Google Calendar"
+}
+
 export async function POST(req: NextRequest) {
   let disponibilidadId = 0
   const supabase = createAdminSupabaseClient()
@@ -231,9 +246,6 @@ export async function POST(req: NextRequest) {
       error: message,
     })
 
-    return NextResponse.json(
-      { error: message || "Error sincronizando con Google Calendar" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: mensajeGoogleCalendar(message) }, { status: 500 })
   }
 }
