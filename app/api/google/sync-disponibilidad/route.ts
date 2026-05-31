@@ -47,7 +47,7 @@ function meetLinkReal(meetLink?: string | null) {
   return normalizarMeetLink(meetLink)
 }
 
-function mensajeGoogleCalendar(error: string) {
+function errorGoogleCalendar(error: string) {
   const mensaje = error.toLowerCase()
 
   if (
@@ -56,10 +56,17 @@ function mensajeGoogleCalendar(error: string) {
     mensaje.includes("invalid_grant") ||
     mensaje.includes("unauthorized")
   ) {
-    return "No hay una cuenta de Google Calendar conectada para generar el Meet. Conectá la cuenta configurada o cargá un Meet manual."
+    return {
+      error:
+        "No hay una cuenta de Google Calendar conectada para generar el Meet. Conectá la cuenta configurada o cargá un Meet manual.",
+      necesitaConexionGoogle: true,
+    }
   }
 
-  return error || "Error sincronizando con Google Calendar"
+  return {
+    error: error || "Error sincronizando con Google Calendar",
+    necesitaConexionGoogle: false,
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -246,6 +253,6 @@ export async function POST(req: NextRequest) {
       error: message,
     })
 
-    return NextResponse.json({ error: mensajeGoogleCalendar(message) }, { status: 500 })
+    return NextResponse.json(errorGoogleCalendar(message), { status: 500 })
   }
 }

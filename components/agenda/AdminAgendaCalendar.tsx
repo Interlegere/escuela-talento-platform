@@ -442,7 +442,14 @@ export default function AdminAgendaCalendar({
       const data = await res.json()
 
       if (!res.ok) {
-        setErrorAccion(data.error || "No se pudo completar la acción.")
+        const mensaje =
+          data.error ||
+          "No se pudo completar la acción."
+        setErrorAccion(
+          data.necesitaConexionGoogle
+            ? `${mensaje} Podés hacerlo desde /google-calendar.`
+            : mensaje
+        )
         return
       }
 

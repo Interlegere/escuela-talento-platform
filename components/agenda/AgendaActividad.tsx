@@ -237,7 +237,12 @@ export default function AgendaActividad({
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || "No se pudo completar la acción.")
+        const mensaje = data.error || "No se pudo completar la acción."
+        setError(
+          data.necesitaConexionGoogle
+            ? `${mensaje} Podés hacerlo desde /google-calendar.`
+            : mensaje
+        )
         return
       }
 

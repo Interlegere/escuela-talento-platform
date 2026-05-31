@@ -42,9 +42,14 @@ export async function GET(req: NextRequest) {
     const { tokens } = await oauth2Client.getToken(code)
 
     const supabase = createAdminSupabaseClient()
+    const googleOwnerEmail = String(
+      process.env.GOOGLE_CALENDAR_OWNER_EMAIL || auth.actor.email || ""
+    )
+      .trim()
+      .toLowerCase()
 
     const { error } = await supabase.from("google_calendar_tokens").insert({
-      user_email: auth.actor.email,
+      user_email: googleOwnerEmail,
       access_token: tokens.access_token || "",
       refresh_token: tokens.refresh_token || "",
       scope: tokens.scope || "",
