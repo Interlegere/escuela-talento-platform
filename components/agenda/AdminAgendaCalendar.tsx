@@ -354,7 +354,13 @@ export default function AdminAgendaCalendar({
 
   const ejecutarAccion = async (
     item: AgendaItem,
-    accion: "sync" | "editar" | "meet_manual" | "cancelar",
+    accion:
+      | "sync"
+      | "sync_serie"
+      | "editar"
+      | "meet_manual"
+      | "meet_manual_serie"
+      | "cancelar",
     alcance: "solo_este" | "serie_futura" = "solo_este"
   ) => {
     if (!item.disponibilidadId) return
@@ -379,8 +385,19 @@ export default function AdminAgendaCalendar({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ disponibilidadId: item.disponibilidadId }),
         })
-      } else if (accion === "meet_manual") {
-        const meetLink = window.prompt("Pegá el Meet real para este encuentro:", item.meetLink || "")
+      } else if (accion === "sync_serie") {
+        res = await fetch("/api/google/sync-serie", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ disponibilidadId: item.disponibilidadId }),
+        })
+      } else if (accion === "meet_manual" || accion === "meet_manual_serie") {
+        const meetLink = window.prompt(
+          accion === "meet_manual_serie"
+            ? "Pegá el Meet real para este encuentro y los próximos de la serie:"
+            : "Pegá el Meet real para este encuentro:",
+          item.meetLink || ""
+        )
         if (meetLink === null) return
 
         res = await fetch("/api/agenda/admin/actualizar-disponibilidad", {
@@ -390,6 +407,7 @@ export default function AdminAgendaCalendar({
             disponibilidadId: item.disponibilidadId,
             modoActualizacion: "meet_manual",
             meet_link: meetLink,
+            alcance: accion === "meet_manual_serie" ? "serie_futura" : alcance,
           }),
         })
       } else if (accion === "cancelar") {
@@ -456,7 +474,13 @@ export default function AdminAgendaCalendar({
       setMensajeAccion(
         accion === "sync"
           ? "Meet sincronizado correctamente."
-          : accion === "meet_manual"
+          : accion === "sync_serie"
+            ? `Serie sincronizada: ${data.sincronizados || 0} encuentros sincronizados${
+                data.errores
+                  ? `, ${data.errores} con error.`
+                  : "."
+              }`
+          : accion === "meet_manual" || accion === "meet_manual_serie"
             ? "Meet manual guardado correctamente."
             : accion === "cancelar"
               ? data.afectados && data.afectados > 1
@@ -1151,6 +1175,16 @@ export default function AdminAgendaCalendar({
                         ? "Procesando..."
                         : "Generar/Reintentar Meet"}
                     </button>
+                    {item.serieId && (
+                      <button
+                        type="button"
+                        onClick={() => void ejecutarAccion(item, "sync_serie", "serie_futura")}
+                        disabled={operandoId === item.disponibilidadId}
+                        className="workspace-button-secondary disabled:opacity-60"
+                      >
+                        Generar/Reintentar Meet esta y próximas
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => void ejecutarAccion(item, "editar", "solo_este")}
@@ -1180,6 +1214,16 @@ export default function AdminAgendaCalendar({
                     >
                       Configurar Meet manual
                     </button>
+                    {item.serieId && (
+                      <button
+                        type="button"
+                        onClick={() => void ejecutarAccion(item, "meet_manual_serie", "serie_futura")}
+                        disabled={operandoId === item.disponibilidadId}
+                        className="workspace-button-secondary disabled:opacity-60"
+                      >
+                        Configurar Meet manual esta y próximas
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => void ejecutarAccion(item, "cancelar", "solo_este")}
@@ -1201,6 +1245,11 @@ export default function AdminAgendaCalendar({
                     >
                       Cancelar esta y próximas
                     </button>
+                    {!item.serieId && (
+                      <p className="w-full workspace-inline-note text-amber-700">
+                        Este encuentro no pertenece a una serie editable.
+                      </p>
+                    )}
                   </>
                 )}
 
