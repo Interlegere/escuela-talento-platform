@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import PagoMensualCard from "@/components/pagos/PagoMensualCard"
 import BibliotecaGrabaciones from "@/components/BibliotecaGrabaciones"
 import SeccionDesplegable from "@/components/SeccionDesplegable"
+import VideoEmbed from "@/components/VideoEmbed"
 import AgendaActividad from "@/components/agenda/AgendaActividad"
 import GrabadorVideo from "@/components/casatalentos/GrabadorVideo"
 import HDRActividad from "@/components/hdr/HDRActividad"
@@ -1769,10 +1770,9 @@ export default function CasaTalentosPage() {
                           )}
 
                           {referenteSemanalActual.video_url && (
-                            <video
-                              controls
+                            <VideoEmbed
                               src={referenteSemanalActual.video_url}
-                              className="w-full rounded-xl border"
+                              title={referenteSemanalActual.titulo || "Referente semanal"}
                             />
                           )}
                         </div>

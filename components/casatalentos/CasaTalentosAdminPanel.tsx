@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import SeccionDesplegable from "@/components/SeccionDesplegable"
+import VideoEmbed from "@/components/VideoEmbed"
 import GrabadorVideo from "@/components/casatalentos/GrabadorVideo"
 import BibliotecaGrabaciones from "@/components/BibliotecaGrabaciones"
 import { useSessionDraft } from "@/hooks/useSessionDraft"
@@ -749,7 +750,10 @@ export default function CasaTalentosAdminPanel({
 
                   {semana.video_url && (
                     <div className="space-y-2">
-                      <video controls src={semana.video_url} className="w-full rounded-xl border" />
+                      <VideoEmbed
+                        src={semana.video_url}
+                        title={semana.titulo || "Referente semanal"}
+                      />
                     </div>
                   )}
 
