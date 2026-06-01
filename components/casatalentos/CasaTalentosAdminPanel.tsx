@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import SeccionDesplegable from "@/components/SeccionDesplegable"
 import GrabadorVideo from "@/components/casatalentos/GrabadorVideo"
 import BibliotecaGrabaciones from "@/components/BibliotecaGrabaciones"
+import { useSessionDraft } from "@/hooks/useSessionDraft"
 
 type VideoItem = {
   id: number
@@ -75,6 +76,7 @@ type EditandoGrabacion = {
 
 type Props = {
   onActualizado?: () => void | Promise<void>
+  storageOwnerKey?: string
 }
 
 export type CasaTalentosAdminResumen = {
@@ -122,6 +124,7 @@ async function leerJson<T>(res: Response): Promise<T> {
 
 export default function CasaTalentosAdminPanel({
   onActualizado,
+  storageOwnerKey = "admin",
 }: Props) {
   const [referentesSemanales, setReferentesSemanales] = useState<ReferenteSemanal[]>([])
   const [grabaciones, setGrabaciones] = useState<Grabacion[]>([])
@@ -129,11 +132,44 @@ export default function CasaTalentosAdminPanel({
   const [cargando, setCargando] = useState(true)
   const [mensaje, setMensaje] = useState("")
 
-  const [contenidoGeneral, setContenidoGeneral] = useState("")
-  const [fechaSemana, setFechaSemana] = useState("")
-  const [tituloSemanal, setTituloSemanal] = useState("")
-  const [descripcionSemanal, setDescripcionSemanal] = useState("")
-  const [videoUrlSemanal, setVideoUrlSemanal] = useState("")
+  const draftKey = (campo: string) =>
+    `entheos:v1:draft:${storageOwnerKey}:casatalentos:referentes:${campo}`
+  const {
+    value: contenidoGeneral,
+    setValue: setContenidoGeneral,
+    clearDraft: clearContenidoGeneralDraft,
+    hydrateFromServer: hydrateContenidoGeneral,
+  } = useSessionDraft(draftKey("general"), "", {
+    isEmpty: (value) => !value.trim(),
+  })
+  const {
+    value: fechaSemana,
+    setValue: setFechaSemana,
+    clearDraft: clearFechaSemanaDraft,
+  } = useSessionDraft(draftKey("semanal:fecha"), "", {
+    isEmpty: (value) => !value.trim(),
+  })
+  const {
+    value: tituloSemanal,
+    setValue: setTituloSemanal,
+    clearDraft: clearTituloSemanalDraft,
+  } = useSessionDraft(draftKey("semanal:titulo"), "", {
+    isEmpty: (value) => !value.trim(),
+  })
+  const {
+    value: descripcionSemanal,
+    setValue: setDescripcionSemanal,
+    clearDraft: clearDescripcionSemanalDraft,
+  } = useSessionDraft(draftKey("semanal:descripcion"), "", {
+    isEmpty: (value) => !value.trim(),
+  })
+  const {
+    value: videoUrlSemanal,
+    setValue: setVideoUrlSemanal,
+    clearDraft: clearVideoUrlSemanalDraft,
+  } = useSessionDraft(draftKey("semanal:video-url"), "", {
+    isEmpty: (value) => !value.trim(),
+  })
   const [archivoSemanal, setArchivoSemanal] = useState<File | null>(null)
   const [subiendoReferente, setSubiendoReferente] = useState(false)
   const [eliminandoVideoSemanalId, setEliminandoVideoSemanalId] = useState<number | null>(null)
@@ -181,7 +217,7 @@ export default function CasaTalentosAdminPanel({
       }
 
       setReferentesSemanales(dataCasaTalentos.referentesSemanales || [])
-      setContenidoGeneral(dataCasaTalentos.referentesGenerales?.contenido || "")
+      hydrateContenidoGeneral(dataCasaTalentos.referentesGenerales?.contenido || "")
       setGrabaciones(
         (dataGrabaciones.grabaciones || []).filter(
           (grabacion) => grabacion.actividades?.slug === "casatalentos"
@@ -227,6 +263,7 @@ export default function CasaTalentosAdminPanel({
       }
 
       setMensaje("Referentes generales guardados correctamente.")
+      clearContenidoGeneralDraft()
       await refrescarTodo()
     } catch {
       setMensaje("Error guardando referentes generales.")
@@ -262,6 +299,10 @@ export default function CasaTalentosAdminPanel({
 
       setMensaje("Referente semanal guardado correctamente.")
       setArchivoSemanal(null)
+      clearFechaSemanaDraft()
+      clearTituloSemanalDraft()
+      clearDescripcionSemanalDraft()
+      clearVideoUrlSemanalDraft()
       await refrescarTodo()
     } catch {
       setMensaje("Error guardando referente semanal.")
@@ -591,7 +632,11 @@ export default function CasaTalentosAdminPanel({
 
       {mensaje && <div className="border rounded-xl p-3">{mensaje}</div>}
 
-      <SeccionDesplegable titulo="Gestión de referentes">
+      <SeccionDesplegable
+        titulo="Gestión de referentes"
+        storageKey="entheos:v1:ui:casatalentos:admin:seccion:referentes"
+        mantenerMontado
+      >
         <div className="space-y-6">
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Referente general</h3>
@@ -737,7 +782,10 @@ export default function CasaTalentosAdminPanel({
         </div>
       </SeccionDesplegable>
 
-      <SeccionDesplegable titulo="Grabaciones y biblioteca">
+      <SeccionDesplegable
+        titulo="Grabaciones y biblioteca"
+        storageKey="entheos:v1:ui:casatalentos:admin:seccion:grabaciones"
+      >
         <div className="space-y-6">
           <form onSubmit={crearGrabacion} className="space-y-4 border rounded-2xl p-4">
             <h3 className="text-lg font-semibold">Nueva grabación</h3>

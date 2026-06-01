@@ -1,17 +1,25 @@
 "use client"
 
-import { useState } from "react"
+import { usePersistentState } from "@/hooks/usePersistentState"
 
 export default function SeccionDesplegable({
   titulo,
   children,
   abiertaPorDefecto = false,
+  storageKey,
+  mantenerMontado = false,
 }: {
   titulo: React.ReactNode
   children: React.ReactNode
   abiertaPorDefecto?: boolean
+  storageKey?: string
+  mantenerMontado?: boolean
 }) {
-  const [abierta, setAbierta] = useState(abiertaPorDefecto)
+  const [abierta, setAbierta] = usePersistentState(
+    storageKey || "entheos:v1:ui:seccion:sin-persistencia",
+    abiertaPorDefecto,
+    { enabled: Boolean(storageKey) }
+  )
 
   return (
     <section className="workspace-panel overflow-hidden text-gray-900">
@@ -38,9 +46,9 @@ export default function SeccionDesplegable({
         </span>
       </button>
 
-      {abierta && (
+      {(abierta || mantenerMontado) && (
         <div className="mt-4 border-t border-[var(--line)] pt-4 text-gray-900">
-          {children}
+          <div hidden={!abierta}>{children}</div>
         </div>
       )}
     </section>

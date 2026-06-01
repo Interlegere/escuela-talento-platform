@@ -17,6 +17,8 @@ import { isDevelopmentPreviewEnabled } from "@/lib/dev-flags"
 import { obtenerPartesArgentina } from "@/lib/fechas"
 import { supabase } from "@/lib/supabase"
 import WorkspaceHero from "@/components/ui/WorkspaceHero"
+import { usePersistentState } from "@/hooks/usePersistentState"
+import { useSessionDraft } from "@/hooks/useSessionDraft"
 
 type Recurso = {
   id: number
@@ -355,9 +357,9 @@ export default function CasaTalentosPage() {
   const [nombreParticipante, setNombreParticipante] = useState("")
   const [videoAbierto, setVideoAbierto] = useState<string | null>(null)
   const [elegidoSeleccionado, setElegidoSeleccionado] = useState<number | null>(null)
-  const [subsolapaDispositivo, setSubsolapaDispositivo] = useState<
+  const [subsolapaDispositivo, setSubsolapaDispositivo] = usePersistentState<
     "referentes" | "videos" | "evaluacion"
-  >("referentes")
+  >("entheos:v1:ui:casatalentos:dispositivo:subtab", "referentes")
   const [numeroDia, setNumeroDia] = useState<number>(0)
   const [ahoraArgentina, setAhoraArgentina] = useState(() =>
     obtenerAhoraArgentinaCliente()
@@ -369,13 +371,53 @@ export default function CasaTalentosPage() {
   const [estadoSubidaVideo, setEstadoSubidaVideo] = useState("")
   const [eligiendo, setEligiendo] = useState(false)
 
+  const draftOwner = (email || session?.user?.email || "anonimo")
+    .trim()
+    .toLowerCase()
+  const draftKey = (campo: string) =>
+    `entheos:v1:draft:${draftOwner}:casatalentos:${campo}`
+  const recordVacio = (value: Record<number, string>) =>
+    Object.values(value).every((item) => !String(item || "").trim())
+
   const [comentariosDraft, setComentariosDraft] = useState<Record<number, string>>({})
   const [comentandoVideoId, setComentandoVideoId] = useState<number | null>(null)
-  const [mensajeGeneralDraft, setMensajeGeneralDraft] = useState("")
-  const [mensajeGeneralDraftHtml, setMensajeGeneralDraftHtml] = useState("")
-  const [asuntoMensajeGeneralDraft, setAsuntoMensajeGeneralDraft] = useState("")
-  const [respuestasDraft, setRespuestasDraft] = useState<Record<number, string>>({})
-  const [respuestasDraftHtml, setRespuestasDraftHtml] = useState<Record<number, string>>({})
+  const {
+    value: mensajeGeneralDraft,
+    setValue: setMensajeGeneralDraft,
+    clearDraft: clearMensajeGeneralDraft,
+  } = useSessionDraft(draftKey("mensaje:general:texto"), "", {
+    isEmpty: (value) => !value.trim(),
+  })
+  const {
+    value: mensajeGeneralDraftHtml,
+    setValue: setMensajeGeneralDraftHtml,
+    clearDraft: clearMensajeGeneralDraftHtml,
+  } = useSessionDraft(draftKey("mensaje:general:html"), "", {
+    isEmpty: (value) => !value.trim(),
+  })
+  const {
+    value: asuntoMensajeGeneralDraft,
+    setValue: setAsuntoMensajeGeneralDraft,
+    clearDraft: clearAsuntoMensajeGeneralDraft,
+  } = useSessionDraft(draftKey("mensaje:general:asunto"), "", {
+    isEmpty: (value) => !value.trim(),
+  })
+  const {
+    value: respuestasDraft,
+    setValue: setRespuestasDraft,
+  } = useSessionDraft<Record<number, string>>(
+    draftKey("mensaje:respuestas:texto"),
+    {},
+    { isEmpty: recordVacio }
+  )
+  const {
+    value: respuestasDraftHtml,
+    setValue: setRespuestasDraftHtml,
+  } = useSessionDraft<Record<number, string>>(
+    draftKey("mensaje:respuestas:html"),
+    {},
+    { isEmpty: recordVacio }
+  )
   const [respondiendoMensajeId, setRespondiendoMensajeId] = useState<number | null>(null)
   const [mensajeEditandoId, setMensajeEditandoId] = useState<number | null>(null)
   const [mensajeEditandoAsunto, setMensajeEditandoAsunto] = useState("")
@@ -1323,6 +1365,9 @@ export default function CasaTalentosPage() {
         setAsuntoMensajeGeneralDraft("")
         setMensajeGeneralDraft("")
         setMensajeGeneralDraftHtml("")
+        clearAsuntoMensajeGeneralDraft()
+        clearMensajeGeneralDraft()
+        clearMensajeGeneralDraftHtml()
       }
 
       setMensajeExito("Mensaje enviado correctamente.")
@@ -1578,12 +1623,18 @@ export default function CasaTalentosPage() {
                 </p>
               </div>
 
-              <CasaTalentosAdminPanel onActualizado={cargarDatosCasaTalentos} />
+              <CasaTalentosAdminPanel
+                onActualizado={cargarDatosCasaTalentos}
+                storageOwnerKey={draftOwner}
+              />
             </section>
           )}
 
           {(esAdmin || tieneRecurso("reunion_semanal_casatalentos")) && (
-            <SeccionDesplegable titulo="Reunión semanal">
+            <SeccionDesplegable
+              titulo="Reunión semanal"
+              storageKey="entheos:v1:ui:casatalentos:seccion:reunion-semanal"
+            >
               <AgendaActividad
                 actividadSlug="casatalentos"
                 tituloSeccion="Próximo encuentro de CasaTalentos"
@@ -1593,7 +1644,11 @@ export default function CasaTalentosPage() {
           )}
 
           {(esAdmin || tieneRecurso("dispositivo_videos_casatalentos")) && (
-            <SeccionDesplegable titulo="Dispositivo CasaTalentos">
+            <SeccionDesplegable
+              titulo="Dispositivo CasaTalentos"
+              storageKey="entheos:v1:ui:casatalentos:seccion:dispositivo"
+              mantenerMontado
+            >
               <div className="space-y-6">
                 {esAdmin && <CasaTalentosAdminResumenBlock resumen={resumenAdmin} />}
 
@@ -2232,14 +2287,22 @@ export default function CasaTalentosPage() {
             </SeccionDesplegable>
           )}
 
-          <SeccionDesplegable titulo="Hoja de Ruta">
+          <SeccionDesplegable
+            titulo="Hoja de Ruta"
+            storageKey="entheos:v1:ui:casatalentos:seccion:hoja-de-ruta"
+            mantenerMontado
+          >
             <HDRActividad
               actividadSlug="casatalentos"
               actorEmail={email}
             />
           </SeccionDesplegable>
 
-          <SeccionDesplegable titulo={tituloMensajes}>
+          <SeccionDesplegable
+            titulo={tituloMensajes}
+            storageKey="entheos:v1:ui:casatalentos:seccion:mensajes"
+            mantenerMontado
+          >
             <div className="space-y-6">
               {(mensajeExito || mensajeError) && (
                 <div
@@ -2600,7 +2663,10 @@ export default function CasaTalentosPage() {
           </SeccionDesplegable>
 
           {tieneRecurso("biblioteca_grabaciones_casatalentos") && !esAdmin && (
-            <SeccionDesplegable titulo="Biblioteca de grabaciones">
+            <SeccionDesplegable
+              titulo="Biblioteca de grabaciones"
+              storageKey="entheos:v1:ui:casatalentos:seccion:biblioteca"
+            >
               <BibliotecaGrabaciones
                 actividadSlug="casatalentos"
                 previewEnabled={MODO_PRUEBA}
