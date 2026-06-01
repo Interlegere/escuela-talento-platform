@@ -358,9 +358,21 @@ export default function CasaTalentosPage() {
   const [nombreParticipante, setNombreParticipante] = useState("")
   const [videoAbierto, setVideoAbierto] = useState<string | null>(null)
   const [elegidoSeleccionado, setElegidoSeleccionado] = useState<number | null>(null)
+  const esAdmin = session?.user?.role === "admin"
+  const storageEmail = (email || session?.user?.email || "")
+    .trim()
+    .toLowerCase()
+  const storageRole = esAdmin ? "admin" : session?.user?.role || "participante"
+  const uiStoragePrefix = storageEmail
+    ? `entheos:v1:ui:${storageEmail}:${storageRole}:casatalentos`
+    : ""
+  const uiKey = (campo: string) =>
+    uiStoragePrefix ? `${uiStoragePrefix}:${campo}` : ""
   const [subsolapaDispositivo, setSubsolapaDispositivo] = usePersistentState<
     "referentes" | "videos" | "evaluacion"
-  >("entheos:v1:ui:casatalentos:dispositivo:subtab", "referentes")
+  >(uiKey("dispositivo:subtab"), "referentes", {
+    enabled: Boolean(uiStoragePrefix),
+  })
   const [numeroDia, setNumeroDia] = useState<number>(0)
   const [ahoraArgentina, setAhoraArgentina] = useState(() =>
     obtenerAhoraArgentinaCliente()
@@ -372,9 +384,7 @@ export default function CasaTalentosPage() {
   const [estadoSubidaVideo, setEstadoSubidaVideo] = useState("")
   const [eligiendo, setEligiendo] = useState(false)
 
-  const draftOwner = (email || session?.user?.email || "anonimo")
-    .trim()
-    .toLowerCase()
+  const draftOwner = storageEmail
   const draftKey = (campo: string) =>
     `entheos:v1:draft:${draftOwner}:casatalentos:${campo}`
   const recordVacio = (value: Record<number, string>) =>
@@ -387,6 +397,7 @@ export default function CasaTalentosPage() {
     setValue: setMensajeGeneralDraft,
     clearDraft: clearMensajeGeneralDraft,
   } = useSessionDraft(draftKey("mensaje:general:texto"), "", {
+    enabled: Boolean(draftOwner),
     isEmpty: (value) => !value.trim(),
   })
   const {
@@ -394,6 +405,7 @@ export default function CasaTalentosPage() {
     setValue: setMensajeGeneralDraftHtml,
     clearDraft: clearMensajeGeneralDraftHtml,
   } = useSessionDraft(draftKey("mensaje:general:html"), "", {
+    enabled: Boolean(draftOwner),
     isEmpty: (value) => !value.trim(),
   })
   const {
@@ -401,6 +413,7 @@ export default function CasaTalentosPage() {
     setValue: setAsuntoMensajeGeneralDraft,
     clearDraft: clearAsuntoMensajeGeneralDraft,
   } = useSessionDraft(draftKey("mensaje:general:asunto"), "", {
+    enabled: Boolean(draftOwner),
     isEmpty: (value) => !value.trim(),
   })
   const {
@@ -409,7 +422,7 @@ export default function CasaTalentosPage() {
   } = useSessionDraft<Record<number, string>>(
     draftKey("mensaje:respuestas:texto"),
     {},
-    { isEmpty: recordVacio }
+    { enabled: Boolean(draftOwner), isEmpty: recordVacio }
   )
   const {
     value: respuestasDraftHtml,
@@ -417,7 +430,7 @@ export default function CasaTalentosPage() {
   } = useSessionDraft<Record<number, string>>(
     draftKey("mensaje:respuestas:html"),
     {},
-    { isEmpty: recordVacio }
+    { enabled: Boolean(draftOwner), isEmpty: recordVacio }
   )
   const [respondiendoMensajeId, setRespondiendoMensajeId] = useState<number | null>(null)
   const [mensajeEditandoId, setMensajeEditandoId] = useState<number | null>(null)
@@ -430,8 +443,6 @@ export default function CasaTalentosPage() {
   const editorNuevoMensajeRef = useRef<EditorMensajeAdminHandle | null>(null)
   const editorEdicionMensajeRef = useRef<EditorMensajeAdminHandle | null>(null)
   const editorRespuestaRef = useRef<Record<number, EditorMensajeAdminHandle | null>>({})
-  const esAdmin = session?.user?.role === "admin"
-
   useEffect(() => {
     setMounted(true)
     let timeoutId: number | null = null
@@ -1627,6 +1638,7 @@ export default function CasaTalentosPage() {
               <CasaTalentosAdminPanel
                 onActualizado={cargarDatosCasaTalentos}
                 storageOwnerKey={draftOwner}
+                uiStoragePrefix={uiStoragePrefix}
               />
             </section>
           )}
@@ -1634,7 +1646,7 @@ export default function CasaTalentosPage() {
           {(esAdmin || tieneRecurso("reunion_semanal_casatalentos")) && (
             <SeccionDesplegable
               titulo="Reunión semanal"
-              storageKey="entheos:v1:ui:casatalentos:seccion:reunion-semanal"
+              storageKey={uiKey("seccion:reunion-semanal")}
             >
               <AgendaActividad
                 actividadSlug="casatalentos"
@@ -1647,7 +1659,7 @@ export default function CasaTalentosPage() {
           {(esAdmin || tieneRecurso("dispositivo_videos_casatalentos")) && (
             <SeccionDesplegable
               titulo="Dispositivo CasaTalentos"
-              storageKey="entheos:v1:ui:casatalentos:seccion:dispositivo"
+              storageKey={uiKey("seccion:dispositivo")}
               mantenerMontado
             >
               <div className="space-y-6">
@@ -2289,7 +2301,7 @@ export default function CasaTalentosPage() {
 
           <SeccionDesplegable
             titulo="Hoja de Ruta"
-            storageKey="entheos:v1:ui:casatalentos:seccion:hoja-de-ruta"
+            storageKey={uiKey("seccion:hoja-de-ruta")}
             mantenerMontado
           >
             <HDRActividad
@@ -2300,7 +2312,7 @@ export default function CasaTalentosPage() {
 
           <SeccionDesplegable
             titulo={tituloMensajes}
-            storageKey="entheos:v1:ui:casatalentos:seccion:mensajes"
+            storageKey={uiKey("seccion:mensajes")}
             mantenerMontado
           >
             <div className="space-y-6">
@@ -2665,7 +2677,7 @@ export default function CasaTalentosPage() {
           {tieneRecurso("biblioteca_grabaciones_casatalentos") && !esAdmin && (
             <SeccionDesplegable
               titulo="Biblioteca de grabaciones"
-              storageKey="entheos:v1:ui:casatalentos:seccion:biblioteca"
+              storageKey={uiKey("seccion:biblioteca")}
             >
               <BibliotecaGrabaciones
                 actividadSlug="casatalentos"

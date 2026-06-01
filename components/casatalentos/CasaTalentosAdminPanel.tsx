@@ -78,6 +78,7 @@ type EditandoGrabacion = {
 type Props = {
   onActualizado?: () => void | Promise<void>
   storageOwnerKey?: string
+  uiStoragePrefix?: string
 }
 
 export type CasaTalentosAdminResumen = {
@@ -125,7 +126,8 @@ async function leerJson<T>(res: Response): Promise<T> {
 
 export default function CasaTalentosAdminPanel({
   onActualizado,
-  storageOwnerKey = "admin",
+  storageOwnerKey = "",
+  uiStoragePrefix = "",
 }: Props) {
   const [referentesSemanales, setReferentesSemanales] = useState<ReferenteSemanal[]>([])
   const [grabaciones, setGrabaciones] = useState<Grabacion[]>([])
@@ -133,14 +135,18 @@ export default function CasaTalentosAdminPanel({
   const [cargando, setCargando] = useState(true)
   const [mensaje, setMensaje] = useState("")
 
+  const draftsHabilitados = Boolean(storageOwnerKey)
   const draftKey = (campo: string) =>
     `entheos:v1:draft:${storageOwnerKey}:casatalentos:referentes:${campo}`
+  const uiKey = (campo: string) =>
+    uiStoragePrefix ? `${uiStoragePrefix}:admin:${campo}` : ""
   const {
     value: contenidoGeneral,
     setValue: setContenidoGeneral,
     clearDraft: clearContenidoGeneralDraft,
     hydrateFromServer: hydrateContenidoGeneral,
   } = useSessionDraft(draftKey("general"), "", {
+    enabled: draftsHabilitados,
     isEmpty: (value) => !value.trim(),
   })
   const {
@@ -148,6 +154,7 @@ export default function CasaTalentosAdminPanel({
     setValue: setFechaSemana,
     clearDraft: clearFechaSemanaDraft,
   } = useSessionDraft(draftKey("semanal:fecha"), "", {
+    enabled: draftsHabilitados,
     isEmpty: (value) => !value.trim(),
   })
   const {
@@ -155,6 +162,7 @@ export default function CasaTalentosAdminPanel({
     setValue: setTituloSemanal,
     clearDraft: clearTituloSemanalDraft,
   } = useSessionDraft(draftKey("semanal:titulo"), "", {
+    enabled: draftsHabilitados,
     isEmpty: (value) => !value.trim(),
   })
   const {
@@ -162,6 +170,7 @@ export default function CasaTalentosAdminPanel({
     setValue: setDescripcionSemanal,
     clearDraft: clearDescripcionSemanalDraft,
   } = useSessionDraft(draftKey("semanal:descripcion"), "", {
+    enabled: draftsHabilitados,
     isEmpty: (value) => !value.trim(),
   })
   const {
@@ -169,6 +178,7 @@ export default function CasaTalentosAdminPanel({
     setValue: setVideoUrlSemanal,
     clearDraft: clearVideoUrlSemanalDraft,
   } = useSessionDraft(draftKey("semanal:video-url"), "", {
+    enabled: draftsHabilitados,
     isEmpty: (value) => !value.trim(),
   })
   const [archivoSemanal, setArchivoSemanal] = useState<File | null>(null)
@@ -635,7 +645,7 @@ export default function CasaTalentosAdminPanel({
 
       <SeccionDesplegable
         titulo="Gestión de referentes"
-        storageKey="entheos:v1:ui:casatalentos:admin:seccion:referentes"
+        storageKey={uiKey("seccion:referentes")}
         mantenerMontado
       >
         <div className="space-y-6">
@@ -788,7 +798,7 @@ export default function CasaTalentosAdminPanel({
 
       <SeccionDesplegable
         titulo="Grabaciones y biblioteca"
-        storageKey="entheos:v1:ui:casatalentos:admin:seccion:grabaciones"
+        storageKey={uiKey("seccion:grabaciones")}
       >
         <div className="space-y-6">
           <form onSubmit={crearGrabacion} className="space-y-4 border rounded-2xl p-4">
