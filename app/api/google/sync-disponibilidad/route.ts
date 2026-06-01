@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requirePermission } from "@/lib/authz"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
-import { getGoogleCalendarClient } from "@/lib/google-calendar"
+import {
+  construirFechaHoraGoogle,
+  getGoogleCalendarClient,
+} from "@/lib/google-calendar"
 import { normalizarMeetLink } from "@/lib/meet-links"
 import { calendar_v3 } from "googleapis"
 
@@ -110,12 +113,10 @@ export async function POST(req: NextRequest) {
 
     const calendar = await getGoogleCalendarClient(auth.actor.email)
 
-    const startDateTime = new Date(
-      `${disponibilidad.fecha}T${disponibilidad.hora}:00`
-    )
-    const endDateTime = new Date(startDateTime)
-    endDateTime.setMinutes(
-      endDateTime.getMinutes() + Number(disponibilidad.duracion || 60)
+    const intervaloGoogle = construirFechaHoraGoogle(
+      disponibilidad.fecha,
+      disponibilidad.hora,
+      disponibilidad.duracion
     )
 
     const descripcion = [
@@ -137,12 +138,8 @@ export async function POST(req: NextRequest) {
       summary: disponibilidad.titulo,
       description: descripcion,
       location: "Google Meet",
-      start: {
-        dateTime: startDateTime.toISOString(),
-      },
-      end: {
-        dateTime: endDateTime.toISOString(),
-      },
+      start: intervaloGoogle.start,
+      end: intervaloGoogle.end,
     }
 
     let googleEventId = disponibilidad.google_event_id || null

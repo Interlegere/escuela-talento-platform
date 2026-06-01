@@ -49,6 +49,54 @@ function getConfiguredGoogleCalendarOwnerEmail() {
     .toLowerCase()
 }
 
+const GOOGLE_CALENDAR_TIME_ZONE =
+  process.env.GOOGLE_CALENDAR_TIME_ZONE || "America/Argentina/Cordoba"
+
+function formatearFechaHoraLocalGoogle(fecha: string, hora: string, sumarMinutos = 0) {
+  const [anio, mes, dia] = fecha.split("-").map(Number)
+  const [horas, minutos, segundos] = hora.split(":").map(Number)
+  const fechaUtc = new Date(
+    Date.UTC(
+      anio,
+      (mes || 1) - 1,
+      dia || 1,
+      horas || 0,
+      minutos || 0,
+      segundos || 0
+    )
+  )
+
+  fechaUtc.setUTCMinutes(fechaUtc.getUTCMinutes() + sumarMinutos)
+
+  const y = fechaUtc.getUTCFullYear()
+  const m = String(fechaUtc.getUTCMonth() + 1).padStart(2, "0")
+  const d = String(fechaUtc.getUTCDate()).padStart(2, "0")
+  const h = String(fechaUtc.getUTCHours()).padStart(2, "0")
+  const min = String(fechaUtc.getUTCMinutes()).padStart(2, "0")
+  const sec = String(fechaUtc.getUTCSeconds()).padStart(2, "0")
+
+  return `${y}-${m}-${d}T${h}:${min}:${sec}`
+}
+
+export function construirFechaHoraGoogle(
+  fecha: string,
+  hora: string,
+  duracionMinutos: string | number
+) {
+  const duracion = Number(duracionMinutos || 60)
+
+  return {
+    start: {
+      dateTime: formatearFechaHoraLocalGoogle(fecha, hora),
+      timeZone: GOOGLE_CALENDAR_TIME_ZONE,
+    },
+    end: {
+      dateTime: formatearFechaHoraLocalGoogle(fecha, hora, duracion),
+      timeZone: GOOGLE_CALENDAR_TIME_ZONE,
+    },
+  }
+}
+
 async function obtenerTokenGoogleCalendar(userEmail?: string) {
   const supabase = getSupabaseAdmin()
 
@@ -127,17 +175,6 @@ export async function getGoogleCalendarClient(userEmail?: string) {
   })
 }
 
-function buildStartEnd(fecha: string, hora: string, duracion: string) {
-  const startDateTime = new Date(`${fecha}T${hora}:00`)
-  const endDateTime = new Date(startDateTime)
-  endDateTime.setMinutes(endDateTime.getMinutes() + Number(duracion || 60))
-
-  return {
-    startDateTime,
-    endDateTime,
-  }
-}
-
 function buildMeetConferenceData(
   existingConferenceData?: calendar_v3.Schema$ConferenceData | null
 ) {
@@ -186,7 +223,7 @@ export async function crearEventoGoogleDesdeReserva(params: {
   const supabase = getSupabaseAdmin()
   const calendar = await getGoogleCalendarClient(googleOwnerEmail)
 
-  const { startDateTime, endDateTime } = buildStartEnd(
+  const intervaloGoogle = construirFechaHoraGoogle(
     disponibilidad.fecha,
     disponibilidad.hora,
     disponibilidad.duracion
@@ -221,12 +258,8 @@ export async function crearEventoGoogleDesdeReserva(params: {
     summary: `${disponibilidad.titulo} - ${reserva.participante_nombre}`,
     description: descripcion,
     location: "Google Meet",
-    start: {
-      dateTime: startDateTime.toISOString(),
-    },
-    end: {
-      dateTime: endDateTime.toISOString(),
-    },
+    start: intervaloGoogle.start,
+    end: intervaloGoogle.end,
   }
 
   let googleEventId =
