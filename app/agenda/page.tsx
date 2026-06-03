@@ -468,9 +468,49 @@ export default function AgendaPage() {
           }
         }
 
+        const erroresConfirmacion: string[] = []
+        const primeraSesion = esSesionAsignada ? data.items?.[0] : null
+
+        if (primeraSesion?.id) {
+          const confirmacionRes = await fetch(
+            "/api/admin/comunicaciones/confirmacion-sesion",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                disponibilidadId: primeraSesion.id,
+              }),
+            }
+          )
+
+          const confirmacionData = await leerJson<{ error?: string }>(
+            confirmacionRes
+          )
+
+          if (!confirmacionRes.ok) {
+            erroresConfirmacion.push(
+              confirmacionData.error ||
+                "No se pudo enviar la confirmación por mail."
+            )
+          }
+        }
+
         if (erroresSync.length > 0) {
           setError(
-            `Encuentro creado, pero Google Meet no pudo sincronizarse. ${erroresSync.join(" ")}`
+            [
+              `Encuentro creado, pero Google Meet no pudo sincronizarse. ${erroresSync.join(" ")}`,
+              erroresConfirmacion.length
+                ? `Además, no se pudo enviar la confirmación por mail. ${erroresConfirmacion.join(" ")}`
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" ")
+          )
+        } else if (erroresConfirmacion.length > 0) {
+          setError(
+            `Programación creada, pero no se pudo enviar la confirmación por mail. ${erroresConfirmacion.join(" ")}`
           )
         } else {
           setMensaje("Programación creada correctamente.")

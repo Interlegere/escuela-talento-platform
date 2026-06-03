@@ -1355,6 +1355,33 @@ export default function AdminUsuariosPage() {
           }
         }
 
+        const erroresConfirmacion: string[] = []
+        const primeraSesion = encuentrosCreados[0]
+
+        if (primeraSesion?.id) {
+          const confirmacionRes = await fetch(
+            "/api/admin/comunicaciones/confirmacion-sesion",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                disponibilidadId: primeraSesion.id,
+              }),
+            }
+          )
+
+          const confirmacionData = await confirmacionRes
+            .json()
+            .catch(() => ({}))
+
+          if (!confirmacionRes.ok) {
+            erroresConfirmacion.push(
+              confirmacionData.error ||
+                "No se pudo enviar la confirmación por mail."
+            )
+          }
+        }
+
         setAgendaDrafts((prev) => ({
           ...prev,
           [actividadKey(persona.email, actividadSlug)]: crearDraftAgenda(),
@@ -1362,11 +1389,23 @@ export default function AdminUsuariosPage() {
         setAgendaMensajes((prev) => ({
           ...prev,
           [key]: {
-            tipo: erroresSync.length > 0 ? "error" : "exito",
+            tipo:
+              erroresSync.length > 0 || erroresConfirmacion.length > 0
+                ? "error"
+                : "exito",
             texto:
               erroresSync.length > 0
-                ? `Encuentro creado, pero Meet aún no generado. ${erroresSync.join(" ")}`
-                : `Encuentro de ${nombreActividad(actividadSlug)} creado.`,
+                ? [
+                    `Encuentro creado, pero Meet aún no generado. ${erroresSync.join(" ")}`,
+                    erroresConfirmacion.length > 0
+                      ? `Además, no se pudo enviar la confirmación por mail. ${erroresConfirmacion.join(" ")}`
+                      : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")
+                : erroresConfirmacion.length > 0
+                  ? `Encuentro creado, pero no se pudo enviar la confirmación por mail. ${erroresConfirmacion.join(" ")}`
+                  : `Encuentro de ${nombreActividad(actividadSlug)} creado.`,
           },
         }))
         await recargarTodo()

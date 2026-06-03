@@ -1,4 +1,5 @@
 import { enviarEmail } from "@/lib/mailing"
+import { normalizarMeetLink } from "@/lib/meet-links"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
 export type VariablesComunicacion = {
@@ -22,6 +23,17 @@ export type EnviarComunicacionIndividualParams = {
   plantillaClave?: string | null
   variables?: VariablesComunicacion
   metadata?: Record<string, unknown>
+}
+
+export type EnviarConfirmacionSesionIndividualParams = {
+  disponibilidadId?: number | null
+  destinatarioEmail: string
+  destinatarioNombre?: string | null
+  actividadSlug: "mentorias" | "terapia"
+  fecha: string
+  hora: string
+  duracion: string | number
+  meetLink?: string | null
 }
 
 export type SegmentoComunicacion =
@@ -152,6 +164,32 @@ function textoAHtml(texto: string) {
 
 function normalizarEmail(email?: string | null) {
   return String(email || "").trim().toLowerCase()
+}
+
+function nombreActividadSesion(slug: "mentorias" | "terapia") {
+  return slug === "terapia" ? "Terapia" : "Mentoría"
+}
+
+function rutaActividadSesion(slug: "mentorias" | "terapia") {
+  return slug === "terapia" ? "/terapia" : "/mentorias"
+}
+
+function formatearFechaSesion(fecha: string) {
+  const [anio, mes, dia] = fecha.split("-").map(Number)
+  if (!anio || !mes || !dia) return fecha
+
+  return new Intl.DateTimeFormat("es-AR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "America/Argentina/Cordoba",
+  }).format(new Date(Date.UTC(anio, mes - 1, dia)))
+}
+
+function formatearHoraSesion(hora: string) {
+  const [horas = "00", minutos = "00"] = String(hora || "").split(":")
+  return `${horas.padStart(2, "0")}:${minutos.padStart(2, "0")}`
 }
 
 function esTablaContactosFaltante(error: unknown) {
@@ -889,4 +927,107 @@ export async function enviarComunicacionIndividual(
     resultado,
     registro,
   }
+}
+
+export async function enviarConfirmacionSesionIndividual(
+  params: EnviarConfirmacionSesionIndividualParams
+) {
+  const destinatarioEmail = normalizarEmail(params.destinatarioEmail)
+  if (!destinatarioEmail) {
+    throw new Error("Falta email del participante para enviar confirmación.")
+  }
+
+  const actividad = nombreActividadSesion(params.actividadSlug)
+  const nombre = String(params.destinatarioNombre || "").trim() || "bienvenida/o"
+  const fechaTexto = formatearFechaSesion(params.fecha)
+  const horaTexto = formatearHoraSesion(params.hora)
+  const duracionTexto = String(params.duracion || "60")
+  const meetLink = normalizarMeetLink(params.meetLink)
+  const linkPlataforma = `${appUrl()}${rutaActividadSesion(params.actividadSlug)}`
+
+  const meetTexto = meetLink
+    ? `Link de acceso: ${meetLink}`
+    : "Te enviaremos el enlace de acceso antes del encuentro."
+
+  const texto = [
+    `Hola ${nombre},`,
+    "",
+    `Tu encuentro de ${actividad} quedó programado para:`,
+    "",
+    `Día: ${fechaTexto}`,
+    `Hora: ${horaTexto} Argentina`,
+    `Duración: ${duracionTexto} minutos`,
+    "",
+    meetTexto,
+    "",
+    "Podés ingresar también desde tu espacio en la plataforma:",
+    linkPlataforma,
+    "",
+    "Si necesitás hacer alguna consulta, podés responder este correo.",
+  ].join("\n")
+
+  const meetHtml = meetLink
+    ? `<p style="margin: 0;"><strong>Link de acceso:</strong> <a href="${meetLink}" style="color:#8a5b0f;">${meetLink}</a></p>`
+    : `<p style="margin: 0;">Te enviaremos el enlace de acceso antes del encuentro.</p>`
+
+  const html = `
+    <div style="margin: 0; padding: 32px 16px; background: #f6efe2; font-family: Arial, sans-serif; color: #1f2933;">
+      <div style="max-width: 640px; margin: 0 auto; background: #fffdf8; border: 1px solid #eadfc9; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(77, 54, 18, 0.08);">
+        <div style="padding: 30px 32px 20px; background: linear-gradient(135deg, rgba(250,244,229,1) 0%, rgba(255,250,240,1) 55%, rgba(248,237,210,1) 100%);">
+          <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: #8a6a2f; font-weight: 700;">Entheos</p>
+          <h1 style="margin: 0 0 10px; font-size: 30px; line-height: 1.15; color: #18202a;">Confirmación de tu encuentro</h1>
+          <p style="margin: 0; color: #6b7280; font-size: 16px; line-height: 1.5;">${escapeHtml(
+            actividad
+          )}</p>
+        </div>
+
+        <div style="padding: 28px 32px 32px; line-height: 1.7;">
+          <p style="margin: 0 0 14px;">Hola ${escapeHtml(nombre)},</p>
+          <p style="margin: 0 0 16px;">Tu encuentro de ${escapeHtml(
+            actividad
+          )} quedó programado para:</p>
+
+          <div style="border: 1px solid #e5dccb; border-radius: 18px; padding: 18px 20px; margin: 0 0 22px; background: #fffaf2;">
+            <p style="margin: 0 0 10px;"><strong>Día:</strong> ${escapeHtml(
+              fechaTexto
+            )}</p>
+            <p style="margin: 0 0 10px;"><strong>Hora:</strong> ${escapeHtml(
+              horaTexto
+            )} Argentina</p>
+            <p style="margin: 0;"><strong>Duración:</strong> ${escapeHtml(
+              duracionTexto
+            )} minutos</p>
+          </div>
+
+          <div style="border: 1px solid #ead9b4; border-radius: 18px; padding: 18px 20px; margin: 0 0 22px; background: #fff7ea;">
+            ${meetHtml}
+          </div>
+
+          <p style="margin: 0 0 14px;">Podés ingresar también desde tu espacio en la plataforma:</p>
+          <p style="margin: 0 0 22px;">
+            <a href="${linkPlataforma}" style="display: inline-block; padding: 13px 20px; border-radius: 999px; background: #c98b1b; color: #ffffff; font-weight: 700; text-decoration: none;">
+              Ir a la plataforma
+            </a>
+          </p>
+
+          <p style="margin: 0;">Si necesitás hacer alguna consulta, podés responder este correo.</p>
+        </div>
+      </div>
+    </div>
+  `
+
+  return enviarComunicacionIndividual({
+    destinatarioEmail,
+    destinatarioNombre: params.destinatarioNombre || null,
+    asunto: "Confirmación de tu encuentro en Entheos",
+    html,
+    texto,
+    tipo: "confirmacion_sesion",
+    actividadSlug: params.actividadSlug,
+    metadata: {
+      disponibilidadId: params.disponibilidadId || null,
+      origen: "agenda",
+      meetGenerado: Boolean(meetLink),
+    },
+  })
 }
