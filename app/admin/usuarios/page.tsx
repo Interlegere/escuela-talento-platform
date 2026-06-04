@@ -17,7 +17,6 @@ import {
   normalizarDocumentosNotas,
   serializarDocumentosNotas,
 } from "@/lib/documentos-notas"
-import { normalizarMeetLink } from "@/lib/meet-links"
 
 type Usuario = {
   id: string
@@ -73,31 +72,6 @@ type EconomiaDraft = {
   medioSugerido: MedioSugerido
 }
 
-type AgendaDraft = {
-  fecha: string
-  hora: string
-  duracion: string
-  meetLink: string
-  notasDocumentos: string
-}
-
-type ComunicacionDraft = {
-  asunto: string
-  texto: string
-  actividadSlug: string
-}
-
-type ComunicacionEnvio = {
-  id: number
-  actividad_slug?: string | null
-  tipo?: string | null
-  asunto: string
-  estado: "enviado" | "error" | "omitido" | string
-  error?: string | null
-  created_at?: string | null
-  sent_at?: string | null
-}
-
 const ACTIVIDADES_FORM_INICIAL: ActividadesFormState = {
   casatalentos: false,
   "conectando-sentidos": false,
@@ -149,8 +123,6 @@ const MEDIOS_SUGERIDOS: Array<{
   { value: "mercado_pago", label: "Mercado Pago" },
   { value: "manual", label: "Manual" },
 ]
-
-const ACTIVIDADES_INDIVIDUALES = new Set(["mentorias", "terapia"])
 
 function etiquetaRol(role: Usuario["role"]) {
   switch (role) {
@@ -327,42 +299,6 @@ function actividadKey(email: string, actividad: string) {
   return `${email}:${actividad}`
 }
 
-function crearDraftComunicacion(persona?: PersonaResumen | null): ComunicacionDraft {
-  return {
-    asunto: "",
-    texto: persona?.perfil.nombre
-      ? `Hola ${persona.perfil.nombre},\n\n`
-      : "",
-    actividadSlug: "",
-  }
-}
-
-function renderComunicacionPreview(
-  contenido: string,
-  persona: PersonaResumen
-) {
-  const nombre = persona.perfil.nombre || ""
-  const apellido = persona.perfil.apellido || ""
-  const nombreCompleto = persona.perfil.nombreCompleto || [nombre, apellido].filter(Boolean).join(" ")
-
-  return contenido.replace(/{{\s*([a-zA-Z0-9_]+)\s*}}/g, (_, key: string) => {
-    const valores: Record<string, string> = {
-      nombre,
-      apellido,
-      nombre_completo: nombreCompleto,
-      email: persona.email,
-      link_login:
-        typeof window !== "undefined"
-          ? `${window.location.origin}/login`
-          : "/login",
-      clave_acceso: "",
-      actividad: "",
-    }
-
-    return valores[key] ?? ""
-  })
-}
-
 function crearDraftEconomia(
   economia?: EconomiaResumen | null
 ): EconomiaDraft {
@@ -392,20 +328,6 @@ function economiaDraftTieneCambios(
     draft.modalidad !== base.modalidad ||
     draft.medioSugerido !== base.medioSugerido
   )
-}
-
-function crearDraftAgenda(): AgendaDraft {
-  return {
-    fecha: "",
-    hora: "",
-    duracion: "60",
-    meetLink: "",
-    notasDocumentos: "",
-  }
-}
-
-function meetLinkReal(meetLink?: string | null) {
-  return normalizarMeetLink(meetLink) || ""
 }
 
 function construirActividadesDesdePersona(persona: PersonaResumen): ActividadesFormState {
@@ -488,25 +410,6 @@ export default function AdminUsuariosPage() {
     Record<string, { tipo: "exito" | "error" | "info"; texto: string }>
   >({})
   const [pagoGuardandoKey, setPagoGuardandoKey] = useState<string | null>(null)
-  const [agendaDrafts, setAgendaDrafts] = useState<Record<string, AgendaDraft>>({})
-  const [agendaGuardandoKey, setAgendaGuardandoKey] = useState<string | null>(null)
-  const [agendaMensajes, setAgendaMensajes] = useState<
-    Record<string, { tipo: "exito" | "error"; texto: string }>
-  >({})
-  const [comunicacionDrafts, setComunicacionDrafts] = useState<
-    Record<string, ComunicacionDraft>
-  >({})
-  const [comunicacionGuardandoKey, setComunicacionGuardandoKey] = useState<
-    string | null
-  >(null)
-  const [comunicacionMensajes, setComunicacionMensajes] = useState<
-    Record<string, { tipo: "exito" | "error"; texto: string }>
-  >({})
-  const [comunicacionHistorial, setComunicacionHistorial] = useState<
-    Record<string, ComunicacionEnvio[]>
-  >({})
-  const [comunicacionHistorialCargando, setComunicacionHistorialCargando] =
-    useState<Record<string, boolean>>({})
 
   const esAdmin = session?.user?.role === "admin"
   const editando = Boolean(form.id)
@@ -664,98 +567,6 @@ export default function AdminUsuariosPage() {
     },
     [economiaDrafts]
   )
-
-  const actualizarDraftAgenda = useCallback(
-    (email: string, actividad: string, patch: Partial<AgendaDraft>) => {
-      const key = actividadKey(email, actividad)
-      setAgendaDrafts((prev) => ({
-        ...prev,
-        [key]: {
-          ...(prev[key] || crearDraftAgenda()),
-          ...patch,
-        },
-      }))
-    },
-    []
-  )
-
-  const obtenerDraftAgenda = useCallback(
-    (email: string, actividad: string) => {
-      const key = actividadKey(email, actividad)
-      return agendaDrafts[key] || crearDraftAgenda()
-    },
-    [agendaDrafts]
-  )
-
-  const actualizarDraftComunicacion = useCallback(
-    (
-      email: string,
-      patch: Partial<ComunicacionDraft>,
-      persona?: PersonaResumen | null
-    ) => {
-      const key = actividadKey(email, "comunicacion")
-      setComunicacionDrafts((prev) => ({
-        ...prev,
-        [key]: {
-          ...(prev[key] || crearDraftComunicacion(persona)),
-          ...patch,
-        },
-      }))
-    },
-    []
-  )
-
-  const obtenerDraftComunicacion = useCallback(
-    (email: string, persona?: PersonaResumen | null) => {
-      const key = actividadKey(email, "comunicacion")
-      return comunicacionDrafts[key] || crearDraftComunicacion(persona)
-    },
-    [comunicacionDrafts]
-  )
-
-  const cargarHistorialComunicaciones = useCallback(async (email: string) => {
-    const key = actividadKey(email, "comunicacion")
-
-    try {
-      setComunicacionHistorialCargando((prev) => ({
-        ...prev,
-        [key]: true,
-      }))
-
-      const res = await fetch(
-        `/api/admin/comunicaciones/historial?email=${encodeURIComponent(email)}`,
-        { cache: "no-store" }
-      )
-      const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(
-          data.error || "No se pudo cargar el historial de comunicaciones."
-        )
-      }
-
-      setComunicacionHistorial((prev) => ({
-        ...prev,
-        [key]: data.envios || [],
-      }))
-    } catch (error) {
-      setComunicacionMensajes((prev) => ({
-        ...prev,
-        [key]: {
-          tipo: "error",
-          texto:
-            error instanceof Error
-              ? error.message
-              : "No se pudo cargar el historial de comunicaciones.",
-        },
-      }))
-    } finally {
-      setComunicacionHistorialCargando((prev) => ({
-        ...prev,
-        [key]: false,
-      }))
-    }
-  }, [])
 
   const editarUsuario = (usuario: Usuario, persona?: PersonaResumen) => {
     const resumen = persona || personas.find((item) => item.email === usuario.email.trim().toLowerCase())
@@ -1272,230 +1083,6 @@ export default function AdminUsuariosPage() {
     [recargarTodo]
   )
 
-  const crearEncuentroDesdeFicha = useCallback(
-    async (
-      persona: PersonaResumen,
-      actividadSlug: Extract<EconomiaResumen["actividad"], "mentorias" | "terapia">
-    ) => {
-      const key = actividadKey(persona.email, `${actividadSlug}:agenda`)
-      const draft = obtenerDraftAgenda(persona.email, actividadSlug)
-
-      try {
-        setAgendaGuardandoKey(key)
-        setMensaje("")
-        setAgendaMensajes((prev) => {
-          const siguiente = { ...prev }
-          delete siguiente[key]
-          return siguiente
-        })
-
-        if (!draft.fecha || !draft.hora) {
-          throw new Error("Completá fecha y hora para crear el encuentro.")
-        }
-
-        const meetManual = meetLinkReal(draft.meetLink)
-        const res = await fetch("/api/agenda/admin/crear-disponibilidades", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            items: [
-              {
-                titulo:
-                  actividadSlug === "mentorias"
-                    ? `Mentoría · ${persona.perfil.nombreCompleto}`
-                    : `Terapia · ${persona.perfil.nombreCompleto}`,
-                tipo: actividadSlug === "mentorias" ? "reunion" : "sesion",
-                actividad_slug: actividadSlug,
-                modo: "actividad_fija",
-                fecha: draft.fecha,
-                hora: draft.hora,
-                duracion: draft.duracion || "60",
-                meet_link: meetManual,
-                requiere_pago: true,
-                precio: "0",
-                estado: "confirmada",
-                es_recurrente: false,
-                sync_status: meetManual ? "manual" : "pendiente",
-                participante_email: persona.email,
-                participante_nombre: persona.perfil.nombreCompleto,
-                notas_documentos: draft.notasDocumentos,
-              },
-            ],
-          }),
-        })
-
-        const data = await res.json()
-
-        if (!res.ok) {
-          throw new Error(data.error || "No se pudo crear el encuentro.")
-        }
-
-        const encuentrosCreados = Array.isArray(data.items) ? data.items : []
-        const erroresSync: string[] = []
-
-        if (!meetManual) {
-          for (const creado of encuentrosCreados) {
-            if (!creado?.id) continue
-
-            const syncRes = await fetch("/api/google/sync-disponibilidad", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                disponibilidadId: creado.id,
-              }),
-            })
-
-            const syncData = await syncRes.json().catch(() => ({}))
-
-            if (!syncRes.ok) {
-              erroresSync.push(
-                syncData.error || `No se pudo generar el Meet del encuentro ${creado.id}.`
-              )
-            }
-          }
-        }
-
-        const erroresConfirmacion: string[] = []
-        const primeraSesion = encuentrosCreados[0]
-
-        if (primeraSesion?.id) {
-          const confirmacionRes = await fetch(
-            "/api/admin/comunicaciones/confirmacion-sesion",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                disponibilidadId: primeraSesion.id,
-              }),
-            }
-          )
-
-          const confirmacionData = await confirmacionRes
-            .json()
-            .catch(() => ({}))
-
-          if (!confirmacionRes.ok) {
-            erroresConfirmacion.push(
-              confirmacionData.error ||
-                "No se pudo enviar la confirmación por mail."
-            )
-          }
-        }
-
-        setAgendaDrafts((prev) => ({
-          ...prev,
-          [actividadKey(persona.email, actividadSlug)]: crearDraftAgenda(),
-        }))
-        setAgendaMensajes((prev) => ({
-          ...prev,
-          [key]: {
-            tipo:
-              erroresSync.length > 0 || erroresConfirmacion.length > 0
-                ? "error"
-                : "exito",
-            texto:
-              erroresSync.length > 0
-                ? [
-                    `Encuentro creado, pero Meet aún no generado. ${erroresSync.join(" ")}`,
-                    erroresConfirmacion.length > 0
-                      ? `Además, no se pudo enviar la confirmación por mail. ${erroresConfirmacion.join(" ")}`
-                      : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")
-                : erroresConfirmacion.length > 0
-                  ? `Encuentro creado, pero no se pudo enviar la confirmación por mail. ${erroresConfirmacion.join(" ")}`
-                  : `Encuentro de ${nombreActividad(actividadSlug)} creado.`,
-          },
-        }))
-        await recargarTodo()
-      } catch (error) {
-        setAgendaMensajes((prev) => ({
-          ...prev,
-          [key]: {
-            tipo: "error",
-            texto:
-              error instanceof Error
-                ? error.message
-                : "No se pudo crear el encuentro.",
-          },
-        }))
-      } finally {
-        setAgendaGuardandoKey(null)
-      }
-    },
-    [obtenerDraftAgenda, recargarTodo]
-  )
-
-  const enviarComunicacionDesdeFicha = useCallback(
-    async (persona: PersonaResumen) => {
-      const key = actividadKey(persona.email, "comunicacion")
-      const draft = obtenerDraftComunicacion(persona.email, persona)
-
-      try {
-        setComunicacionGuardandoKey(key)
-        setComunicacionMensajes((prev) => {
-          const siguiente = { ...prev }
-          delete siguiente[key]
-          return siguiente
-        })
-
-        if (!draft.asunto.trim()) {
-          throw new Error("Completá el asunto de la comunicación.")
-        }
-
-        if (!draft.texto.trim()) {
-          throw new Error("Completá el contenido de la comunicación.")
-        }
-
-        const res = await fetch("/api/admin/comunicaciones/enviar-individual", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            destinatarioEmail: persona.email,
-            asunto: draft.asunto,
-            texto: draft.texto,
-            tipo: "individual",
-            actividadSlug: draft.actividadSlug || null,
-          }),
-        })
-
-        const data = await res.json()
-
-        if (!res.ok) {
-          throw new Error(data.error || "No se pudo enviar la comunicación.")
-        }
-
-        setComunicacionMensajes((prev) => ({
-          ...prev,
-          [key]: {
-            tipo: "exito",
-            texto: "Comunicación enviada y registrada.",
-          },
-        }))
-        setComunicacionDrafts((prev) => ({
-          ...prev,
-          [key]: crearDraftComunicacion(persona),
-        }))
-        await cargarHistorialComunicaciones(persona.email)
-      } catch (error) {
-        setComunicacionMensajes((prev) => ({
-          ...prev,
-          [key]: {
-            tipo: "error",
-            texto:
-              error instanceof Error
-                ? error.message
-                : "No se pudo enviar la comunicación.",
-          },
-        }))
-      } finally {
-        setComunicacionGuardandoKey(null)
-      }
-    },
-    [cargarHistorialComunicaciones, obtenerDraftComunicacion]
-  )
-
   const renderActividad = (persona: PersonaResumen, actividad: ActividadResumen) => {
     const key = actividadKey(persona.email, actividad.actividad)
     const estaGuardando = actividadGuardandoKey === key
@@ -1815,12 +1402,7 @@ export default function AdminUsuariosPage() {
     )
   }
 
-  const renderAgenda = (persona: PersonaResumen, item: AgendaResumen) => {
-    const agendaKey = actividadKey(persona.email, `${item.actividad}:agenda`)
-    const draft = obtenerDraftAgenda(persona.email, item.actividad)
-    const guardando = agendaGuardandoKey === agendaKey
-    const mensajeAgenda = agendaMensajes[agendaKey]
-
+  const renderAgenda = (item: AgendaResumen) => {
     return (
       <div
         key={item.actividad}
@@ -1835,6 +1417,11 @@ export default function AdminUsuariosPage() {
         <p className="mt-1 text-gray-700">
           Próximo encuentro: {formatearEncuentro(item.proximoEncuentro)}
         </p>
+        {item.proximoEncuentro?.meetLink && (
+          <p className="mt-1 text-gray-500">
+            Meet configurado para el próximo encuentro.
+          </p>
+        )}
         {item.ultimoEncuentro?.inicio && (
           <p className="mt-1 text-gray-500">
             Último encuentro visible: {item.ultimoEncuentro.inicio}
@@ -1846,117 +1433,6 @@ export default function AdminUsuariosPage() {
         <p className="mt-1 text-gray-500">
           Encuentros visibles: {item.cantidadPendientes}
         </p>
-
-        {ACTIVIDADES_INDIVIDUALES.has(item.actividad) ? (
-          <div className="mt-3 space-y-3 rounded-xl border border-[var(--line)] bg-white/80 p-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--sea)]">
-              Crear encuentro individual
-            </p>
-            {mensajeAgenda && (
-              <p
-                className={`rounded-xl border px-3 py-2 text-xs font-medium ${
-                  mensajeAgenda.tipo === "error"
-                    ? "border-red-200 bg-red-50 text-red-700"
-                    : "border-green-200 bg-green-50 text-green-700"
-                }`}
-              >
-                {mensajeAgenda.texto}
-              </p>
-            )}
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="space-y-1">
-                <span className="text-xs font-medium text-gray-600">Fecha</span>
-                <input
-                  type="date"
-                  className="workspace-field"
-                  value={draft.fecha}
-                  onChange={(e) =>
-                    actualizarDraftAgenda(persona.email, item.actividad, {
-                      fecha: e.target.value,
-                    })
-                  }
-                />
-              </label>
-              <label className="space-y-1">
-                <span className="text-xs font-medium text-gray-600">Hora</span>
-                <input
-                  type="time"
-                  className="workspace-field"
-                  value={draft.hora}
-                  onChange={(e) =>
-                    actualizarDraftAgenda(persona.email, item.actividad, {
-                      hora: e.target.value,
-                    })
-                  }
-                />
-              </label>
-              <label className="space-y-1">
-                <span className="text-xs font-medium text-gray-600">
-                  Duración (min)
-                </span>
-                <input
-                  className="workspace-field"
-                  value={draft.duracion}
-                  onChange={(e) =>
-                    actualizarDraftAgenda(persona.email, item.actividad, {
-                      duracion: e.target.value,
-                    })
-                  }
-                  placeholder="60"
-                />
-              </label>
-              <label className="space-y-1">
-                <span className="text-xs font-medium text-gray-600">
-                  Meet link
-                </span>
-                <input
-                  className="workspace-field"
-                  value={draft.meetLink}
-                  onChange={(e) =>
-                    actualizarDraftAgenda(persona.email, item.actividad, {
-                      meetLink: e.target.value,
-                    })
-                  }
-                  placeholder="https://meet.google.com/..."
-                />
-              </label>
-              <label className="space-y-1 md:col-span-2">
-                <span className="text-xs font-medium text-gray-600">
-                  Notas / documentos
-                </span>
-                <textarea
-                  className="workspace-field min-h-24"
-                  value={draft.notasDocumentos}
-                  onChange={(e) =>
-                    actualizarDraftAgenda(persona.email, item.actividad, {
-                      notasDocumentos: e.target.value,
-                    })
-                  }
-                  placeholder="Título | URL"
-                />
-              </label>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={guardando}
-                onClick={() =>
-                  void crearEncuentroDesdeFicha(
-                    persona,
-                    item.actividad as "mentorias" | "terapia"
-                  )
-                }
-                className="workspace-button-secondary !px-3 !py-1.5 text-xs"
-              >
-                {guardando ? "Creando..." : "Crear encuentro"}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <p className="mt-3 text-xs text-gray-500">
-            La agenda de {nombreActividad(item.actividad)} se gestiona grupalmente.
-          </p>
-        )}
       </div>
     )
   }
@@ -2155,154 +1631,6 @@ export default function AdminUsuariosPage() {
     </div>
   )
 
-  const renderComunicaciones = (persona: PersonaResumen) => {
-    const key = actividadKey(persona.email, "comunicacion")
-    const draft = obtenerDraftComunicacion(persona.email, persona)
-    const mensajeComunicacion = comunicacionMensajes[key]
-    const historial = comunicacionHistorial[key] || []
-    const cargandoHistorial = comunicacionHistorialCargando[key] === true
-    const enviando = comunicacionGuardandoKey === key
-    const asuntoPreview = renderComunicacionPreview(draft.asunto, persona)
-    const textoPreview = renderComunicacionPreview(draft.texto, persona)
-
-    return (
-      <div className="space-y-3 text-sm">
-        {mensajeComunicacion && (
-          <p
-            className={`rounded-xl border px-3 py-2 text-xs font-medium ${
-              mensajeComunicacion.tipo === "error"
-                ? "border-red-200 bg-red-50 text-red-700"
-                : "border-green-200 bg-green-50 text-green-700"
-            }`}
-          >
-            {mensajeComunicacion.texto}
-          </p>
-        )}
-
-        <div className="grid gap-3">
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-gray-600">Asunto</span>
-            <input
-              className="workspace-field"
-              value={draft.asunto}
-              onChange={(e) =>
-                actualizarDraftComunicacion(
-                  persona.email,
-                  { asunto: e.target.value },
-                  persona
-                )
-              }
-              placeholder="Asunto del email"
-            />
-          </label>
-
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-gray-600">
-              Actividad relacionada
-            </span>
-            <select
-              className="workspace-field"
-              value={draft.actividadSlug}
-              onChange={(e) =>
-                actualizarDraftComunicacion(
-                  persona.email,
-                  { actividadSlug: e.target.value },
-                  persona
-                )
-              }
-            >
-              <option value="">General</option>
-              {persona.actividades
-                .filter((actividad) => actividad.estadoVisible === "activa")
-                .map((actividad) => (
-                  <option key={actividad.actividad} value={actividad.actividad}>
-                    {actividad.etiqueta}
-                  </option>
-                ))}
-            </select>
-          </label>
-
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-gray-600">Contenido</span>
-            <textarea
-              className="workspace-field min-h-32"
-              value={draft.texto}
-              onChange={(e) =>
-                actualizarDraftComunicacion(
-                  persona.email,
-                  { texto: e.target.value },
-                  persona
-                )
-              }
-              placeholder="Escribí el mensaje para esta persona."
-            />
-          </label>
-        </div>
-
-        <div className="rounded-xl border border-[var(--line)] bg-[rgba(255,250,242,0.7)] p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--sea)]">
-            Preview
-          </p>
-          <p className="mt-2 font-semibold text-gray-800">
-            {asuntoPreview || "Sin asunto"}
-          </p>
-          <pre className="mt-2 whitespace-pre-wrap text-xs text-gray-600">
-            {textoPreview || "Sin contenido"}
-          </pre>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={enviando}
-            onClick={() => void enviarComunicacionDesdeFicha(persona)}
-            className="workspace-button-secondary !px-3 !py-1.5 text-xs"
-          >
-            {enviando ? "Enviando..." : "Enviar comunicación"}
-          </button>
-          <button
-            type="button"
-            disabled={cargandoHistorial}
-            onClick={() => void cargarHistorialComunicaciones(persona.email)}
-            className="workspace-button-secondary !px-3 !py-1.5 text-xs"
-          >
-            {cargandoHistorial ? "Cargando..." : "Ver historial"}
-          </button>
-        </div>
-
-        {historial.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--sea)]">
-              Últimos envíos
-            </p>
-            {historial.slice(0, 5).map((envio) => (
-              <div
-                key={envio.id}
-                className="rounded-xl border border-[var(--line)] bg-white/80 p-3 text-xs"
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <strong>{envio.asunto}</strong>
-                  <span className="workspace-chip">{envio.estado}</span>
-                  {envio.actividad_slug && (
-                    <span className="workspace-chip">
-                      {nombreActividad(envio.actividad_slug)}
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 text-gray-500">
-                  {envio.sent_at || envio.created_at || "Sin fecha visible"}
-                </p>
-                {envio.error && (
-                  <p className="mt-1 text-[rgb(156,69,59)]">{envio.error}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    )
-  }
-
   const renderPersonaCard = (persona: PersonaResumen) => {
     const usuario = usuarioBasePorEmail.get(persona.email)
     const documentos = usuario
@@ -2463,27 +1791,45 @@ export default function AdminUsuariosPage() {
             </BloqueFicha>
 
             <BloqueFicha titulo="Agenda">
+              <div className="mb-3 space-y-2 rounded-xl border border-[var(--line)] bg-white/70 p-3 text-sm text-gray-700">
+                <p>
+                  Los encuentros, Meet, reprogramaciones y notas de sesión se
+                  gestionan desde Agenda.
+                </p>
+                <Link href="/agenda" className="workspace-button-secondary !px-3 !py-1.5 text-xs">
+                  Gestionar encuentros en Agenda
+                </Link>
+              </div>
               {persona.agenda.length === 0 ? (
                 <p className="text-sm text-gray-600">
                   No hay encuentros visibles asociados a esta persona.
                 </p>
               ) : (
                 <div className="grid gap-2">
-                  {persona.agenda.map((agendaItem) =>
-                    renderAgenda(persona, agendaItem)
-                  )}
+                  {persona.agenda.map((agendaItem) => renderAgenda(agendaItem))}
                 </div>
               )}
             </BloqueFicha>
 
             <BloqueFicha titulo="Comunicaciones">
-              {renderComunicaciones(persona)}
+              <div className="space-y-3 text-sm text-gray-700">
+                <p>
+                  Los mails individuales, segmentos, destinatarios específicos e
+                  historial se gestionan desde Admin Comunicaciones.
+                </p>
+                <Link
+                  href="/admin/comunicaciones"
+                  className="workspace-button-secondary !px-3 !py-1.5 text-xs"
+                >
+                  Gestionar comunicaciones
+                </Link>
+              </div>
             </BloqueFicha>
 
-            <BloqueFicha titulo="Notas y documentos">
+            <BloqueFicha titulo="Notas generales de la persona">
               {documentos.length === 0 ? (
                 <p className="text-sm text-gray-600">
-                  No hay documentos de notas visibles.
+                  No hay notas generales visibles para esta persona.
                 </p>
               ) : (
                 <div className="flex flex-wrap gap-2">
@@ -2533,9 +1879,9 @@ export default function AdminUsuariosPage() {
           <p className="workspace-eyebrow">Administración</p>
           <h1 className="workspace-title">Personas</h1>
           <p className="workspace-subtitle">
-            Esta pantalla empieza a funcionar como ficha integral por persona:
-            perfil, actividades, economía, agenda, alertas y documentos, sin
-            mover todavía las lógicas reales de acceso, pagos ni agenda.
+            Ficha administrativa para datos personales, actividades y economía.
+            Los encuentros se gestionan desde Agenda y los mails desde
+            Comunicaciones.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link href="/admin/pagos" className="workspace-button-secondary">
@@ -2634,7 +1980,7 @@ export default function AdminUsuariosPage() {
 
           <label className="space-y-2 lg:col-span-2">
             <span className="text-sm font-medium text-gray-700">
-              Documentos de toma de notas
+              Notas generales de la persona
             </span>
             <textarea
               className="workspace-field min-h-28"
@@ -2645,11 +1991,11 @@ export default function AdminUsuariosPage() {
                   notasDocumentos: e.target.value,
                 }))
               }
-              placeholder="Un documento por línea. Ej: Proceso Nicolás | https://docs.google.com/document/..."
+              placeholder="Notas internas generales sobre la persona. Si agregás links, usá: Título | URL."
             />
             <p className="workspace-inline-note">
-              Podés pegar uno o varios links. Si querés poner título, usá:
-              Título | URL.
+              Este campo es de ficha personal. Las notas y documentos de sesión
+              se gestionan desde Agenda.
             </p>
           </label>
 
