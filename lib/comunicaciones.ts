@@ -23,6 +23,11 @@ export type EnviarComunicacionIndividualParams = {
   plantillaClave?: string | null
   variables?: VariablesComunicacion
   metadata?: Record<string, unknown>
+  attachments?: {
+    filename: string
+    content: string
+    content_type?: string
+  }[]
 }
 
 export type EnviarConfirmacionSesionIndividualParams = {
@@ -138,6 +143,8 @@ const SEGMENTOS_PROXIMAMENTE = new Set<SegmentoComunicacion>([
   "pagos_al_dia",
 ])
 
+const TIMEZONE_ARGENTINA = "America/Argentina/Cordoba"
+
 function appUrl() {
   return (
     process.env.NEXT_PUBLIC_APP_URL ||
@@ -183,13 +190,149 @@ function formatearFechaSesion(fecha: string) {
     day: "numeric",
     month: "long",
     year: "numeric",
-    timeZone: "America/Argentina/Cordoba",
+    timeZone: TIMEZONE_ARGENTINA,
   }).format(new Date(Date.UTC(anio, mes - 1, dia)))
 }
 
 function formatearHoraSesion(hora: string) {
   const [horas = "00", minutos = "00"] = String(hora || "").split(":")
   return `${horas.padStart(2, "0")}:${minutos.padStart(2, "0")}`
+}
+
+function limpiarTextoIcs(value?: string | null) {
+  return String(value || "")
+    .replaceAll("\\", "\\\\")
+    .replaceAll(";", "\\;")
+    .replaceAll(",", "\\,")
+    .replace(/\r?\n/g, "\\n")
+}
+
+function formatearFechaHoraIcsLocal(fecha: string, hora: string, sumarMinutos = 0) {
+  const [anio, mes, dia] = fecha.split("-").map(Number)
+  const [horas = 0, minutos = 0, segundos = 0] = String(hora || "00:00")
+    .split(":")
+    .map(Number)
+  const base = new Date(
+    Date.UTC(
+      anio || 1970,
+      (mes || 1) - 1,
+      dia || 1,
+      horas || 0,
+      minutos || 0,
+      segundos || 0
+    )
+  )
+
+  base.setUTCMinutes(base.getUTCMinutes() + sumarMinutos)
+
+  const y = String(base.getUTCFullYear()).padStart(4, "0")
+  const m = String(base.getUTCMonth() + 1).padStart(2, "0")
+  const d = String(base.getUTCDate()).padStart(2, "0")
+  const h = String(base.getUTCHours()).padStart(2, "0")
+  const min = String(base.getUTCMinutes()).padStart(2, "0")
+  const sec = String(base.getUTCSeconds()).padStart(2, "0")
+
+  return `${y}${m}${d}T${h}${min}${sec}`
+}
+
+function formatearDtstampIcs(fecha = new Date()) {
+  const y = String(fecha.getUTCFullYear()).padStart(4, "0")
+  const m = String(fecha.getUTCMonth() + 1).padStart(2, "0")
+  const d = String(fecha.getUTCDate()).padStart(2, "0")
+  const h = String(fecha.getUTCHours()).padStart(2, "0")
+  const min = String(fecha.getUTCMinutes()).padStart(2, "0")
+  const sec = String(fecha.getUTCSeconds()).padStart(2, "0")
+
+  return `${y}${m}${d}T${h}${min}${sec}Z`
+}
+
+function extraerEmailRemitente(value?: string | null) {
+  const raw = String(value || "").trim()
+  const match = raw.match(/<([^>]+)>/)
+  const email = (match?.[1] || raw).trim()
+
+  return email.includes("@") ? email : ""
+}
+
+function extraerNombreRemitente(value?: string | null) {
+  const raw = String(value || "").trim()
+  const match = raw.match(/^(.+?)\s*<[^>]+>$/)
+  return (match?.[1] || "Entheos").replace(/^"|"$/g, "").trim()
+}
+
+function organizerIcs() {
+  const remitente =
+    process.env.MAIL_REPLY_TO ||
+    process.env.REPLY_TO ||
+    process.env.MAIL_FROM ||
+    process.env.RESEND_FROM ||
+    ""
+  const email = extraerEmailRemitente(remitente)
+
+  if (!email) return null
+
+  const nombre = limpiarTextoIcs(extraerNombreRemitente(remitente))
+  return `ORGANIZER;CN=${nombre}:MAILTO:${email}`
+}
+
+function base64Utf8(value: string) {
+  return Buffer.from(value, "utf8").toString("base64")
+}
+
+export function generarIcsSesionIndividual(
+  params: EnviarConfirmacionSesionIndividualParams
+) {
+  const actividad = nombreActividadSesion(params.actividadSlug)
+  const titulo = `${actividad} en Entheos`
+  const duracion = Number(params.duracion || 60)
+  const meetLink = normalizarMeetLink(params.meetLink)
+  const linkPlataforma = `${appUrl()}${rutaActividadSesion(params.actividadSlug)}`
+  const urlEvento = meetLink || linkPlataforma
+  const ubicacion = meetLink || "Entheos"
+  const uidBase = params.disponibilidadId
+    ? String(params.disponibilidadId)
+    : `${params.actividadSlug}-${params.fecha}-${params.hora}-${normalizarEmail(
+        params.destinatarioEmail
+      )}`.replace(/[^a-zA-Z0-9_-]/g, "-")
+  const descripcion = [
+    `Actividad: ${actividad}`,
+    `Fecha: ${formatearFechaSesion(params.fecha)}`,
+    `Hora: ${formatearHoraSesion(params.hora)} Argentina`,
+    `Duración: ${duracion} minutos`,
+    `Plataforma: ${linkPlataforma}`,
+    meetLink
+      ? `Meet: ${meetLink}`
+      : "El enlace de acceso será enviado antes del encuentro.",
+  ].join("\n")
+  const organizer = organizerIcs()
+  const lineas = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Entheos Escuela//Agenda//ES",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:entheos-disponibilidad-${uidBase}@entheosescuela.com`,
+    `DTSTAMP:${formatearDtstampIcs()}`,
+    `DTSTART;TZID=${TIMEZONE_ARGENTINA}:${formatearFechaHoraIcsLocal(
+      params.fecha,
+      params.hora
+    )}`,
+    `DTEND;TZID=${TIMEZONE_ARGENTINA}:${formatearFechaHoraIcsLocal(
+      params.fecha,
+      params.hora,
+      duracion
+    )}`,
+    `SUMMARY:${limpiarTextoIcs(titulo)}`,
+    `DESCRIPTION:${limpiarTextoIcs(descripcion)}`,
+    `LOCATION:${limpiarTextoIcs(ubicacion)}`,
+    `URL:${urlEvento}`,
+    organizer,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].filter(Boolean)
+
+  return `${lineas.join("\r\n")}\r\n`
 }
 
 function esTablaContactosFaltante(error: unknown) {
@@ -904,6 +1047,7 @@ export async function enviarComunicacionIndividual(
     subject: asunto,
     text: texto || html.replace(/<[^>]+>/g, " "),
     html: html || textoAHtml(texto),
+    attachments: params.attachments,
   })
 
   const registro = await registrarEnvioComunicacion({
@@ -1015,6 +1159,11 @@ export async function enviarConfirmacionSesionIndividual(
       </div>
     </div>
   `
+  const ics = generarIcsSesionIndividual({
+    ...params,
+    destinatarioEmail,
+    meetLink,
+  })
 
   return enviarComunicacionIndividual({
     destinatarioEmail,
@@ -1024,6 +1173,13 @@ export async function enviarConfirmacionSesionIndividual(
     texto,
     tipo: "confirmacion_sesion",
     actividadSlug: params.actividadSlug,
+    attachments: [
+      {
+        filename: "encuentro-entheos.ics",
+        content: base64Utf8(ics),
+        content_type: "text/calendar; charset=utf-8",
+      },
+    ],
     metadata: {
       disponibilidadId: params.disponibilidadId || null,
       origen: "agenda",

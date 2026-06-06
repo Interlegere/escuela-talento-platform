@@ -15,6 +15,12 @@ type MailingResult =
   | { enviado: true; proveedor: string; proveedorId?: string | null }
   | { enviado: false; motivo: string }
 
+type EmailAttachment = {
+  filename: string
+  content: string
+  content_type?: string
+}
+
 function appUrl() {
   return (
     process.env.NEXT_PUBLIC_APP_URL ||
@@ -270,11 +276,13 @@ export async function enviarEmail({
   subject,
   text,
   html,
+  attachments,
 }: {
   to: string
   subject: string
   text: string
   html: string
+  attachments?: EmailAttachment[]
 }): Promise<MailingResult> {
   const resendApiKey = process.env.RESEND_API_KEY
   const from = process.env.MAIL_FROM || process.env.RESEND_FROM
@@ -301,6 +309,7 @@ export async function enviarEmail({
       text,
       html,
       ...(replyTo ? { reply_to: replyTo } : {}),
+      ...(attachments?.length ? { attachments } : {}),
     }),
   })
 
