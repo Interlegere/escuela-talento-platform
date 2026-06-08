@@ -42,20 +42,33 @@ export async function GET(req: NextRequest) {
     const { tokens } = await oauth2Client.getToken(code)
 
     const supabase = createAdminSupabaseClient()
-    const googleOwnerEmail = String(
-      process.env.GOOGLE_CALENDAR_OWNER_EMAIL || auth.actor.email || ""
-    )
+    const googleOwnerEmail = String(process.env.GOOGLE_CALENDAR_OWNER_EMAIL || "")
       .trim()
       .toLowerCase()
+    const actorEmail = String(auth.actor.email || "").trim().toLowerCase()
+    const emailsToken = Array.from(
+      new Set([googleOwnerEmail, actorEmail].filter(Boolean))
+    )
 
-    const { error } = await supabase.from("google_calendar_tokens").insert({
-      user_email: googleOwnerEmail,
+    if (emailsToken.length === 0) {
+      return NextResponse.json(
+        { error: "No se pudo resolver el email para guardar los tokens." },
+        { status: 500 }
+      )
+    }
+
+    const filasToken = emailsToken.map((email) => ({
+      user_email: email,
       access_token: tokens.access_token || "",
       refresh_token: tokens.refresh_token || "",
       scope: tokens.scope || "",
       token_type: tokens.token_type || "",
       expiry_date: tokens.expiry_date ? String(tokens.expiry_date) : "",
-    })
+    }))
+
+    const { error } = await supabase
+      .from("google_calendar_tokens")
+      .insert(filasToken)
 
     if (error) {
       return NextResponse.json(

@@ -1833,9 +1833,9 @@ export default function AdminUsuariosPage() {
                 </p>
               ) : (
                 <div className="flex flex-wrap gap-2">
-                  {documentos.map((documento) => (
+                  {documentos.map((documento, index) => (
                     <a
-                      key={`${persona.id}-${documento.url}`}
+                      key={`${persona.id}-${documento.url}-${index}`}
                       href={documento.url}
                       target="_blank"
                       rel="noreferrer"

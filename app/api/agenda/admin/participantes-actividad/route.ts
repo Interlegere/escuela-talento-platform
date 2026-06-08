@@ -67,18 +67,27 @@ export async function POST(req: Request) {
       )
     }
 
-    const participantes = ((data || []) as UsuarioActividadRow[])
+    const participantesPorEmail = new Map<string, { email: string; nombre: string }>()
+
+    ;((data || []) as UsuarioActividadRow[])
       .filter((item) => item.usuarios_plataforma?.activo !== false)
-      .map((item) => {
+      .forEach((item) => {
         const usuario = item.usuarios_plataforma
         const email = normalizarEmail(usuario?.email || item.usuario_email)
+        if (!email) return
+
         const nombre =
           [usuario?.nombre, usuario?.apellido].filter(Boolean).join(" ").trim() ||
           email
 
-        return { email, nombre }
+        if (!participantesPorEmail.has(email)) {
+          participantesPorEmail.set(email, { email, nombre })
+        }
       })
-      .filter((item) => item.email)
+
+    const participantes = Array.from(participantesPorEmail.values()).sort((a, b) =>
+      a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" })
+    )
 
     return NextResponse.json({
       ok: true,

@@ -636,8 +636,8 @@ export default function AgendaPage() {
                 onChange={(e) => setParticipanteEmail(e.target.value)}
               >
                 <option value="">Elegí participante</option>
-                {participantesMentoria.map((item) => (
-                  <option key={item.email} value={item.email}>
+                {participantesMentoria.map((item, index) => (
+                  <option key={`${item.email}-${index}`} value={item.email}>
                     {item.nombre} · {item.email}
                   </option>
                 ))}

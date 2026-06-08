@@ -230,9 +230,9 @@ function renderDocumentosNotas(item: AgendaItem) {
             Toma de notas
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {documentos.map((documento) => (
+            {documentos.map((documento, index) => (
               <a
-                key={`${item.id}-${documento.url}`}
+                key={`${item.id}-${documento.url}-${index}`}
                 href={documento.url}
                 target="_blank"
                 rel="noreferrer"

@@ -32,6 +32,16 @@ type Reserva = {
   google_calendar_id?: string | null
 }
 
+type GoogleCalendarTokenRow = {
+  id: number
+  user_email?: string | null
+  access_token?: string | null
+  refresh_token?: string | null
+  scope?: string | null
+  token_type?: string | null
+  expiry_date?: string | null
+}
+
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -97,9 +107,42 @@ export function construirFechaHoraGoogle(
   }
 }
 
-async function obtenerTokenGoogleCalendar(userEmail?: string) {
+async function buscarTokenGoogleCalendarPorEmail(email: string) {
   const supabase = getSupabaseAdmin()
 
+  const { data, error } = await supabase
+    .from("google_calendar_tokens")
+    .select("*")
+    .eq("user_email", email)
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  return (data || null) as GoogleCalendarTokenRow | null
+}
+
+async function buscarUltimoTokenGoogleCalendar() {
+  const supabase = getSupabaseAdmin()
+
+  const { data, error } = await supabase
+    .from("google_calendar_tokens")
+    .select("*")
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  return (data || null) as GoogleCalendarTokenRow | null
+}
+
+async function obtenerTokenGoogleCalendar(userEmail?: string) {
   const configuredOwnerEmail = getConfiguredGoogleCalendarOwnerEmail()
   const emailNormalizado = (
     configuredOwnerEmail ||
@@ -109,22 +152,26 @@ async function obtenerTokenGoogleCalendar(userEmail?: string) {
     .trim()
     .toLowerCase()
 
-  const consultaBase = supabase
-    .from("google_calendar_tokens")
-    .select("*")
-    .order("id", { ascending: false })
-    .limit(1)
+  if (emailNormalizado) {
+    const tokenPreferido = await buscarTokenGoogleCalendarPorEmail(
+      emailNormalizado
+    )
 
-  const { data: tokenPreferido, error: tokenPreferidoError } = emailNormalizado
-    ? await consultaBase.eq("user_email", emailNormalizado).maybeSingle()
-    : await consultaBase.maybeSingle()
-
-  if (tokenPreferidoError) {
-    throw tokenPreferidoError
+    if (tokenPreferido) {
+      return tokenPreferido
+    }
   }
 
-  if (tokenPreferido) {
-    return tokenPreferido
+  const tokenFallback = await buscarUltimoTokenGoogleCalendar()
+
+  if (tokenFallback) {
+    if (configuredOwnerEmail && process.env.NODE_ENV !== "production") {
+      console.warn(
+        `No se encontró token exacto para GOOGLE_CALENDAR_OWNER_EMAIL=${configuredOwnerEmail}. Se usará el último token conectado (${tokenFallback.user_email || "sin email"}).`
+      )
+    }
+
+    return tokenFallback
   }
 
   if (configuredOwnerEmail) {
@@ -133,22 +180,7 @@ async function obtenerTokenGoogleCalendar(userEmail?: string) {
     )
   }
 
-  if (emailNormalizado) {
-    return null
-  }
-
-  const { data: tokenFallback, error: tokenFallbackError } = await supabase
-    .from("google_calendar_tokens")
-    .select("*")
-    .order("id", { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (tokenFallbackError) {
-    throw tokenFallbackError
-  }
-
-  return tokenFallback || null
+  return null
 }
 
 export async function getGoogleCalendarClient(userEmail?: string) {
@@ -167,6 +199,41 @@ export async function getGoogleCalendarClient(userEmail?: string) {
   oauth2Client.setCredentials({
     access_token: tokenRow.access_token || undefined,
     refresh_token: tokenRow.refresh_token || undefined,
+  })
+
+  oauth2Client.on("tokens", async (tokens) => {
+    try {
+      const updatePayload: Record<string, string> = {}
+
+      if (tokens.access_token) {
+        updatePayload.access_token = tokens.access_token
+      }
+
+      if (tokens.refresh_token) {
+        updatePayload.refresh_token = tokens.refresh_token
+      }
+
+      if (tokens.scope) {
+        updatePayload.scope = tokens.scope
+      }
+
+      if (tokens.token_type) {
+        updatePayload.token_type = tokens.token_type
+      }
+
+      if (tokens.expiry_date) {
+        updatePayload.expiry_date = String(tokens.expiry_date)
+      }
+
+      if (Object.keys(updatePayload).length > 0) {
+        await getSupabaseAdmin()
+          .from("google_calendar_tokens")
+          .update(updatePayload)
+          .eq("id", tokenRow.id)
+      }
+    } catch (error) {
+      console.error("No se pudo actualizar el token de Google Calendar", error)
+    }
   })
 
   return google.calendar({
