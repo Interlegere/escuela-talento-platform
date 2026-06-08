@@ -78,13 +78,7 @@ export default function AppNav() {
 
   const links = esLandingPublica
     ? [
-        { href: "/landing#escuela", label: "La Escuela" },
-        { href: "/landing#ejes", label: "Ejes" },
-        { href: "/landing#transformaciones", label: "Transformaciones" },
-        { href: "/landing#actividades", label: "Actividades" },
-        { href: "/landing#recursos", label: "Recursos" },
-        { href: "/landing#director", label: "Director" },
-        { href: "/landing#contacto", label: "Contacto" },
+        { href: "/campus", label: "Campus" },
         { href: "/login", label: "Ingresar" },
       ]
     : esAdmin
