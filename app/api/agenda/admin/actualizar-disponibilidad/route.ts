@@ -268,6 +268,16 @@ export async function POST(req: Request) {
     const fecha = String(body.fecha ?? disponibilidadBase.fecha ?? "").trim()
     const hora = String(body.hora ?? disponibilidadBase.hora ?? "").trim()
     const duracion = String(body.duracion ?? disponibilidadBase.duracion ?? "").trim()
+    const meetLinkEditado = body.meet_link?.trim()
+      ? meetLinkReal(body.meet_link)
+      : null
+
+    if (body.meet_link?.trim() && !meetLinkEditado) {
+      return NextResponse.json(
+        { error: "Pegá un Meet real. No se acepta https://meet.google.com/new." },
+        { status: 400 }
+      )
+    }
 
     if (!titulo || !fecha || !hora || !duracion) {
       return NextResponse.json(
@@ -295,6 +305,8 @@ export async function POST(req: Request) {
         fechaDestino !== item.fecha ||
         hora !== item.hora ||
         duracion !== item.duracion
+      const cambiaMeetManual =
+        Boolean(meetLinkEditado) && meetLinkEditado !== meetLinkReal(item.meet_link)
 
       const update: Record<string, unknown> = {
         titulo,
@@ -307,7 +319,11 @@ export async function POST(req: Request) {
         update.notas_documentos = normalizarDocumentosNotas(body.notas_documentos)
       }
 
-      if (cambiaEncuentro) {
+      if (cambiaMeetManual && meetLinkEditado) {
+        update.meet_link = meetLinkEditado
+        update.sync_status = "manual"
+        update.last_synced_at = new Date().toISOString()
+      } else if (cambiaEncuentro) {
         update.sync_status = "pendiente"
       }
 

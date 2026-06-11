@@ -1013,8 +1013,6 @@ export default function EspacioAcompanamiento({
                 </section>
               )}
 
-              {actividadSlug === "terapia" && <ReservaTerapiaSection />}
-
               <SeccionDesplegable titulo={tituloMensajes}>
                 <div className="space-y-4">
                   {cargandoResumen && !resumenInicializado && (
@@ -1396,6 +1394,8 @@ export default function EspacioAcompanamiento({
                   )}
                 </div>
               </SeccionDesplegable>
+
+              {actividadSlug === "terapia" && <ReservaTerapiaSection />}
 
               <SeccionDesplegable titulo="Recursos">
                 <div className="space-y-4">

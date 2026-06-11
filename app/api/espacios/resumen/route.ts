@@ -312,11 +312,20 @@ export async function POST(req: Request) {
         return claveA.localeCompare(claveB)
       })
 
+    const disponibilidadesConReserva = new Set(
+      encuentrosReservados
+        .map((item) => item.disponibilidadId)
+        .filter((value): value is number => Boolean(value))
+    )
+
     const encuentrosFijos = ((disponibilidadesFijas || []) as DisponibilidadFijaEspacioRow[])
       .filter((item) => {
         const participanteAsignado =
           String(item.participante_email || "").trim().toLowerCase()
-        return participanteAsignado === contexto.participanteEmail
+        return (
+          participanteAsignado === contexto.participanteEmail &&
+          !disponibilidadesConReserva.has(item.id)
+        )
       })
       .map((item) => {
         const link = meetLinkReal(item.meet_link)

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import PagoReservaTerapiaCard from "@/components/pagos/PagoReservaTerapiaCard"
 import PagoMensualCard from "@/components/pagos/PagoMensualCard"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
 import { etiquetaModalidadPago, type BillingMode } from "@/lib/billing"
@@ -23,10 +24,41 @@ type RetornoMercadoPago = {
   pagoMensualId: number
 } | null
 
+type TerapiaPendiente = {
+  id: string | number
+  reservaId?: number | null
+  titulo: string
+  fecha: string
+  hora: string
+  duracion: string
+  estado: string
+  montoTransferencia?: string | null
+  montoMercadoPago?: string | null
+  porcentajeRecargoMercadoPago?: number | null
+  comprobanteNombreArchivo?: string | null
+}
+
+function formatearFecha(fecha?: string | null) {
+  if (!fecha) return ""
+
+  const d = new Date(`${fecha}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return fecha
+
+  return d.toLocaleDateString("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  })
+}
+
 export default function PagosPage() {
   const { data: session, status, error } = useAppSession()
   const [honorarios, setHonorarios] = useState<HonorarioAsignado[]>([])
+  const [sesionesTerapiaPendientes, setSesionesTerapiaPendientes] = useState<
+    TerapiaPendiente[]
+  >([])
   const [cargandoHonorarios, setCargandoHonorarios] = useState(false)
+  const [cargandoSesionesTerapia, setCargandoSesionesTerapia] = useState(false)
   const [mensaje, setMensaje] = useState("")
   const [retornoMercadoPago, setRetornoMercadoPago] =
     useState<RetornoMercadoPago>(null)
@@ -85,6 +117,59 @@ export default function PagosPage() {
 
     void cargarHonorarios()
   }, [esAdmin, status])
+
+  useEffect(() => {
+    if (status !== "authenticated" || esAdmin) return
+
+    const tieneTerapiaPorSesion = honorarios.some(
+      (item) =>
+        item.actividadSlug === "terapia" && item.modalidadPago === "sesion"
+    )
+
+    if (!tieneTerapiaPorSesion) {
+      setSesionesTerapiaPendientes([])
+      setCargandoSesionesTerapia(false)
+      return
+    }
+
+    const cargarSesionesTerapia = async () => {
+      try {
+        setCargandoSesionesTerapia(true)
+
+        const res = await fetch("/api/espacios/resumen", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            actividadSlug: "terapia",
+          }),
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+          setSesionesTerapiaPendientes([])
+          return
+        }
+
+        const pendientes = Array.isArray(data.encuentros)
+          ? data.encuentros.filter(
+              (item: TerapiaPendiente) =>
+                item.estado === "pendiente_pago" && Boolean(item.reservaId)
+            )
+          : []
+
+        setSesionesTerapiaPendientes(pendientes)
+      } catch {
+        setSesionesTerapiaPendientes([])
+      } finally {
+        setCargandoSesionesTerapia(false)
+      }
+    }
+
+    void cargarSesionesTerapia()
+  }, [esAdmin, honorarios, status])
 
   if (status === "loading") {
     return (
@@ -156,6 +241,49 @@ export default function PagosPage() {
         </section>
       )}
 
+      {(cargandoSesionesTerapia || sesionesTerapiaPendientes.length > 0) && (
+        <section className="workspace-panel space-y-4">
+          <div>
+            <p className="workspace-eyebrow">Terapia</p>
+            <h2 className="workspace-title-sm mt-2">Sesiones pendientes de pago</h2>
+            <p className="workspace-inline-note mt-2">
+              Estas sesiones ya fueron asignadas desde Agenda. Podés pagar cada una
+              sin reservar una fecha nueva.
+            </p>
+          </div>
+
+          {cargandoSesionesTerapia && (
+            <p className="workspace-inline-note">
+              Cargando sesiones pendientes...
+            </p>
+          )}
+
+          {!cargandoSesionesTerapia &&
+            sesionesTerapiaPendientes.map((sesion) => (
+              <div key={sesion.id} className="workspace-panel-soft space-y-3">
+                <div className="space-y-1">
+                  <p className="font-semibold">{sesion.titulo || "Sesión de Terapia"}</p>
+                  <p className="workspace-inline-note">
+                    {formatearFecha(sesion.fecha)} · {sesion.hora} · {sesion.duracion} min
+                  </p>
+                </div>
+
+                {sesion.reservaId ? (
+                  <PagoReservaTerapiaCard
+                    reservaId={sesion.reservaId}
+                    montoTransferencia={sesion.montoTransferencia}
+                    montoMercadoPago={sesion.montoMercadoPago}
+                    porcentajeRecargoMercadoPago={
+                      sesion.porcentajeRecargoMercadoPago
+                    }
+                    comprobanteNombreArchivo={sesion.comprobanteNombreArchivo}
+                  />
+                ) : null}
+              </div>
+            ))}
+        </section>
+      )}
+
       <div className="space-y-6">
         {honorarios.map((actividad) => (
           actividad.modalidadPago === "sesion" ? (
@@ -174,7 +302,9 @@ export default function PagosPage() {
                 <strong>Valor por sesión:</strong> {actividad.moneda} {actividad.honorarioMensual}
               </p>
               <p className="workspace-inline-note">
-                El pago de Terapia por sesión se gestiona al reservar cada encuentro, no desde esta tarjeta general.
+                {sesionesTerapiaPendientes.length > 0
+                  ? "Las sesiones pendientes ya aparecen arriba para que puedas pagarlas sin reservar otra fecha."
+                  : "Cuando te asignen una sesión o reserves un encuentro nuevo, el pago por sesión va a aparecer acá automáticamente."}
               </p>
             </section>
           ) : (

@@ -84,7 +84,7 @@ export default function ReservaTerapiaSection() {
   return (
     <section className="space-y-4">
       <div className="border rounded-xl p-4 space-y-2">
-        <h2 className="text-lg font-semibold">Agendar sesión</h2>
+        <h2 className="text-lg font-semibold">Reservar nueva sesión</h2>
         <p className="text-sm text-gray-600">
           Elegí la fecha, después el horario y completá la reserva desde este
           mismo espacio, paso a paso.

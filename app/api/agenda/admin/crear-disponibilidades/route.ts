@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server"
 import { requirePermission } from "@/lib/authz"
+import { normalizarModalidadPago } from "@/lib/billing"
+import { asegurarActividadBase } from "@/lib/core-activities"
 import { ESTADOS_DISPONIBILIDAD_ACTIVA } from "@/lib/disponibilidades"
 import { normalizarDocumentosNotas } from "@/lib/documentos-notas"
+import { calcularMontosPagoMensualConfigurado } from "@/lib/payment-pricing"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
 type DisponibilidadInsert = {
@@ -36,6 +39,13 @@ type Body = {
 
 class ValidationError extends Error {}
 
+type TerapiaHonorarioConfig = {
+  requierePago: boolean
+  montoBase: string
+  montoMercadoPago: string | null
+  porcentajeRecargoMercadoPago: number | null
+}
+
 function esEncuentroIndividualFijo(item: DisponibilidadInsert) {
   return (
     item.modo === "actividad_fija" &&
@@ -64,6 +74,68 @@ function esErrorMigracionAgenda(error: unknown) {
     mensaje.includes("sync_status") ||
     mensaje.includes("serie_id")
   )
+}
+
+function normalizarMonto(input: string | number | null | undefined) {
+  return String(input || "")
+    .replace(/\./g, "")
+    .replace(/,/g, "")
+    .replace(/[^\d]/g, "")
+    .trim()
+}
+
+async function resolverConfiguracionPagoTerapia(
+  participanteEmail: string
+): Promise<TerapiaHonorarioConfig> {
+  const actividadTerapia = await asegurarActividadBase("terapia")
+
+  if (!actividadTerapia?.id) {
+    return {
+      requierePago: false,
+      montoBase: "0",
+      montoMercadoPago: null,
+      porcentajeRecargoMercadoPago: null,
+    }
+  }
+
+  const supabase = createAdminSupabaseClient()
+  const { data: honorario } = await supabase
+    .from("honorarios_participante")
+    .select("honorario_mensual, modalidad_pago")
+    .eq("actividad_id", actividadTerapia.id)
+    .eq("participante_email", participanteEmail)
+    .eq("activo", true)
+    .maybeSingle()
+
+  const modalidad = normalizarModalidadPago(
+    honorario?.modalidad_pago,
+    "terapia"
+  )
+  const montoBase = normalizarMonto(honorario?.honorario_mensual || "0")
+  const requierePago =
+    modalidad === "sesion" &&
+    Boolean(montoBase) &&
+    !Number.isNaN(Number(montoBase)) &&
+    Number(montoBase) > 0
+
+  if (!requierePago) {
+    return {
+      requierePago: false,
+      montoBase,
+      montoMercadoPago: null,
+      porcentajeRecargoMercadoPago: null,
+    }
+  }
+
+  const resumenMontos = await calcularMontosPagoMensualConfigurado(montoBase)
+
+  return {
+    requierePago: true,
+    montoBase,
+    montoMercadoPago: String(resumenMontos.montoMercadoPago),
+    porcentajeRecargoMercadoPago:
+      resumenMontos.porcentajeRecargoMercadoPago,
+  }
 }
 
 export async function POST(req: Request) {
@@ -256,6 +328,112 @@ export async function POST(req: Request) {
         },
         { status: 500 }
       )
+    }
+
+    const configuracionPagoPorEmail = new Map<string, TerapiaHonorarioConfig>()
+
+    for (const item of data) {
+      const actividadSlug = String(item.actividad_slug || "").trim().toLowerCase()
+      const modo = String(item.modo || "").trim().toLowerCase()
+      const participanteEmail = String(item.participante_email || "")
+        .trim()
+        .toLowerCase()
+      const participanteNombre = String(item.participante_nombre || "").trim() || null
+
+      if (
+        actividadSlug !== "terapia" ||
+        modo !== "actividad_fija" ||
+        !participanteEmail
+      ) {
+        continue
+      }
+
+      const { data: reservaExistente, error: reservaExistenteError } = await supabase
+        .from("reservas")
+        .select("id")
+        .eq("disponibilidad_id", item.id)
+        .limit(1)
+        .maybeSingle()
+
+      if (reservaExistenteError) {
+        return NextResponse.json(
+          {
+            error:
+              "La sesión se creó, pero no se pudo validar la reserva asociada para Terapia.",
+            detalle: reservaExistenteError.message,
+          },
+          { status: 500 }
+        )
+      }
+
+      if (reservaExistente?.id) {
+        continue
+      }
+
+      let configuracionPago = configuracionPagoPorEmail.get(participanteEmail)
+
+      if (!configuracionPago) {
+        configuracionPago = await resolverConfiguracionPagoTerapia(participanteEmail)
+        configuracionPagoPorEmail.set(participanteEmail, configuracionPago)
+      }
+
+      const estadoReserva = configuracionPago.requierePago
+        ? "pendiente_pago"
+        : "confirmada"
+      const estadoDisponibilidad = configuracionPago.requierePago
+        ? "pendiente_pago"
+        : "confirmada"
+
+      const { error: reservaError } = await supabase.from("reservas").insert({
+        disponibilidad_id: item.id,
+        estado: estadoReserva,
+        participante_nombre: participanteNombre,
+        participante_email: participanteEmail,
+        monto: configuracionPago.montoBase || "0",
+        monto_transferencia: configuracionPago.montoBase || "0",
+        monto_mercado_pago: configuracionPago.requierePago
+          ? configuracionPago.montoMercadoPago
+          : null,
+        porcentaje_recargo_mercado_pago: configuracionPago.requierePago
+          ? configuracionPago.porcentajeRecargoMercadoPago
+          : null,
+        medio_pago: configuracionPago.requierePago ? null : "sin_cargo",
+        moneda: "ARS",
+      })
+
+      if (reservaError) {
+        return NextResponse.json(
+          {
+            error:
+              "La sesión se creó, pero no se pudo generar la reserva de cobro para Terapia.",
+            detalle: reservaError.message,
+          },
+          { status: 500 }
+        )
+      }
+
+      const { error: disponibilidadUpdateError } = await supabase
+        .from("disponibilidades")
+        .update({
+          estado: estadoDisponibilidad,
+          requiere_pago: configuracionPago.requierePago,
+          precio: configuracionPago.requierePago
+            ? configuracionPago.montoBase
+            : item.precio || "",
+          reservado_por: participanteNombre,
+        })
+        .eq("id", item.id)
+
+      if (disponibilidadUpdateError) {
+        return NextResponse.json(
+          {
+            error:
+              "La sesión y la reserva se crearon, pero no se pudo actualizar el estado final de la disponibilidad.",
+            detalle: disponibilidadUpdateError.message,
+          },
+          { status: 500 }
+        )
+      }
     }
 
     return NextResponse.json({

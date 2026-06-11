@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import ConsentimientoMeetButton from "@/components/consentimientos/ConsentimientoMeetButton"
+import EditarEncuentroModal from "@/components/agenda/EditarEncuentroModal"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
 import type { DocumentoNota } from "@/lib/documentos-notas"
 
@@ -114,6 +115,7 @@ export default function AgendaActividad({
   const [error, setError] = useState("")
   const [mensaje, setMensaje] = useState("")
   const [operandoId, setOperandoId] = useState<number | null>(null)
+  const [encuentroEditando, setEncuentroEditando] = useState<ItemAgenda | null>(null)
 
   const cargar = async () => {
     try {
@@ -186,25 +188,6 @@ export default function AgendaActividad({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ disponibilidadId: item.disponibilidadId }),
         })
-      } else if (accion === "meet_manual" || accion === "meet_manual_serie") {
-        const meetLink = window.prompt(
-          accion === "meet_manual_serie"
-            ? "Pegá el Meet real para este encuentro y los próximos de la serie:"
-            : "Pegá el Meet real para este encuentro:",
-          item.meetLink || ""
-        )
-        if (meetLink === null) return
-
-        res = await fetch("/api/agenda/admin/actualizar-disponibilidad", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            disponibilidadId: item.disponibilidadId,
-            modoActualizacion: "meet_manual",
-            meet_link: meetLink,
-            alcance: accion === "meet_manual_serie" ? "serie_futura" : alcance,
-          }),
-        })
       } else if (accion === "cancelar") {
         const confirmar = window.confirm(
           alcance === "serie_futura"
@@ -223,33 +206,7 @@ export default function AgendaActividad({
           }),
         })
       } else {
-        const titulo = window.prompt("Título del encuentro:", item.titulo)
-        if (titulo === null) return
-        const fecha = window.prompt(
-          alcance === "serie_futura"
-            ? "Nueva fecha para este encuentro base (AAAA-MM-DD). Las próximas fechas se moverán con el mismo corrimiento:"
-            : "Fecha (AAAA-MM-DD):",
-          item.fecha
-        )
-        if (fecha === null) return
-        const hora = window.prompt("Hora (HH:mm):", item.hora)
-        if (hora === null) return
-        const duracion = window.prompt("Duración en minutos:", item.duracion)
-        if (duracion === null) return
-
-        res = await fetch("/api/agenda/admin/actualizar-disponibilidad", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            disponibilidadId: item.disponibilidadId,
-            modoActualizacion: "editar",
-            titulo,
-            fecha,
-            hora,
-            duracion,
-            alcance,
-          }),
-        })
+        return
       }
 
       const data = await res.json()
@@ -273,9 +230,7 @@ export default function AgendaActividad({
                   ? `, ${data.errores} con error.`
                   : "."
               }`
-          : accion === "meet_manual" || accion === "meet_manual_serie"
-            ? "Meet manual guardado correctamente."
-            : accion === "cancelar"
+          : accion === "cancelar"
               ? data.afectados && data.afectados > 1
                 ? `${data.afectados} encuentros cancelados correctamente.`
                 : "Encuentro cancelado correctamente."
@@ -372,43 +327,16 @@ export default function AgendaActividad({
                 )}
                 <button
                   type="button"
-                  onClick={() => void ejecutarAccion(item, "editar", "solo_este")}
+                  onClick={() => {
+                    setMensaje("")
+                    setError("")
+                    setEncuentroEditando(item)
+                  }}
                   disabled={operandoId === item.disponibilidadId}
                   className="workspace-button-secondary disabled:opacity-60"
                 >
-                  Editar este encuentro
+                  Editar encuentro
                 </button>
-                <button
-                  type="button"
-                  onClick={() => void ejecutarAccion(item, "editar", "serie_futura")}
-                  disabled={operandoId === item.disponibilidadId || !item.serieId}
-                  title={
-                    item.serieId
-                      ? "Editar este encuentro y los próximos de la misma serie"
-                      : "Esta programación no tiene identificador de serie. Sólo se puede modificar este encuentro."
-                  }
-                  className="workspace-button-secondary disabled:opacity-60"
-                >
-                  Editar esta y próximas
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void ejecutarAccion(item, "meet_manual")}
-                  disabled={operandoId === item.disponibilidadId}
-                  className="workspace-button-secondary disabled:opacity-60"
-                >
-                  Configurar Meet manual
-                </button>
-                {item.serieId && (
-                  <button
-                    type="button"
-                    onClick={() => void ejecutarAccion(item, "meet_manual_serie", "serie_futura")}
-                    disabled={operandoId === item.disponibilidadId}
-                    className="workspace-button-secondary disabled:opacity-60"
-                  >
-                    Configurar Meet manual esta y próximas
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={() => void ejecutarAccion(item, "cancelar", "solo_este")}
@@ -440,6 +368,17 @@ export default function AgendaActividad({
           </div>
         ))}
       </div>
+
+      <EditarEncuentroModal
+        item={encuentroEditando}
+        open={Boolean(encuentroEditando)}
+        onClose={() => setEncuentroEditando(null)}
+        onSaved={async (message) => {
+          setMensaje(message)
+          setError("")
+          await cargar()
+        }}
+      />
     </section>
   )
 }
