@@ -25,6 +25,7 @@ const FRASES_ORACULO = [
   "Avanza para saber lo que esperas que el saber te muestre para avanzar.",
   "¿Por qué el otro sí logra lo que tú no? (La respuesta está en tu interior)",
   "Tu espejo está donde no lo ves, porque querer verte en lo externo, es hacer aparecer el espejo.",
+  "¿Por qué tu sí logras, lo que otros no?",
 ]
 
 type ResumenEspacio = {
