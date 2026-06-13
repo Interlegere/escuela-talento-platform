@@ -154,7 +154,7 @@ export default function AppNav() {
                 esLandingPublica ? "landing-brand-title" : ""
               }`}
             >
-              Entheos
+              ENTHEOS
             </span>
           </span>
         </Link>

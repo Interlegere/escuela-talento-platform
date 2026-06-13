@@ -257,7 +257,7 @@ function extraerEmailRemitente(value?: string | null) {
 function extraerNombreRemitente(value?: string | null) {
   const raw = String(value || "").trim()
   const match = raw.match(/^(.+?)\s*<[^>]+>$/)
-  return (match?.[1] || "Entheos").replace(/^"|"$/g, "").trim()
+  return (match?.[1] || "ENTHEOS").replace(/^"|"$/g, "").trim()
 }
 
 function organizerIcs() {
@@ -283,12 +283,12 @@ export function generarIcsSesionIndividual(
   params: EnviarConfirmacionSesionIndividualParams
 ) {
   const actividad = nombreActividadSesion(params.actividadSlug)
-  const titulo = `${actividad} en Entheos`
+  const titulo = `${actividad} en ENTHEOS`
   const duracion = Number(params.duracion || 60)
   const meetLink = normalizarMeetLink(params.meetLink)
   const linkPlataforma = `${appUrl()}${rutaActividadSesion(params.actividadSlug)}`
   const urlEvento = meetLink || linkPlataforma
-  const ubicacion = meetLink || "Entheos"
+  const ubicacion = meetLink || "ENTHEOS"
   const uidBase = params.disponibilidadId
     ? String(params.disponibilidadId)
     : `${params.actividadSlug}-${params.fecha}-${params.hora}-${normalizarEmail(
@@ -308,7 +308,7 @@ export function generarIcsSesionIndividual(
   const lineas = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Entheos Escuela//Agenda//ES",
+    "PRODID:-//ENTHEOS Escuela//Agenda//ES",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "BEGIN:VEVENT",
@@ -1118,7 +1118,7 @@ export async function enviarConfirmacionSesionIndividual(
     <div style="margin: 0; padding: 32px 16px; background: #f6efe2; font-family: Arial, sans-serif; color: #1f2933;">
       <div style="max-width: 640px; margin: 0 auto; background: #fffdf8; border: 1px solid #eadfc9; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(77, 54, 18, 0.08);">
         <div style="padding: 30px 32px 20px; background: linear-gradient(135deg, rgba(250,244,229,1) 0%, rgba(255,250,240,1) 55%, rgba(248,237,210,1) 100%);">
-          <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: #8a6a2f; font-weight: 700;">Entheos</p>
+          <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: #8a6a2f; font-weight: 700;">ENTHEOS</p>
           <h1 style="margin: 0 0 10px; font-size: 30px; line-height: 1.15; color: #18202a;">Confirmación de tu encuentro</h1>
           <p style="margin: 0; color: #6b7280; font-size: 16px; line-height: 1.5;">${escapeHtml(
             actividad
@@ -1168,7 +1168,7 @@ export async function enviarConfirmacionSesionIndividual(
   return enviarComunicacionIndividual({
     destinatarioEmail,
     destinatarioNombre: params.destinatarioNombre || null,
-    asunto: "Confirmación de tu encuentro en Entheos",
+    asunto: "Confirmación de tu encuentro en ENTHEOS",
     html,
     texto,
     tipo: "confirmacion_sesion",

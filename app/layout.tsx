@@ -22,7 +22,7 @@ const fraunces = Fraunces({
 })
 
 export const metadata: Metadata = {
-  title: "Entheos",
+  title: "ENTHEOS",
   description: "Escuela de trabajo, proceso y creación compartida",
   icons: {
     icon: "/icon.png",
@@ -57,7 +57,7 @@ export default function RootLayout({
             <footer className="border-t border-[var(--line)] bg-[rgba(253,247,236,0.78)] px-6 py-5 text-sm text-[var(--muted)] backdrop-blur-xl">
               <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p>
-                  Entheos · Escuela de trabajo, proceso y creación compartida.
+                  ENTHEOS · Escuela de trabajo, proceso y creación compartida.
                 </p>
                 <Link
                   href="/terminos-y-condiciones"

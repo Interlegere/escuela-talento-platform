@@ -214,7 +214,7 @@ export async function POST(req: Request) {
           tipo: charlaIntroHabilitada ? "charla_intro" : "bienvenida",
           asunto: charlaIntroHabilitada
             ? "Grabación charla introductoria: Las Claves no evidentes para gestionar eficazmente tu tiempo."
-            : "Bienvenido/a a Entheos",
+            : "Bienvenido/a a ENTHEOS",
           plantillaClave: charlaIntroHabilitada
             ? "charla_intro"
             : "bienvenida_usuario",
@@ -267,7 +267,7 @@ export async function POST(req: Request) {
         tipo: charlaIntroHabilitada ? "charla_intro" : "bienvenida",
         asunto: charlaIntroHabilitada
           ? "Grabación charla introductoria: Las Claves no evidentes para gestionar eficazmente tu tiempo."
-          : "Bienvenido/a a Entheos",
+          : "Bienvenido/a a ENTHEOS",
         plantillaClave: charlaIntroHabilitada
           ? "charla_intro"
           : "bienvenida_usuario",
