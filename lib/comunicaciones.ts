@@ -41,6 +41,19 @@ export type EnviarConfirmacionSesionIndividualParams = {
   meetLink?: string | null
 }
 
+export type EnviarActualizacionSesionIndividualParams =
+  EnviarConfirmacionSesionIndividualParams
+
+export type EnviarCancelacionSesionIndividualParams = {
+  disponibilidadId?: number | null
+  destinatarioEmail: string
+  destinatarioNombre?: string | null
+  actividadSlug: "mentorias" | "terapia"
+  fecha: string
+  hora: string
+  duracion: string | number
+}
+
 export type SegmentoComunicacion =
   | "todos_activos"
   | "todos_registrados"
@@ -1184,6 +1197,199 @@ export async function enviarConfirmacionSesionIndividual(
       disponibilidadId: params.disponibilidadId || null,
       origen: "agenda",
       meetGenerado: Boolean(meetLink),
+    },
+  })
+}
+
+export async function enviarActualizacionSesionIndividual(
+  params: EnviarActualizacionSesionIndividualParams
+) {
+  const destinatarioEmail = normalizarEmail(params.destinatarioEmail)
+  if (!destinatarioEmail) {
+    throw new Error("Falta email del participante para enviar actualización.")
+  }
+
+  const actividad = nombreActividadSesion(params.actividadSlug)
+  const nombre = String(params.destinatarioNombre || "").trim() || "bienvenida/o"
+  const fechaTexto = formatearFechaSesion(params.fecha)
+  const horaTexto = formatearHoraSesion(params.hora)
+  const duracionTexto = String(params.duracion || "60")
+  const meetLink = normalizarMeetLink(params.meetLink)
+  const linkPlataforma = `${appUrl()}${rutaActividadSesion(params.actividadSlug)}`
+
+  const meetTexto = meetLink
+    ? `Link de acceso actualizado: ${meetLink}`
+    : "Podés revisar el acceso actualizado entrando a tu espacio en la plataforma."
+
+  const texto = [
+    `Hola ${nombre},`,
+    "",
+    `Tu encuentro de ${actividad} fue actualizado.`,
+    "",
+    `Día: ${fechaTexto}`,
+    `Hora: ${horaTexto} Argentina`,
+    `Duración: ${duracionTexto} minutos`,
+    "",
+    meetTexto,
+    "",
+    "Podés revisar la información completa desde tu espacio en la plataforma:",
+    linkPlataforma,
+  ].join("\n")
+
+  const meetHtml = meetLink
+    ? `<p style="margin: 0;"><strong>Link de acceso actualizado:</strong> <a href="${meetLink}" style="color:#8a5b0f;">${meetLink}</a></p>`
+    : `<p style="margin: 0;">Podés revisar el acceso actualizado entrando a tu espacio en la plataforma.</p>`
+
+  const html = `
+    <div style="margin: 0; padding: 32px 16px; background: #f6efe2; font-family: Arial, sans-serif; color: #1f2933;">
+      <div style="max-width: 640px; margin: 0 auto; background: #fffdf8; border: 1px solid #eadfc9; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(77, 54, 18, 0.08);">
+        <div style="padding: 30px 32px 20px; background: linear-gradient(135deg, rgba(250,244,229,1) 0%, rgba(255,250,240,1) 55%, rgba(248,237,210,1) 100%);">
+          <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: #8a6a2f; font-weight: 700;">ENTHEOS</p>
+          <h1 style="margin: 0 0 10px; font-size: 30px; line-height: 1.15; color: #18202a;">Actualización de tu encuentro</h1>
+          <p style="margin: 0; color: #6b7280; font-size: 16px; line-height: 1.5;">${escapeHtml(
+            actividad
+          )}</p>
+        </div>
+
+        <div style="padding: 28px 32px 32px; line-height: 1.7;">
+          <p style="margin: 0 0 14px;">Hola ${escapeHtml(nombre)},</p>
+          <p style="margin: 0 0 16px;">Tu encuentro fue actualizado y ahora quedó programado así:</p>
+
+          <div style="border: 1px solid #e5dccb; border-radius: 18px; padding: 18px 20px; margin: 0 0 22px; background: #fffaf2;">
+            <p style="margin: 0 0 10px;"><strong>Día:</strong> ${escapeHtml(
+              fechaTexto
+            )}</p>
+            <p style="margin: 0 0 10px;"><strong>Hora:</strong> ${escapeHtml(
+              horaTexto
+            )} Argentina</p>
+            <p style="margin: 0;"><strong>Duración:</strong> ${escapeHtml(
+              duracionTexto
+            )} minutos</p>
+          </div>
+
+          <div style="border: 1px solid #ead9b4; border-radius: 18px; padding: 18px 20px; margin: 0 0 22px; background: #fff7ea;">
+            ${meetHtml}
+          </div>
+
+          <p style="margin: 0 0 14px;">Podés revisar la información completa desde tu espacio en la plataforma:</p>
+          <p style="margin: 0 0 22px;">
+            <a href="${linkPlataforma}" style="display: inline-block; padding: 13px 20px; border-radius: 999px; background: #c98b1b; color: #ffffff; font-weight: 700; text-decoration: none;">
+              Ir a la plataforma
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+  `
+
+  const ics = generarIcsSesionIndividual({
+    ...params,
+    destinatarioEmail,
+    meetLink,
+  })
+
+  return enviarComunicacionIndividual({
+    destinatarioEmail,
+    destinatarioNombre: params.destinatarioNombre || null,
+    asunto: "Actualización de tu encuentro en ENTHEOS",
+    html,
+    texto,
+    tipo: "actualizacion_sesion",
+    actividadSlug: params.actividadSlug,
+    attachments: [
+      {
+        filename: "encuentro-entheos-actualizado.ics",
+        content: base64Utf8(ics),
+        content_type: "text/calendar; charset=utf-8",
+      },
+    ],
+    metadata: {
+      disponibilidadId: params.disponibilidadId || null,
+      origen: "agenda",
+      meetGenerado: Boolean(meetLink),
+    },
+  })
+}
+
+export async function enviarCancelacionSesionIndividual(
+  params: EnviarCancelacionSesionIndividualParams
+) {
+  const destinatarioEmail = normalizarEmail(params.destinatarioEmail)
+  if (!destinatarioEmail) {
+    throw new Error("Falta email del participante para enviar cancelación.")
+  }
+
+  const actividad = nombreActividadSesion(params.actividadSlug)
+  const nombre = String(params.destinatarioNombre || "").trim() || "bienvenida/o"
+  const fechaTexto = formatearFechaSesion(params.fecha)
+  const horaTexto = formatearHoraSesion(params.hora)
+  const duracionTexto = String(params.duracion || "60")
+  const linkPlataforma = `${appUrl()}${rutaActividadSesion(params.actividadSlug)}`
+
+  const texto = [
+    `Hola ${nombre},`,
+    "",
+    `Tu encuentro de ${actividad} fue cancelado.`,
+    "",
+    `Día: ${fechaTexto}`,
+    `Hora: ${horaTexto} Argentina`,
+    `Duración: ${duracionTexto} minutos`,
+    "",
+    "Si necesitás reprogramarlo, podés revisar tu espacio en la plataforma o responder este correo.",
+    linkPlataforma,
+  ].join("\n")
+
+  const html = `
+    <div style="margin: 0; padding: 32px 16px; background: #f6efe2; font-family: Arial, sans-serif; color: #1f2933;">
+      <div style="max-width: 640px; margin: 0 auto; background: #fffdf8; border: 1px solid #eadfc9; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(77, 54, 18, 0.08);">
+        <div style="padding: 30px 32px 20px; background: linear-gradient(135deg, rgba(250,244,229,1) 0%, rgba(255,250,240,1) 55%, rgba(248,237,210,1) 100%);">
+          <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: #8a6a2f; font-weight: 700;">ENTHEOS</p>
+          <h1 style="margin: 0 0 10px; font-size: 30px; line-height: 1.15; color: #18202a;">Cancelación de tu encuentro</h1>
+          <p style="margin: 0; color: #6b7280; font-size: 16px; line-height: 1.5;">${escapeHtml(
+            actividad
+          )}</p>
+        </div>
+
+        <div style="padding: 28px 32px 32px; line-height: 1.7;">
+          <p style="margin: 0 0 14px;">Hola ${escapeHtml(nombre)},</p>
+          <p style="margin: 0 0 16px;">Te avisamos que este encuentro fue cancelado:</p>
+
+          <div style="border: 1px solid #e5dccb; border-radius: 18px; padding: 18px 20px; margin: 0 0 22px; background: #fffaf2;">
+            <p style="margin: 0 0 10px;"><strong>Día:</strong> ${escapeHtml(
+              fechaTexto
+            )}</p>
+            <p style="margin: 0 0 10px;"><strong>Hora:</strong> ${escapeHtml(
+              horaTexto
+            )} Argentina</p>
+            <p style="margin: 0;"><strong>Duración:</strong> ${escapeHtml(
+              duracionTexto
+            )} minutos</p>
+          </div>
+
+          <p style="margin: 0 0 14px;">Si necesitás reprogramarlo, podés revisar tu espacio en la plataforma:</p>
+          <p style="margin: 0 0 22px;">
+            <a href="${linkPlataforma}" style="display: inline-block; padding: 13px 20px; border-radius: 999px; background: #c98b1b; color: #ffffff; font-weight: 700; text-decoration: none;">
+              Ir a la plataforma
+            </a>
+          </p>
+
+          <p style="margin: 0;">Si necesitás ayuda, podés responder este correo.</p>
+        </div>
+      </div>
+    </div>
+  `
+
+  return enviarComunicacionIndividual({
+    destinatarioEmail,
+    destinatarioNombre: params.destinatarioNombre || null,
+    asunto: "Cancelación de tu encuentro en ENTHEOS",
+    html,
+    texto,
+    tipo: "cancelacion_sesion",
+    actividadSlug: params.actividadSlug,
+    metadata: {
+      disponibilidadId: params.disponibilidadId || null,
+      origen: "agenda",
     },
   })
 }

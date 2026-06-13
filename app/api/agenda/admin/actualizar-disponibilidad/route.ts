@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server"
 import { requirePermission } from "@/lib/authz"
+import {
+  enviarActualizacionSesionIndividual,
+  enviarCancelacionSesionIndividual,
+} from "@/lib/comunicaciones"
 import { ESTADOS_DISPONIBILIDAD_ACTIVA } from "@/lib/disponibilidades"
 import { normalizarDocumentosNotas } from "@/lib/documentos-notas"
+import {
+  cancelarDisponibilidadEnGoogle,
+  sincronizarDisponibilidadConGoogle,
+} from "@/lib/google-calendar"
 import { normalizarMeetLink } from "@/lib/meet-links"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
@@ -29,6 +37,7 @@ type DisponibilidadAgenda = {
   estado?: string | null
   serie_id?: string | null
   participante_email?: string | null
+  participante_nombre?: string | null
 }
 
 function meetLinkReal(meetLink?: string | null) {
@@ -191,7 +200,13 @@ export async function POST(req: Request) {
     const tieneReservas = (reservas || []).length > 0
 
     if (modoActualizacion === "cancelar") {
-      if (tieneReservas) {
+      const cancelacionPermitidaConReservas = disponibilidadesObjetivo.every(
+        (item) =>
+          item.modo === "actividad_fija" &&
+          item.actividad_slug === "terapia"
+      )
+
+      if (tieneReservas && !cancelacionPermitidaConReservas) {
         return NextResponse.json(
           {
             error:
@@ -201,11 +216,30 @@ export async function POST(req: Request) {
         )
       }
 
+      if (cancelacionPermitidaConReservas && idsObjetivo.length > 0) {
+        const { error: reservasCanceladasError } = await supabase
+          .from("reservas")
+          .update({
+            estado: "cancelada",
+          })
+          .in("disponibilidad_id", idsObjetivo)
+
+        if (reservasCanceladasError) {
+          return NextResponse.json(
+            {
+              error: "No se pudo cancelar la reserva asociada al encuentro.",
+              detalle: reservasCanceladasError,
+            },
+            { status: 500 }
+          )
+        }
+      }
+
       const { data, error } = await supabase
         .from("disponibilidades")
         .update({
           estado: "cancelada",
-          sync_status: "pendiente",
+          sync_status: "sincronizando",
         })
         .in("id", idsObjetivo)
         .select("*")
@@ -220,11 +254,54 @@ export async function POST(req: Request) {
         )
       }
 
+      const advertencias: string[] = []
+
+      for (const item of data as DisponibilidadAgenda[]) {
+        try {
+          await cancelarDisponibilidadEnGoogle({
+            disponibilidadId: item.id,
+            actorEmail: auth.actor.email,
+          })
+        } catch (googleError) {
+          advertencias.push(
+            `Google Calendar no pudo cancelar el encuentro ${item.id}. ${String(
+              googleError instanceof Error ? googleError.message : googleError
+            )}`
+          )
+        }
+
+        if (
+          (item.actividad_slug === "terapia" || item.actividad_slug === "mentorias") &&
+          item.participante_email &&
+          item.fecha &&
+          item.hora
+        ) {
+          try {
+            await enviarCancelacionSesionIndividual({
+              disponibilidadId: item.id,
+              destinatarioEmail: item.participante_email,
+              destinatarioNombre: item.participante_nombre || null,
+              actividadSlug: item.actividad_slug,
+              fecha: item.fecha,
+              hora: item.hora,
+              duracion: item.duracion || "60",
+            })
+          } catch (mailError) {
+            advertencias.push(
+              `No se pudo enviar el mail de cancelación para el encuentro ${item.id}. ${String(
+                mailError instanceof Error ? mailError.message : mailError
+              )}`
+            )
+          }
+        }
+      }
+
       return NextResponse.json({
         ok: true,
         disponibilidad: data[0] || null,
         disponibilidades: data,
         afectados: data.length,
+        advertencias,
       })
     } else if (modoActualizacion === "meet_manual") {
       const meetLink = meetLinkReal(body.meet_link)
@@ -331,6 +408,8 @@ export async function POST(req: Request) {
         item,
         update,
         fechaDestino,
+        cambiaEncuentro,
+        cambiaMeetManual,
       }
     })
 
@@ -399,11 +478,65 @@ export async function POST(req: Request) {
       resultados.push(data)
     }
 
+    const advertencias: string[] = []
+    const actualizacionesPorId = new Map(
+      actualizaciones.map((actualizacion) => [actualizacion.item.id, actualizacion])
+    )
+
+    for (const item of resultados as DisponibilidadAgenda[]) {
+      const actualizacion = actualizacionesPorId.get(item.id)
+      const syncStatus = (item as DisponibilidadAgenda & { sync_status?: string | null })
+        .sync_status
+
+      if (syncStatus === "pendiente" && actualizacion?.cambiaEncuentro) {
+        try {
+          await sincronizarDisponibilidadConGoogle({
+            disponibilidadId: item.id,
+            actorEmail: auth.actor.email,
+          })
+        } catch (googleError) {
+          advertencias.push(
+            `Google Calendar no pudo actualizar el encuentro ${item.id}. ${String(
+              googleError instanceof Error ? googleError.message : googleError
+            )}`
+          )
+        }
+      }
+
+      if (
+        (item.actividad_slug === "terapia" || item.actividad_slug === "mentorias") &&
+        (actualizacion?.cambiaEncuentro || actualizacion?.cambiaMeetManual) &&
+        item.participante_email &&
+        item.fecha &&
+        item.hora
+      ) {
+        try {
+          await enviarActualizacionSesionIndividual({
+            disponibilidadId: item.id,
+            destinatarioEmail: item.participante_email,
+            destinatarioNombre: item.participante_nombre || null,
+            actividadSlug: item.actividad_slug,
+            fecha: item.fecha,
+            hora: item.hora,
+            duracion: item.duracion || "60",
+            meetLink: item.meet_link || null,
+          })
+        } catch (mailError) {
+          advertencias.push(
+            `No se pudo enviar el mail de actualización para el encuentro ${item.id}. ${String(
+              mailError instanceof Error ? mailError.message : mailError
+            )}`
+          )
+        }
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       disponibilidad: resultados[0] || null,
       disponibilidades: resultados,
       afectados: resultados.length,
+      advertencias,
     })
   } catch (error) {
     return NextResponse.json(

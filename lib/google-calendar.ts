@@ -1,5 +1,6 @@
 import { calendar_v3, google } from "googleapis"
 import { createClient } from "@supabase/supabase-js"
+import { normalizarMeetLink } from "@/lib/meet-links"
 
 type Disponibilidad = {
   id: number
@@ -278,6 +279,179 @@ function extractMeetLink(
   }
 
   return fallback || null
+}
+
+function meetLinkReal(meetLink?: string | null) {
+  return normalizarMeetLink(meetLink)
+}
+
+export async function sincronizarDisponibilidadConGoogle(params: {
+  disponibilidadId: number
+  actorEmail?: string
+}) {
+  const { disponibilidadId, actorEmail } = params
+  const supabase = getSupabaseAdmin()
+
+  const { data: disponibilidadData, error: disponibilidadError } = await supabase
+    .from("disponibilidades")
+    .select("*")
+    .eq("id", disponibilidadId)
+    .single()
+
+  const disponibilidad = disponibilidadData as Disponibilidad | null
+
+  if (disponibilidadError || !disponibilidad) {
+    throw new Error("No se encontró la disponibilidad")
+  }
+
+  await supabase
+    .from("disponibilidades")
+    .update({ sync_status: "sincronizando" })
+    .eq("id", disponibilidadId)
+
+  const calendar = await getGoogleCalendarClient(actorEmail)
+  const intervaloGoogle = construirFechaHoraGoogle(
+    disponibilidad.fecha,
+    disponibilidad.hora,
+    disponibilidad.duracion
+  )
+
+  const descripcion = [
+    `Tipo: ${disponibilidad.tipo}`,
+    `Duración: ${disponibilidad.duracion} min`,
+    disponibilidad.requiere_pago
+      ? `Precio: ${disponibilidad.precio}`
+      : "Sin pago",
+    `Estado plataforma: ${disponibilidad.estado}`,
+  ].join("\n")
+
+  const requestBody = {
+    summary: disponibilidad.titulo,
+    description: descripcion,
+    location: "Google Meet",
+    start: intervaloGoogle.start,
+    end: intervaloGoogle.end,
+  }
+
+  let googleEventId = disponibilidad.google_event_id || null
+  const calendarId = disponibilidad.google_calendar_id || "primary"
+  let meetLink = meetLinkReal(disponibilidad.meet_link)
+
+  if (!googleEventId) {
+    const insertRes = await calendar.events.insert({
+      calendarId,
+      conferenceDataVersion: 1,
+      requestBody: {
+        ...requestBody,
+        conferenceData: buildMeetConferenceData(),
+      },
+    })
+
+    googleEventId = insertRes.data.id || null
+    meetLink = meetLinkReal(extractMeetLink(insertRes.data, meetLink))
+  } else {
+    const existingEvent = await calendar.events.get({
+      calendarId,
+      eventId: googleEventId,
+    })
+
+    const updateRes = await calendar.events.update({
+      calendarId,
+      eventId: googleEventId,
+      conferenceDataVersion: 1,
+      requestBody: {
+        ...requestBody,
+        conferenceData: buildMeetConferenceData(
+          existingEvent.data.conferenceData
+        ),
+      },
+    })
+
+    meetLink =
+      meetLinkReal(extractMeetLink(updateRes.data)) ||
+      meetLinkReal(extractMeetLink(existingEvent.data, meetLink))
+  }
+
+  if (!googleEventId || !meetLink) {
+    await supabase
+      .from("disponibilidades")
+      .update({ sync_status: "error" })
+      .eq("id", disponibilidadId)
+
+    throw new Error(
+      "Google Calendar respondió, pero no devolvió un Meet válido."
+    )
+  }
+
+  const ahora = new Date().toISOString()
+
+  const { error: updateError } = await supabase
+    .from("disponibilidades")
+    .update({
+      meet_link: meetLink,
+      google_event_id: googleEventId,
+      google_calendar_id: calendarId,
+      sync_status: "sincronizado",
+      last_synced_at: ahora,
+    })
+    .eq("id", disponibilidadId)
+
+  if (updateError) {
+    throw new Error(
+      "Evento creado/actualizado, pero no se pudo guardar sync_status"
+    )
+  }
+
+  return {
+    disponibilidadId,
+    meet_link: meetLink,
+    google_event_id: googleEventId,
+    sync_status: "sincronizado" as const,
+  }
+}
+
+export async function cancelarDisponibilidadEnGoogle(params: {
+  disponibilidadId: number
+  actorEmail?: string
+}) {
+  const { disponibilidadId, actorEmail } = params
+  const supabase = getSupabaseAdmin()
+
+  const { data: disponibilidadData, error: disponibilidadError } = await supabase
+    .from("disponibilidades")
+    .select("id, google_event_id, google_calendar_id")
+    .eq("id", disponibilidadId)
+    .single()
+
+  if (disponibilidadError || !disponibilidadData) {
+    throw new Error("No se encontró la disponibilidad")
+  }
+
+  const googleEventId = String(disponibilidadData.google_event_id || "").trim()
+  const calendarId =
+    String(disponibilidadData.google_calendar_id || "").trim() || "primary"
+
+  if (googleEventId) {
+    const calendar = await getGoogleCalendarClient(actorEmail)
+    await calendar.events.delete({
+      calendarId,
+      eventId: googleEventId,
+    })
+  }
+
+  await supabase
+    .from("disponibilidades")
+    .update({
+      sync_status: "sincronizado",
+      last_synced_at: new Date().toISOString(),
+    })
+    .eq("id", disponibilidadId)
+
+  return {
+    disponibilidadId,
+    google_event_id: googleEventId || null,
+    cancelado: true,
+  }
 }
 
 export async function crearEventoGoogleDesdeReserva(params: {

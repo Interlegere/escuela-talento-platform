@@ -469,31 +469,32 @@ export default function AgendaPage() {
         }
 
         const erroresConfirmacion: string[] = []
-        const primeraSesion = esSesionAsignada ? data.items?.[0] : null
 
-        if (primeraSesion?.id) {
-          const confirmacionRes = await fetch(
-            "/api/admin/comunicaciones/confirmacion-sesion",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                disponibilidadId: primeraSesion.id,
-              }),
-            }
-          )
-
-          const confirmacionData = await leerJson<{ error?: string }>(
-            confirmacionRes
-          )
-
-          if (!confirmacionRes.ok) {
-            erroresConfirmacion.push(
-              confirmacionData.error ||
-                "No se pudo enviar la confirmación por mail."
+        if (esSesionAsignada) {
+          for (const sesionCreada of data.items || []) {
+            const confirmacionRes = await fetch(
+              "/api/admin/comunicaciones/confirmacion-sesion",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  disponibilidadId: sesionCreada.id,
+                }),
+              }
             )
+
+            const confirmacionData = await leerJson<{ error?: string }>(
+              confirmacionRes
+            )
+
+            if (!confirmacionRes.ok) {
+              erroresConfirmacion.push(
+                confirmacionData.error ||
+                  `No se pudo enviar la confirmación por mail de la sesión ${sesionCreada.id}.`
+              )
+            }
           }
         }
 

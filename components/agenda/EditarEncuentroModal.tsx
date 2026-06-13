@@ -148,6 +148,7 @@ export default function EditarEncuentroModal({
       const data = (await res.json()) as {
         error?: string
         necesitaConexionGoogle?: boolean
+        advertencias?: string[]
       }
 
       if (!res.ok) {
@@ -164,14 +165,18 @@ export default function EditarEncuentroModal({
 
       if (cambioEncuentro && cambioMeetManual) {
         mensaje =
-          "Cambios guardados. El Meet manual quedó actualizado. Sincronizá con Google para reflejar los cambios de horario o título."
+          "Cambios guardados. El Meet manual quedó actualizado y el encuentro se intentó sincronizar con Google Calendar."
       } else if (cambioEncuentro) {
         mensaje =
-          "Cambios guardados. Sincronizá con Google para actualizar Calendar/Meet."
+          "Cambios guardados. El encuentro se intentó sincronizar con Google Calendar automáticamente."
       } else if (cambioMeetManual) {
         mensaje = "Meet manual guardado correctamente."
       } else if (cambioNotas) {
         mensaje = "Notas/documentos guardados correctamente."
+      }
+
+      if (Array.isArray(data.advertencias) && data.advertencias.length > 0) {
+        mensaje = `${mensaje} Advertencias: ${data.advertencias.join(" ")}`
       }
 
       await onSaved?.(mensaje)
@@ -191,8 +196,9 @@ export default function EditarEncuentroModal({
             <p className="workspace-eyebrow">Agenda</p>
             <h2 className="workspace-title-sm">Editar encuentro</h2>
             <p className="workspace-inline-note">
-              Actualizá los datos de la plataforma. El sync con Google se hace
-              aparte.
+              Actualizá los datos de la plataforma. Si cambiás fecha, hora,
+              duración o título, también intentamos actualizar Google Calendar
+              automáticamente.
             </p>
           </div>
 
