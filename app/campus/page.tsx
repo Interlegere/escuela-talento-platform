@@ -18,6 +18,13 @@ const FRASES_ORACULO = [
   "¡Brinda por tus logros!",
   "Profundiza siempre con un norte claro",
   "Que te importe lo que aportas",
+  "El control es una forma de reducir las formas que sucedan las cosas que querés",
+  "¿Qué es lo que no estás haciendo aún dentro de todo lo que sí hacés para lograr lo que querés?",
+  "Si buscas donde siempre, encuentras lo de siempre. Encuentra donde nunca, y obtén lo que desde ahora.",
+  "Recibir es usar lo que se te dió.",
+  "Avanza para saber lo que esperas que el saber te muestre para avanzar.",
+  "¿Por qué el otro sí logra lo que tú no? (La respuesta está en tu interior)",
+  "Tu espejo está donde no lo ves, porque querer verte en lo externo, es hacer aparecer el espejo.",
 ]
 
 type ResumenEspacio = {
