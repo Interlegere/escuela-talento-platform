@@ -21,7 +21,10 @@ type HonorarioAsignado = {
 
 type RetornoMercadoPago = {
   status: "success" | "failure" | "pending"
-  pagoMensualId: number
+  pagoMensualId?: number | null
+  reservaId?: number | null
+  paymentId?: string | null
+  collectionId?: string | null
 } | null
 
 type TerapiaPendiente = {
@@ -73,17 +76,27 @@ export default function PagosPage() {
     const params = new URLSearchParams(window.location.search)
     const statusParam = params.get("mp_status")
     const pagoMensualId = Number(params.get("pago_mensual_id"))
+    const reservaId = Number(params.get("reserva_id"))
+    const paymentId = params.get("payment_id")
+    const collectionId = params.get("collection_id")
 
     if (
       (statusParam === "success" ||
         statusParam === "failure" ||
         statusParam === "pending") &&
-      !Number.isNaN(pagoMensualId) &&
-      pagoMensualId > 0
+      ((!Number.isNaN(pagoMensualId) && pagoMensualId > 0) ||
+        (!Number.isNaN(reservaId) && reservaId > 0))
     ) {
       setRetornoMercadoPago({
         status: statusParam,
-        pagoMensualId,
+        pagoMensualId:
+          !Number.isNaN(pagoMensualId) && pagoMensualId > 0
+            ? pagoMensualId
+            : null,
+        reservaId:
+          !Number.isNaN(reservaId) && reservaId > 0 ? reservaId : null,
+        paymentId: paymentId || null,
+        collectionId: collectionId || null,
       })
 
       const cleanUrl = `${window.location.pathname}${window.location.hash || ""}`
@@ -91,85 +104,157 @@ export default function PagosPage() {
     }
   }, [])
 
-  useEffect(() => {
-    if (status !== "authenticated" || esAdmin) return
+  const cargarHonorarios = async () => {
+    try {
+      setCargandoHonorarios(true)
+      setMensaje("")
 
-    const cargarHonorarios = async () => {
-      try {
-        setCargandoHonorarios(true)
-        setMensaje("")
+      const res = await fetch("/api/pagos-mensuales/honorarios")
+      const data = await res.json()
 
-        const res = await fetch("/api/pagos-mensuales/honorarios")
-        const data = await res.json()
-
-        if (!res.ok) {
-          setMensaje(data.error || "No se pudieron cargar tus actividades asignadas.")
-          return
-        }
-
-        setHonorarios(data.honorarios || [])
-      } catch {
-        setMensaje("Error cargando tus actividades asignadas.")
-      } finally {
-        setCargandoHonorarios(false)
+      if (!res.ok) {
+        setMensaje(data.error || "No se pudieron cargar tus actividades asignadas.")
+        return
       }
+
+      setHonorarios(data.honorarios || [])
+    } catch {
+      setMensaje("Error cargando tus actividades asignadas.")
+    } finally {
+      setCargandoHonorarios(false)
     }
+  }
 
-    void cargarHonorarios()
-  }, [esAdmin, status])
-
-  useEffect(() => {
-    if (status !== "authenticated" || esAdmin) return
-
+  const cargarSesionesTerapia = async (force = false) => {
     const tieneTerapiaPorSesion = honorarios.some(
       (item) =>
         item.actividadSlug === "terapia" && item.modalidadPago === "sesion"
     )
 
-    if (!tieneTerapiaPorSesion) {
+    if (!force && !tieneTerapiaPorSesion) {
       setSesionesTerapiaPendientes([])
       setCargandoSesionesTerapia(false)
       return
     }
 
-    const cargarSesionesTerapia = async () => {
-      try {
-        setCargandoSesionesTerapia(true)
+    try {
+      setCargandoSesionesTerapia(true)
 
-        const res = await fetch("/api/espacios/resumen", {
+      const res = await fetch("/api/espacios/resumen", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          actividadSlug: "terapia",
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setSesionesTerapiaPendientes([])
+        return
+      }
+
+      const pendientes = Array.isArray(data.encuentros)
+        ? data.encuentros.filter(
+            (item: TerapiaPendiente) =>
+              item.estado === "pendiente_pago" && Boolean(item.reservaId)
+          )
+        : []
+
+      setSesionesTerapiaPendientes(pendientes)
+    } catch {
+      setSesionesTerapiaPendientes([])
+    } finally {
+      setCargandoSesionesTerapia(false)
+    }
+  }
+
+  useEffect(() => {
+    if (status !== "authenticated" || esAdmin) return
+    void cargarHonorarios()
+  }, [esAdmin, status])
+
+  useEffect(() => {
+    if (status !== "authenticated" || esAdmin) return
+    void cargarSesionesTerapia()
+  }, [esAdmin, honorarios, status])
+
+  useEffect(() => {
+    if (
+      status !== "authenticated" ||
+      esAdmin ||
+      !retornoMercadoPago ||
+      !retornoMercadoPago.reservaId
+    ) {
+      return
+    }
+
+    const reconciliarReserva = async () => {
+      if (retornoMercadoPago.status === "failure") {
+        setMensaje("El pago no se completó. Podés intentar nuevamente.")
+        await cargarSesionesTerapia(true)
+        return
+      }
+
+      if (retornoMercadoPago.status === "pending") {
+        setMensaje(
+          "Pago pendiente. Estamos esperando confirmación de Mercado Pago."
+        )
+        await cargarSesionesTerapia(true)
+        return
+      }
+
+      try {
+        setMensaje("Verificando el pago de tu sesión en Mercado Pago...")
+
+        const res = await fetch("/api/reservas/reconciliar-mp", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            actividadSlug: "terapia",
+            reservaId: retornoMercadoPago.reservaId,
           }),
         })
 
         const data = await res.json()
 
         if (!res.ok) {
-          setSesionesTerapiaPendientes([])
+          setMensaje(
+            data.error ||
+              "No pudimos verificar automáticamente el pago de tu sesión. Intentá refrescar en unos minutos."
+          )
           return
         }
 
-        const pendientes = Array.isArray(data.encuentros)
-          ? data.encuentros.filter(
-              (item: TerapiaPendiente) =>
-                item.estado === "pendiente_pago" && Boolean(item.reservaId)
-            )
-          : []
-
-        setSesionesTerapiaPendientes(pendientes)
+        if (data.estado === "confirmada") {
+          setMensaje("Pago aprobado. Tu sesión fue habilitada.")
+        } else if (data.mpStatus === "approved") {
+          setMensaje(
+            "Pago aprobado. Estamos terminando de habilitar tu sesión."
+          )
+        } else if (data.mpStatus === "pending") {
+          setMensaje(
+            "Pago pendiente. Estamos esperando confirmación de Mercado Pago."
+          )
+        } else {
+          setMensaje("El pago no se completó. Podés intentar nuevamente.")
+        }
       } catch {
-        setSesionesTerapiaPendientes([])
+        setMensaje(
+          "Error verificando el pago de tu sesión. Intentá refrescar en unos minutos."
+        )
       } finally {
-        setCargandoSesionesTerapia(false)
+        await cargarHonorarios()
+        await cargarSesionesTerapia(true)
       }
     }
 
-    void cargarSesionesTerapia()
-  }, [esAdmin, honorarios, status])
+    void reconciliarReserva()
+  }, [esAdmin, retornoMercadoPago, status])
 
   if (status === "loading") {
     return (
@@ -277,6 +362,7 @@ export default function PagosPage() {
                       sesion.porcentajeRecargoMercadoPago
                     }
                     comprobanteNombreArchivo={sesion.comprobanteNombreArchivo}
+                    onActualizado={() => cargarSesionesTerapia(true)}
                   />
                 ) : null}
               </div>

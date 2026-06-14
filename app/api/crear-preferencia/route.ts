@@ -100,9 +100,9 @@ function abrirPayloadMercadoPago(params: {
 
   if (isPublicUrl) {
     payload.back_urls = {
-      success: `${appUrl}/agenda?mp_status=success&reserva_id=${reservaId}`,
-      failure: `${appUrl}/agenda?mp_status=failure&reserva_id=${reservaId}`,
-      pending: `${appUrl}/agenda?mp_status=pending&reserva_id=${reservaId}`,
+      success: `${appUrl}/pagos?mp_status=success&reserva_id=${reservaId}`,
+      failure: `${appUrl}/pagos?mp_status=failure&reserva_id=${reservaId}`,
+      pending: `${appUrl}/pagos?mp_status=pending&reserva_id=${reservaId}`,
     }
 
     payload.auto_return = "approved"

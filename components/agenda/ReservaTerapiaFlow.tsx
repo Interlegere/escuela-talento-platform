@@ -162,15 +162,7 @@ export default function ReservaTerapiaFlow({
       }
 
       if (data.init_point) {
-        const popup = window.open(
-          data.init_point,
-          "_blank",
-          "noopener,noreferrer"
-        )
-
-        if (!popup) {
-          window.location.href = data.init_point
-        }
+        window.location.href = data.init_point
         return
       }
 
@@ -234,15 +226,7 @@ export default function ReservaTerapiaFlow({
         return
       }
 
-      const popup = window.open(
-        data.init_point,
-        "_blank",
-        "noopener,noreferrer"
-      )
-
-      if (!popup) {
-        window.location.href = data.init_point
-      }
+      window.location.href = data.init_point
     } catch {
       setError("Error conectando con Mercado Pago.")
       setInfo("")
