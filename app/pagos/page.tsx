@@ -69,6 +69,20 @@ export default function PagosPage() {
   const nombre = session?.user?.name || "Participante"
   const email = session?.user?.email || ""
   const esAdmin = session?.user?.role === "admin"
+  const retornoPagoMensual = retornoMercadoPago?.pagoMensualId
+    ? {
+        status: retornoMercadoPago.status,
+        pagoMensualId: retornoMercadoPago.pagoMensualId,
+      }
+    : null
+  const retornoReservaTerapia = retornoMercadoPago?.reservaId
+    ? {
+        status: retornoMercadoPago.status,
+        reservaId: retornoMercadoPago.reservaId,
+        paymentId: retornoMercadoPago.paymentId,
+        collectionId: retornoMercadoPago.collectionId,
+      }
+    : null
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -186,20 +200,19 @@ export default function PagosPage() {
     if (
       status !== "authenticated" ||
       esAdmin ||
-      !retornoMercadoPago ||
-      !retornoMercadoPago.reservaId
+      !retornoReservaTerapia
     ) {
       return
     }
 
     const reconciliarReserva = async () => {
-      if (retornoMercadoPago.status === "failure") {
+      if (retornoReservaTerapia.status === "failure") {
         setMensaje("El pago no se completó. Podés intentar nuevamente.")
         await cargarSesionesTerapia(true)
         return
       }
 
-      if (retornoMercadoPago.status === "pending") {
+      if (retornoReservaTerapia.status === "pending") {
         setMensaje(
           "Pago pendiente. Estamos esperando confirmación de Mercado Pago."
         )
@@ -216,7 +229,7 @@ export default function PagosPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            reservaId: retornoMercadoPago.reservaId,
+            reservaId: retornoReservaTerapia.reservaId,
           }),
         })
 
@@ -254,7 +267,7 @@ export default function PagosPage() {
     }
 
     void reconciliarReserva()
-  }, [esAdmin, retornoMercadoPago, status])
+  }, [esAdmin, retornoReservaTerapia, status])
 
   if (status === "loading") {
     return (
@@ -400,7 +413,7 @@ export default function PagosPage() {
               participanteNombre={actividad.participanteNombre || nombre}
               participanteEmail={actividad.participanteEmail || email}
               modalidadPago={actividad.modalidadPago}
-              retornoMercadoPago={retornoMercadoPago}
+              retornoMercadoPago={retornoPagoMensual}
             />
           )
         ))}

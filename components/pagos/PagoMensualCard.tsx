@@ -38,7 +38,8 @@ type Props = {
   modalidadPago?: BillingMode
   retornoMercadoPago?: {
     status: "success" | "failure" | "pending"
-    pagoMensualId: number
+    pagoMensualId?: number | null
+    reservaId?: number | null
   } | null
 }
 
@@ -145,6 +146,7 @@ export default function PagoMensualCard({
 
   useEffect(() => {
     if (!pago || !retornoMercadoPago) return
+    if (!retornoMercadoPago.pagoMensualId) return
     if (retornoMercadoPago.pagoMensualId !== pago.id) return
     if (reconciliacionIntentadaRef.current === pago.id) return
 
