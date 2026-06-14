@@ -7,8 +7,11 @@ import {
   type DocumentoNota,
 } from "@/lib/documentos-notas"
 import {
+  resolverEstadoEncuentro,
+  type EncounterPaymentContext,
+} from "@/lib/encounter-engine"
+import {
   obtenerEstadoPagoActividadActual,
-  type EstadoPagoEspacio,
 } from "@/lib/espacios"
 import { obtenerFechaISOArgentina } from "@/lib/fechas"
 import { normalizarMeetLink } from "@/lib/meet-links"
@@ -189,58 +192,6 @@ function consolidarConectandoCanonico(disponibilidades: DisponibilidadRow[]) {
   })
 }
 
-function describirEstadoPagoAdmin(
-  actividadSlug: ActivitySlug,
-  estadoPago: EstadoPagoEspacio
-) {
-  switch (estadoPago.motivo) {
-    case "pagado":
-      return {
-        estado: "pagado",
-        detalle:
-          actividadSlug === "mentorias"
-            ? "Pago mensual al día."
-            : "Pago habilitado para este proceso.",
-      }
-    case "gracia":
-      return {
-        estado: "gracia",
-        detalle: "Acceso dentro del período de gracia.",
-      }
-    case "sin_pago":
-      return {
-        estado: "sin_pago",
-        detalle: "Todavía no existe un pago cargado para el período actual.",
-      }
-    case "pendiente":
-      return {
-        estado: "pendiente",
-        detalle: "Hay un pago cargado, pero todavía sigue pendiente de revisión.",
-      }
-    case "rechazado":
-      return {
-        estado: "rechazado",
-        detalle: "El pago fue rechazado y necesita regularización.",
-      }
-    case "sin_actividad":
-      return {
-        estado: "sin_honorario",
-        detalle:
-          "Falta configurar el encuadre económico de esta actividad para este participante.",
-      }
-    case "sin_inscripcion":
-      return {
-        estado: "sin_inscripcion",
-        detalle: "La persona todavía no tiene una inscripción activa en esta actividad.",
-      }
-    case "sesion":
-      return {
-        estado: "por_sesion",
-        detalle: "Este caso se resuelve encuentro por encuentro, no por un pago mensual.",
-      }
-  }
-}
-
 export async function listarAgendaUnificada(params: {
   actor: Actor
   actividadSlug?: ActivitySlug | null
@@ -372,8 +323,15 @@ export async function listarAgendaUnificada(params: {
       .toLowerCase()
     const clavePagoAdmin = `${slug}:${participanteEmailNormalizado}`
 
-    let estadoPagoAdmin: string | null = null
-    let detallePagoAdmin: string | null = null
+    let paymentContext: EncounterPaymentContext = {
+      accesoActividad: accessGeneral
+        ? {
+            acceso: accessGeneral.acceso,
+            motivo: accessGeneral.motivo,
+          }
+        : null,
+      estadoPagoActividad: pagoEspacio || null,
+    }
 
     if (
       esAdmin &&
@@ -386,144 +344,39 @@ export async function listarAgendaUnificada(params: {
         estadoPago = await obtenerEstadoPagoActividadActual(slug, participanteEmailNormalizado)
         adminPagoByActividadYEmail.set(clavePagoAdmin, estadoPago)
       }
-
-      const descripcion = describirEstadoPagoAdmin(slug, estadoPago)
-      estadoPagoAdmin = descripcion.estado
-      detallePagoAdmin = descripcion.detalle
-    } else if (esAdmin && regla.agendaStrategy === "grupo_fijo") {
-      estadoPagoAdmin = "mensual_grupal"
-      detallePagoAdmin =
-        "Actividad grupal con cobro mensual por participante. El seguimiento puntual se resuelve desde Admin Pagos."
-    }
-
-    let visibleParaParticipante = true
-    let puedeIngresar = true
-    let motivoBloqueo: string | null = null
-    let estado: AgendaUnificadaItem["estado"] = esEstadoDisponibilidadActivo(
-      item.estado
-    )
-      ? item.estado
-      : "disponible"
-
-    if (reserva?.realizada_at) {
-      estado = "realizada"
-    } else if (reserva?.estado === "pendiente_pago") {
-      estado = "pendiente_pago"
-    } else if (reserva?.estado === "confirmada" || item.estado === "confirmada") {
-      estado = "confirmada"
-    } else {
-      estado = esEstadoDisponibilidadActivo(item.estado)
-        ? item.estado
-        : "disponible"
-    }
-
-    if (!esAdmin) {
-      if (regla.agendaStrategy === "grupo_fijo") {
-        visibleParaParticipante =
-          accessGeneral?.motivo !== "sin_inscripcion" &&
-          accessGeneral?.motivo !== "sin_email"
-        puedeIngresar = Boolean(accessGeneral?.acceso && meetLink)
-        motivoBloqueo = accessGeneral?.acceso
-          ? !meetLink
-            ? "Meet aún no generado."
-            : null
-          : accessGeneral?.motivo === "sin_pago" ||
-              accessGeneral?.motivo === "pendiente" ||
-              accessGeneral?.motivo === "rechazado"
-            ? "El acceso a este encuentro se habilita cuando el pago del período esté aprobado."
-            : "Tu acceso a esta actividad no está habilitado en este momento."
-      }
-
-      if (slug === "mentorias") {
-        visibleParaParticipante =
-          String(item.participante_email || "").trim().toLowerCase() === actor.email
-        puedeIngresar = Boolean(
-            visibleParaParticipante &&
-            meetLink &&
-            (pagoEspacio?.habilitado || false)
-        )
-
-        if (visibleParaParticipante && !puedeIngresar) {
-          motivoBloqueo = !meetLink
-            ? "Meet aún no generado."
-            : "El acceso a la reunión se habilita cuando el pago mensual está al día."
-        }
-      }
-
-      if (slug === "terapia") {
-        if (item.modo === "disponibilidad") {
-          visibleParaParticipante = false
-        } else {
-          visibleParaParticipante =
-            String(item.participante_email || "").trim().toLowerCase() === actor.email
-          puedeIngresar = Boolean(
-              visibleParaParticipante &&
-              meetLink &&
-              (pagoEspacio?.habilitado || false)
-          )
-          motivoBloqueo = visibleParaParticipante && !puedeIngresar
-            ? !meetLink
-              ? "Meet aún no generado."
-              : "El acceso a la sesión se habilita cuando el pago está aprobado."
-            : null
-        }
-      }
-
-      if (reserva) {
-        if (slug === "terapia") {
-          visibleParaParticipante =
-            String(reserva.participante_email || "").trim().toLowerCase() === actor.email
-
-          puedeIngresar = Boolean(
-              visibleParaParticipante &&
-              meetLink &&
-              (estado === "confirmada" || estado === "realizada")
-          )
-
-          motivoBloqueo =
-            visibleParaParticipante && !puedeIngresar
-              ? estado === "pendiente_pago"
-                ? "La sesión queda habilitada cuando se confirma el pago."
-                : !meetLink
-                  ? "Meet aún no generado."
-                  : "Esta sesión todavía no está habilitada."
-              : null
-        } else {
-          visibleParaParticipante =
-            regla.agendaStrategy === "grupo_fijo" ||
-            String(reserva.participante_email || "").trim().toLowerCase() === actor.email
-        }
+      paymentContext = {
+        ...paymentContext,
+        estadoPagoActividad: estadoPago,
       }
     }
+    const resolved = resolverEstadoEncuentro({
+      source: {
+        fuente: "agenda_unificada",
+        actividadSlug: slug,
+        estrategia: regla.agendaStrategy,
+        origen: reserva ? "reserva" : "disponibilidad",
+        modo: item.modo,
+        disponibilidadEstado: item.estado,
+        reservaEstado: reserva?.estado || null,
+        reservaRealizadaAt: reserva?.realizada_at || null,
+        participanteEmail: item.participante_email || null,
+        participanteReservaEmail: reserva?.participante_email || null,
+        meetLink,
+        requierePagoConfigurado: item.requiere_pago,
+        medioPago: reserva?.medio_pago || null,
+        comprobanteNombreArchivo: reserva?.comprobante_nombre_archivo || null,
+      },
+      payment: paymentContext,
+      access: {
+        esAdmin,
+        actorEmail: actor.email,
+      },
+    })
 
-    if (esAdmin) {
-      if (!meetLink) {
-        motivoBloqueo = "Meet aún no generado."
-      } else if (estado === "pendiente_pago") {
-        if (reserva?.medio_pago === "transferencia") {
-          motivoBloqueo = reserva.comprobante_nombre_archivo
-            ? "Pendiente de revisar comprobante de transferencia."
-            : "Pendiente de que la persona suba el comprobante de transferencia."
-        } else if (reserva?.medio_pago === "mercado_pago") {
-          motivoBloqueo = "Pendiente de acreditación o confirmación de Mercado Pago."
-        } else {
-          motivoBloqueo = "Pendiente de pago o validación administrativa."
-        }
-      } else if (estado === "confirmada" && item.requiere_pago) {
-        motivoBloqueo = "Pago validado. Encuentro habilitado."
-      } else if (estado === "realizada") {
-        motivoBloqueo = "Encuentro realizado."
-      }
-    }
-
-    if (!esAdmin && !visibleParaParticipante) {
+    if (!esAdmin && !resolved.visibleParaParticipante) {
       continue
     }
 
-    const requierePago =
-      item.requiere_pago === true ||
-      (slug === "mentorias" && Boolean(participanteEmailNormalizado)) ||
-      (slug === "terapia" && Boolean(reserva))
     const notasDocumentos = esAdmin
       ? [
           ...(participanteEmailNormalizado
@@ -545,7 +398,7 @@ export async function listarAgendaUnificada(params: {
       duracion: item.duracion,
       estrategia: regla.agendaStrategy,
       origen: reserva ? "reserva" : "disponibilidad",
-      estado,
+      estado: resolved.estado,
       meetLink,
       syncStatus: item.sync_status || null,
       lastSyncedAt: "last_synced_at" in item
@@ -554,18 +407,18 @@ export async function listarAgendaUnificada(params: {
       serieId: "serie_id" in item ? String(item.serie_id || "") || null : null,
       participanteEmail,
       participanteNombre,
-      requierePago,
+      requierePago: resolved.requierePago,
       precio: item.precio || null,
       medioPago: reserva?.medio_pago || null,
       montoTransferencia: reserva?.monto_transferencia || reserva?.monto || null,
       montoMercadoPago: reserva?.monto_mercado_pago || null,
       comprobanteNombreArchivo: reserva?.comprobante_nombre_archivo || null,
-      estadoPagoAdmin,
-      detallePagoAdmin,
-      puedeIngresar,
-      motivoBloqueo,
+      estadoPagoAdmin: resolved.estadoPagoAdmin,
+      detallePagoAdmin: resolved.detallePagoAdmin,
+      puedeIngresar: resolved.puedeIngresar,
+      motivoBloqueo: resolved.motivoBloqueo,
       notasDocumentos,
-      visibleParaParticipante,
+      visibleParaParticipante: resolved.visibleParaParticipante,
       eliminablePorAdmin: !reserva,
     })
   }

@@ -12,6 +12,7 @@ import {
   normalizarDocumentosNotas,
   type DocumentoNota,
 } from "@/lib/documentos-notas"
+import { resolverEstadoEncuentro } from "@/lib/encounter-engine"
 import { ESTADOS_DISPONIBILIDAD_ACTIVA, esEstadoDisponibilidadActivo } from "@/lib/disponibilidades"
 import { obtenerFechaISOArgentina } from "@/lib/fechas"
 import { normalizarMeetLink } from "@/lib/meet-links"
@@ -67,24 +68,6 @@ type DisponibilidadFijaEspacioRow = {
 type Body = {
   actividadSlug?: string
   participanteEmail?: string
-}
-
-function motivoPagoParaEncuentro(
-  actividadSlug: string,
-  motivoPago: string
-) {
-  if (motivoPago === "sin_actividad") {
-    return actividadSlug === "mentorias"
-      ? "Todavía falta asignar tu modalidad y tu pago de Mentoría para habilitar esta reunión."
-      : "Todavía falta asignar el encuadre económico de esta actividad para habilitar este ingreso."
-  }
-
-  if (motivoPago === "sesion") {
-    return "Este ingreso se habilita con el pago y la confirmación de cada sesión."
-  }
-
-  const nombre = actividadSlug === "terapia" ? "sesión" : "reunión"
-  return `El ingreso a esta ${nombre} se habilita cuando el pago del período actual está aprobado.`
 }
 
 function inicioDeHoy() {
@@ -255,10 +238,26 @@ export async function POST(req: Request) {
       )
       .map((item) => {
         const link = meetLinkReal(item.disponibilidades?.meet_link)
-        const confirmada =
-          item.estado === "confirmada" ||
-          item.disponibilidades?.estado === "confirmada"
-        const requierePago = item.disponibilidades?.requiere_pago !== false
+        const resolved = resolverEstadoEncuentro({
+          source: {
+            fuente: "espacios_resumen",
+            actividadSlug,
+            origen: "reserva",
+            disponibilidadEstado: item.disponibilidades?.estado || null,
+            reservaEstado: item.estado,
+            participanteEmail: contexto.participanteEmail,
+            participanteReservaEmail: contexto.participanteEmail,
+            meetLink: link,
+            requierePagoConfigurado: item.disponibilidades?.requiere_pago,
+          },
+          payment: {
+            estadoPagoActividad: estadoPago,
+          },
+          access: {
+            esAdmin: contexto.esAdmin,
+            actorEmail: contexto.participanteEmail,
+          },
+        })
 
         return {
           id: item.id,
@@ -276,6 +275,7 @@ export async function POST(req: Request) {
             item.porcentaje_recargo_mercado_pago ?? null,
           comprobanteNombreArchivo: item.comprobante_nombre_archivo || null,
           meetLink: link,
+          requierePago: resolved.requierePago,
           notasDocumentos: contexto.esAdmin
             ? [
                 ...notasParticipante,
@@ -284,26 +284,8 @@ export async function POST(req: Request) {
                 ),
               ]
             : [],
-          puedeIngresar: Boolean(
-            link &&
-              (contexto.esAdmin ||
-                (confirmada &&
-                  (!requierePago ||
-                    estadoPago.habilitado ||
-                    (actividadSlug === "terapia" &&
-                      estadoPago.modalidad === "sesion"))))
-          ),
-          motivoBloqueo: !link
-            ? "Meet aún no generado."
-            : !contexto.esAdmin && requierePago && !estadoPago.habilitado
-              ? actividadSlug === "terapia" &&
-                estadoPago.modalidad === "sesion" &&
-                confirmada
-                ? null
-                : motivoPagoParaEncuentro(actividadSlug, estadoPago.motivo)
-              : !contexto.esAdmin && !confirmada
-              ? "El ingreso se habilita al confirmarse la reserva/pago."
-              : null,
+          puedeIngresar: resolved.puedeIngresar,
+          motivoBloqueo: resolved.motivoBloqueo,
         }
       })
       .sort((a, b) => {
@@ -329,6 +311,25 @@ export async function POST(req: Request) {
       })
       .map((item) => {
         const link = meetLinkReal(item.meet_link)
+        const resolved = resolverEstadoEncuentro({
+          source: {
+            fuente: "espacios_resumen",
+            actividadSlug,
+            origen: "fija",
+            modo: "actividad_fija",
+            disponibilidadEstado: item.estado || null,
+            participanteEmail: item.participante_email || null,
+            meetLink: link,
+            requierePagoConfigurado: item.requiere_pago,
+          },
+          payment: {
+            estadoPagoActividad: estadoPago,
+          },
+          access: {
+            esAdmin: contexto.esAdmin,
+            actorEmail: contexto.participanteEmail,
+          },
+        })
 
         return {
           id: `fija-${item.id}`,
@@ -338,20 +339,17 @@ export async function POST(req: Request) {
           fecha: item.fecha || "",
           hora: item.hora || "",
           duracion: item.duracion || "",
-          estado: item.estado || "disponible",
+          estado: resolved.estado,
           meetLink: link,
+          requierePago: resolved.requierePago,
           notasDocumentos: contexto.esAdmin
             ? [
                 ...notasParticipante,
                 ...normalizarDocumentosNotas(item.notas_documentos),
               ]
             : [],
-          puedeIngresar: Boolean(link && (contexto.esAdmin || estadoPago.habilitado)),
-          motivoBloqueo: !link
-            ? "Meet aún no generado."
-            : !contexto.esAdmin && !estadoPago.habilitado
-              ? motivoPagoParaEncuentro(actividadSlug, estadoPago.motivo)
-              : null,
+          puedeIngresar: resolved.puedeIngresar,
+          motivoBloqueo: resolved.motivoBloqueo,
         }
       })
 
