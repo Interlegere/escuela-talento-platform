@@ -6,6 +6,7 @@ import VideoEmbed from "@/components/VideoEmbed"
 import GrabadorVideo from "@/components/casatalentos/GrabadorVideo"
 import BibliotecaGrabaciones from "@/components/BibliotecaGrabaciones"
 import { useSessionDraft } from "@/hooks/useSessionDraft"
+import { supabase } from "@/lib/supabase"
 
 type VideoItem = {
   id: number
@@ -79,6 +80,17 @@ type Props = {
   onActualizado?: () => void | Promise<void>
   storageOwnerKey?: string
   uiStoragePrefix?: string
+}
+
+type PrepararUploadReferenteSemanalResponse = {
+  ok?: boolean
+  error?: string
+  bucket?: string
+  storagePath?: string
+  signedToken?: string
+  signedUrl?: string
+  fechaSemana?: string
+  maxBytes?: number
 }
 
 export type CasaTalentosAdminResumen = {
@@ -283,22 +295,102 @@ export default function CasaTalentosAdminPanel({
 
   const guardarReferenteSemanal = async () => {
     try {
+      if (!fechaSemana.trim() || !tituloSemanal.trim()) {
+        setMensaje("Completá la fecha y el título del referente semanal antes de guardar.")
+        return
+      }
+
       setMensaje("Guardando referente semanal...")
       setSubiendoReferente(true)
-
-      const formData = new FormData()
-      formData.append("fechaSemana", fechaSemana)
-      formData.append("titulo", tituloSemanal)
-      formData.append("descripcion", descripcionSemanal)
-      formData.append("videoUrl", videoUrlSemanal)
+      let payload: Record<string, unknown> = {
+        fechaSemana,
+        titulo: tituloSemanal,
+        descripcion: descripcionSemanal,
+        videoUrl: videoUrlSemanal,
+      }
 
       if (archivoSemanal) {
-        formData.append("archivo", archivoSemanal)
+        setMensaje("Preparando video del referente semanal...")
+
+        const prepararRes = await fetch(
+          "/api/casatalentos/admin/preparar-upload-referente-semanal",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              fechaSemana,
+              titulo: tituloSemanal,
+              fileName: archivoSemanal.name,
+              mimeType: archivoSemanal.type,
+              fileSize: archivoSemanal.size,
+            }),
+          }
+        )
+
+        const preparacion =
+          await leerJson<PrepararUploadReferenteSemanalResponse>(prepararRes)
+
+        if (!prepararRes.ok) {
+          setMensaje(preparacion.error || "No se pudo preparar el video del referente semanal.")
+          return
+        }
+
+        if (
+          !preparacion.bucket ||
+          !preparacion.storagePath ||
+          !preparacion.signedToken
+        ) {
+          setMensaje("La preparación de subida del referente semanal vino incompleta.")
+          return
+        }
+
+        if (preparacion.maxBytes && archivoSemanal.size > preparacion.maxBytes) {
+          setMensaje("El video del referente semanal es muy pesado. Máximo 50MB.")
+          return
+        }
+
+        setMensaje("Subiendo video del referente semanal...")
+
+        const { error: uploadError } = await supabase.storage
+          .from(preparacion.bucket)
+          .uploadToSignedUrl(
+            preparacion.storagePath,
+            preparacion.signedToken,
+            archivoSemanal,
+            {
+              contentType: archivoSemanal.type,
+              upsert: false,
+            }
+          )
+
+        if (uploadError) {
+          setMensaje(
+            uploadError.message ||
+              "No se pudo subir el video del referente semanal. Probá nuevamente con buena conexión."
+          )
+          return
+        }
+
+        payload = {
+          fechaSemana: preparacion.fechaSemana || fechaSemana,
+          titulo: tituloSemanal,
+          descripcion: descripcionSemanal,
+          videoUrl: "",
+          storagePath: preparacion.storagePath,
+          mimeType: archivoSemanal.type,
+          fileSize: archivoSemanal.size,
+        }
+        setMensaje("Confirmando referente semanal...")
       }
 
       const res = await fetch("/api/casatalentos/admin/guardar-referentes-semanal", {
         method: "POST",
-        body: formData,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
       })
 
       const data = await leerJson<{ error?: string }>(res)

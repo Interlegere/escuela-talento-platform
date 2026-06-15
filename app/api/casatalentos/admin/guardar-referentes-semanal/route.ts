@@ -7,6 +7,9 @@ type Body = {
   titulo: string
   descripcion?: string
   videoUrl?: string
+  storagePath?: string
+  mimeType?: string
+  fileSize?: number
 }
 
 function limpiarNombreArchivo(value: string) {
@@ -45,6 +48,30 @@ function faltanColumnasStorage(detalle: unknown) {
   )
 }
 
+async function existeArchivoStorage(
+  supabase: ReturnType<typeof createAdminSupabaseClient>,
+  storagePath: string
+) {
+  const partes = storagePath.split("/")
+  const nombre = partes.pop()
+  const carpeta = partes.join("/")
+
+  if (!nombre || !carpeta) return false
+
+  const { data, error } = await supabase.storage
+    .from("casatalentos-videos")
+    .list(carpeta, {
+      limit: 100,
+      search: nombre,
+    })
+
+  if (error) {
+    throw error
+  }
+
+  return Boolean(data?.some((item) => item.name === nombre))
+}
+
 export async function POST(req: Request) {
   try {
     const auth = await requirePermission("casatalentos.admin")
@@ -58,6 +85,9 @@ export async function POST(req: Request) {
     let titulo = ""
     let descripcion = ""
     let videoUrl = ""
+    let storagePathRecibido = ""
+    let mimeTypeRecibido = ""
+    let fileSizeRecibido = 0
     let archivo: File | null = null
 
     if (contentType.includes("multipart/form-data")) {
@@ -66,6 +96,9 @@ export async function POST(req: Request) {
       titulo = String(formData.get("titulo") || "").trim()
       descripcion = String(formData.get("descripcion") || "").trim()
       videoUrl = String(formData.get("videoUrl") || "").trim()
+      storagePathRecibido = String(formData.get("storagePath") || "").trim()
+      mimeTypeRecibido = String(formData.get("mimeType") || "").trim()
+      fileSizeRecibido = Number(formData.get("fileSize") || 0)
       const archivoRaw = formData.get("archivo")
       archivo = archivoRaw instanceof File ? archivoRaw : null
     } else {
@@ -74,6 +107,9 @@ export async function POST(req: Request) {
       titulo = (body.titulo || "").trim()
       descripcion = (body.descripcion || "").trim()
       videoUrl = (body.videoUrl || "").trim()
+      storagePathRecibido = (body.storagePath || "").trim()
+      mimeTypeRecibido = (body.mimeType || "").trim()
+      fileSizeRecibido = Number(body.fileSize || 0)
     }
 
     if (!fechaSemana || !titulo) {
@@ -100,7 +136,10 @@ export async function POST(req: Request) {
       )
     }
 
-    let storagePath: string | null = existente?.storage_path || null
+    const storagePathAnterior = existente?.storage_path || null
+    let storagePathParaRemoverLuego: string | null = null
+    let storagePathNuevoSubido: string | null = null
+    let storagePath: string | null = storagePathAnterior
     let finalVideoUrl: string | null = existente?.video_url || null
     let mimeType: string | null = existente?.mime_type || null
     let fileSize: number | null = existente?.file_size || null
@@ -130,20 +169,34 @@ export async function POST(req: Request) {
         )
       }
 
-      if (existente?.storage_path) {
-        await supabase.storage
-          .from("casatalentos-videos")
-          .remove([existente.storage_path])
+      storagePathNuevoSubido = storagePath
+      if (storagePathAnterior) {
+        storagePathParaRemoverLuego = storagePathAnterior
       }
-
       finalVideoUrl = null
       mimeType = archivo.type || null
       fileSize = archivo.size || null
+    } else if (storagePathRecibido) {
+      const existeArchivo = await existeArchivoStorage(supabase, storagePathRecibido)
+
+      if (!existeArchivo) {
+        return NextResponse.json(
+          { error: "No se encontró el video subido del referente semanal en el storage." },
+          { status: 404 }
+        )
+      }
+
+      storagePathNuevoSubido = storagePathRecibido
+      if (storagePathAnterior && storagePathAnterior !== storagePathRecibido) {
+        storagePathParaRemoverLuego = storagePathAnterior
+      }
+      storagePath = storagePathRecibido
+      finalVideoUrl = null
+      mimeType = mimeTypeRecibido || null
+      fileSize = fileSizeRecibido || null
     } else if (videoUrl) {
-      if (existente?.storage_path) {
-        await supabase.storage
-          .from("casatalentos-videos")
-          .remove([existente.storage_path])
+      if (storagePathAnterior) {
+        storagePathParaRemoverLuego = storagePathAnterior
       }
 
       storagePath = null
@@ -187,10 +240,22 @@ export async function POST(req: Request) {
       }
 
       if (resultado.error) {
+        if (storagePathNuevoSubido) {
+          await supabase.storage
+            .from("casatalentos-videos")
+            .remove([storagePathNuevoSubido])
+        }
+
         return NextResponse.json(
           { error: "No se pudo actualizar el referente semanal", detalle: resultado.error },
           { status: 500 }
         )
+      }
+
+      if (storagePathParaRemoverLuego) {
+        await supabase.storage
+          .from("casatalentos-videos")
+          .remove([storagePathParaRemoverLuego])
       }
 
       return NextResponse.json({ ok: true, item: resultado.data })
@@ -217,6 +282,12 @@ export async function POST(req: Request) {
     }
 
     if (resultado.error) {
+      if (storagePathNuevoSubido) {
+        await supabase.storage
+          .from("casatalentos-videos")
+          .remove([storagePathNuevoSubido])
+      }
+
       return NextResponse.json(
         { error: "No se pudo crear el referente semanal", detalle: resultado.error },
         { status: 500 }
