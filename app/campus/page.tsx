@@ -193,17 +193,20 @@ export default function CampusPage() {
     if (session?.user?.role === "admin") return
 
     const ahora = new Date()
+    const emailParticipante = String(session?.user?.email || "")
+      .trim()
+      .toLowerCase()
     const claveDia = [
       ahora.getFullYear(),
       ahora.getMonth() + 1,
       ahora.getDate(),
     ].join("-")
-    const semilla = claveDia
+    const semilla = `${claveDia}:${emailParticipante || "participante"}`
       .split("")
       .reduce((acc, char) => acc + char.charCodeAt(0), 0)
     const indice = semilla % FRASES_ORACULO.length
     setFraseOraculo(FRASES_ORACULO[indice] || FRASES_ORACULO[0])
-  }, [session?.user?.role, status])
+  }, [session?.user?.email, session?.user?.role, status])
 
   useEffect(() => {
     const cargarRecordatorios = async () => {
