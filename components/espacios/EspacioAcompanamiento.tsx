@@ -9,6 +9,7 @@ import SeccionDesplegable from "@/components/SeccionDesplegable"
 import { useActivityAccess } from "@/components/auth/useActivityAccess"
 import ConsentimientoMeetButton from "@/components/consentimientos/ConsentimientoMeetButton"
 import EditorMensajeAdmin from "@/components/espacios/EditorMensajeAdmin"
+import RecursoCard from "@/components/recursos/RecursoCard"
 import { mismaFechaArgentina } from "@/lib/fechas"
 import type { EspacioActividadSlug } from "@/lib/espacios"
 import WorkspaceHero from "@/components/ui/WorkspaceHero"
@@ -1427,6 +1428,8 @@ export default function EspacioAcompanamiento({
                       >
                         <option value="enlace">Enlace</option>
                         <option value="video">Video</option>
+                        <option value="imagen">Imagen</option>
+                        <option value="archivo">Archivo</option>
                         <option value="grabacion">Grabación</option>
                         <option value="guia">Guía</option>
                       </select>
@@ -1464,39 +1467,27 @@ export default function EspacioAcompanamiento({
                   )}
 
                   {recursos.map((item) => (
-                    <div key={item.id} className="workspace-card-link !rounded-[1.4rem] !p-4 space-y-2">
-                      <p className="font-medium">{item.titulo}</p>
-
-                      {item.descripcion && (
-                        <p className="workspace-inline-note">{item.descripcion}</p>
-                      )}
-
-                      <p className="workspace-inline-note text-xs uppercase tracking-[0.12em]">
-                        Tipo: {item.recurso_tipo}
-                      </p>
-
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="workspace-button-secondary"
-                      >
-                        Abrir recurso
-                      </a>
-
-                      {adminActivo && (
-                        <label className="flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={item.visible}
-                            onChange={(e) =>
-                              void cambiarVisibleRecurso(item.id, e.target.checked)
-                            }
-                          />
-                          Visible para participante
-                        </label>
-                      )}
-                    </div>
+                    <RecursoCard
+                      key={item.id}
+                      titulo={item.titulo}
+                      descripcion={item.descripcion}
+                      recursoTipo={item.recurso_tipo}
+                      url={item.url}
+                      footer={
+                        adminActivo ? (
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={item.visible}
+                              onChange={(e) =>
+                                void cambiarVisibleRecurso(item.id, e.target.checked)
+                              }
+                            />
+                            Visible para participante
+                          </label>
+                        ) : undefined
+                      }
+                    />
                   ))}
                 </div>
               </SeccionDesplegable>

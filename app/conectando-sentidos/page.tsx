@@ -8,6 +8,7 @@ import AgendaActividad from "@/components/agenda/AgendaActividad"
 import { useActivityAccess } from "@/components/auth/useActivityAccess"
 import ConectandoAdminPanel from "@/components/conectando/ConectandoAdminPanel"
 import EditorMensajeAdmin from "@/components/espacios/EditorMensajeAdmin"
+import RecursoCard from "@/components/recursos/RecursoCard"
 import type { EditorMensajeAdminHandle } from "@/components/espacios/EditorMensajeAdmin"
 import { isDevelopmentPreviewEnabled } from "@/lib/dev-flags"
 import WorkspaceHero from "@/components/ui/WorkspaceHero"
@@ -19,6 +20,15 @@ type Recurso = {
   descripcion?: string | null
   tipo: string
   proveedor: string
+}
+
+type RecursoConectando = {
+  id: number
+  titulo: string
+  descripcion?: string | null
+  recurso_tipo: string
+  url: string
+  visible: boolean
 }
 
 type MensajeGeneral = {
@@ -111,6 +121,13 @@ export default function ConectandoSentidosPage() {
   const [mensajeError, setMensajeError] = useState("")
   const [mensajesAbiertos, setMensajesAbiertos] = useState<Record<number, boolean>>({})
   const [mensajesLeidos, setMensajesLeidos] = useState<Record<number, string>>({})
+  const [recursosConectando, setRecursosConectando] = useState<RecursoConectando[]>([])
+  const [cargandoRecursos, setCargandoRecursos] = useState(false)
+  const [recursoTitulo, setRecursoTitulo] = useState("")
+  const [recursoDescripcion, setRecursoDescripcion] = useState("")
+  const [recursoTipo, setRecursoTipo] = useState("enlace")
+  const [recursoUrl, setRecursoUrl] = useState("")
+  const [recursoVisible, setRecursoVisible] = useState(true)
   const editorNuevoMensajeRef = useRef<EditorMensajeAdminHandle | null>(null)
   const editorEdicionMensajeRef = useRef<EditorMensajeAdminHandle | null>(null)
   const editorRespuestaRef = useRef<Record<number, EditorMensajeAdminHandle | null>>({})
@@ -118,6 +135,48 @@ export default function ConectandoSentidosPage() {
 
   const tieneRecurso = (slug: string) => {
     return recursos.some((r) => r.slug === slug)
+  }
+
+  const cargarRecursosConectando = async () => {
+    if (!session && !MODO_PRUEBA) {
+      setRecursosConectando([])
+      return
+    }
+
+    if (!esAdmin) {
+      const recursosUsuario = recursos
+        .filter((item) => item.tipo !== "reunion" && item.tipo !== "biblioteca")
+        .map((item) => ({
+          id: item.id,
+          titulo: item.nombre,
+          descripcion: item.descripcion || null,
+          recurso_tipo: item.tipo,
+          url: item.url || "",
+          visible: true,
+        }))
+
+      setRecursosConectando(recursosUsuario.filter((item) => Boolean(item.url)))
+      return
+    }
+
+    try {
+      setCargandoRecursos(true)
+      const res = await fetch("/api/conectando-sentidos/recursos")
+      const data = await res.json()
+
+      if (!res.ok) {
+        setMensajeError(
+          data.error || "No se pudieron cargar los recursos de Conectando."
+        )
+        return
+      }
+
+      setRecursosConectando(data.recursos || [])
+    } catch {
+      setMensajeError("Error cargando los recursos de Conectando.")
+    } finally {
+      setCargandoRecursos(false)
+    }
   }
 
   function formatearFechaHora(fecha?: string | null) {
@@ -242,6 +301,78 @@ export default function ConectandoSentidosPage() {
     if (!acceso && !MODO_PRUEBA) return
     void cargarMensajes()
   }, [acceso, sesionLista])
+
+  useEffect(() => {
+    if (!sesionLista) return
+    if (!acceso && !MODO_PRUEBA) return
+    void cargarRecursosConectando()
+  }, [acceso, esAdmin, recursos, sesionLista, session])
+
+  const guardarRecurso = async () => {
+    try {
+      setMensajeExito("")
+      setMensajeError("")
+
+      const res = await fetch("/api/conectando-sentidos/recursos", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          titulo: recursoTitulo,
+          descripcion: recursoDescripcion,
+          recursoTipo,
+          url: recursoUrl,
+          visible: recursoVisible,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setMensajeError(data.error || "No se pudo guardar el recurso.")
+        return
+      }
+
+      setRecursoTitulo("")
+      setRecursoDescripcion("")
+      setRecursoTipo("enlace")
+      setRecursoUrl("")
+      setRecursoVisible(true)
+      setMensajeExito("Recurso guardado correctamente.")
+      await cargarRecursosConectando()
+    } catch {
+      setMensajeError("Error guardando el recurso.")
+    }
+  }
+
+  const cambiarVisibleRecurso = async (recursoId: number, visible: boolean) => {
+    try {
+      setMensajeError("")
+
+      const res = await fetch("/api/conectando-sentidos/recursos", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          recursoId,
+          visible,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setMensajeError(data.error || "No se pudo actualizar el recurso.")
+        return
+      }
+
+      await cargarRecursosConectando()
+    } catch {
+      setMensajeError("Error actualizando el recurso.")
+    }
+  }
 
   const handleEnviarMensaje = async (parentId?: number) => {
     const contenidoHtml = esAdmin
@@ -926,6 +1057,103 @@ export default function ConectandoSentidosPage() {
                 />
               </SeccionDesplegable>
             )}
+
+            <SeccionDesplegable titulo="Recursos">
+              <div className="space-y-4">
+                {esAdmin && (
+                  <div className="workspace-panel-soft space-y-3">
+                    <div className="space-y-1">
+                      <p className="workspace-eyebrow">Nuevo recurso</p>
+                      <h3 className="text-lg font-semibold">Cargar recurso</h3>
+                    </div>
+
+                    <input
+                      className="workspace-field"
+                      placeholder="Título"
+                      value={recursoTitulo}
+                      onChange={(e) => setRecursoTitulo(e.target.value)}
+                    />
+
+                    <textarea
+                      className="workspace-field min-h-[90px]"
+                      placeholder="Descripción"
+                      value={recursoDescripcion}
+                      onChange={(e) => setRecursoDescripcion(e.target.value)}
+                    />
+
+                    <select
+                      className="workspace-field"
+                      value={recursoTipo}
+                      onChange={(e) => setRecursoTipo(e.target.value)}
+                    >
+                      <option value="enlace">Enlace</option>
+                      <option value="video">Video</option>
+                      <option value="imagen">Imagen</option>
+                      <option value="archivo">Archivo</option>
+                      <option value="guia">Guía</option>
+                    </select>
+
+                    <input
+                      className="workspace-field"
+                      placeholder="URL"
+                      value={recursoUrl}
+                      onChange={(e) => setRecursoUrl(e.target.value)}
+                    />
+
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={recursoVisible}
+                        onChange={(e) => setRecursoVisible(e.target.checked)}
+                      />
+                      Visible para participantes
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={() => void guardarRecurso()}
+                      className="workspace-button-secondary"
+                    >
+                      Guardar recurso
+                    </button>
+                  </div>
+                )}
+
+                {cargandoRecursos && (
+                  <p className="workspace-inline-note">Cargando recursos...</p>
+                )}
+
+                {!cargandoRecursos && recursosConectando.length === 0 && (
+                  <p className="workspace-inline-note">
+                    Todavía no hay recursos cargados.
+                  </p>
+                )}
+
+                {recursosConectando.map((item) => (
+                  <RecursoCard
+                    key={item.id}
+                    titulo={item.titulo}
+                    descripcion={item.descripcion}
+                    recursoTipo={item.recurso_tipo}
+                    url={item.url}
+                    footer={
+                      esAdmin ? (
+                        <label className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={item.visible}
+                            onChange={(e) =>
+                              void cambiarVisibleRecurso(item.id, e.target.checked)
+                            }
+                          />
+                          Visible para participantes
+                        </label>
+                      ) : undefined
+                    }
+                  />
+                ))}
+              </div>
+            </SeccionDesplegable>
           </div>
         )}
       </main>
