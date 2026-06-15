@@ -34,6 +34,57 @@ function extensionPorMimeType(mimeType: string) {
   return "webm"
 }
 
+function nombreBaseSinExtension(nombre: string) {
+  const limpio = String(nombre || "").trim()
+  const ultimoPunto = limpio.lastIndexOf(".")
+  if (ultimoPunto <= 0) return limpio || `video-${Date.now()}`
+  return limpio.slice(0, ultimoPunto)
+}
+
+function obtenerCaptureStream(video: HTMLVideoElement): MediaStream | null {
+  const videoConCapture = video as HTMLVideoElement & {
+    captureStream?: () => MediaStream
+    mozCaptureStream?: () => MediaStream
+    webkitCaptureStream?: () => MediaStream
+  }
+
+  if (typeof videoConCapture.captureStream === "function") {
+    return videoConCapture.captureStream()
+  }
+
+  if (typeof videoConCapture.mozCaptureStream === "function") {
+    return videoConCapture.mozCaptureStream()
+  }
+
+  if (typeof videoConCapture.webkitCaptureStream === "function") {
+    return videoConCapture.webkitCaptureStream()
+  }
+
+  return null
+}
+
+function esperarEventoUnaVez<T extends Event>(target: EventTarget, eventName: string) {
+  return new Promise<T>((resolve, reject) => {
+    const onSuccess = (event: Event) => {
+      cleanup()
+      resolve(event as T)
+    }
+
+    const onError = () => {
+      cleanup()
+      reject(new Error(`No se pudo completar el evento ${eventName}.`))
+    }
+
+    const cleanup = () => {
+      target.removeEventListener(eventName, onSuccess)
+      target.removeEventListener("error", onError)
+    }
+
+    target.addEventListener(eventName, onSuccess, { once: true })
+    target.addEventListener("error", onError, { once: true })
+  })
+}
+
 export default function GrabadorVideo({
   onVideoListo,
   disabled = false,
@@ -51,6 +102,7 @@ export default function GrabadorVideo({
   const [archivoSeleccionado, setArchivoSeleccionado] = useState<File | null>(null)
   const [usaFallbackCaptura, setUsaFallbackCaptura] = useState(false)
   const [motivoFallbackCaptura, setMotivoFallbackCaptura] = useState("")
+  const [procesandoArchivo, setProcesandoArchivo] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -283,6 +335,111 @@ export default function GrabadorVideo({
     }
   }
 
+  const aceptarArchivoListo = (file: File) => {
+    if (previewGrabacionUrl) {
+      URL.revokeObjectURL(previewGrabacionUrl)
+    }
+
+    const nuevaUrl = URL.createObjectURL(file)
+    setPreviewGrabacionUrl(nuevaUrl)
+    setArchivoSeleccionado(file)
+    onVideoListo(file)
+  }
+
+  const obtenerDuracionVideo = async (file: File) => {
+    const url = URL.createObjectURL(file)
+    const video = document.createElement("video")
+    video.preload = "metadata"
+    video.src = url
+
+    try {
+      await esperarEventoUnaVez(video, "loadedmetadata")
+      return Number.isFinite(video.duration) ? video.duration : 0
+    } finally {
+      video.pause()
+      video.removeAttribute("src")
+      video.load()
+      URL.revokeObjectURL(url)
+    }
+  }
+
+  const recortarVideo = async (file: File, segundosMaximos: number) => {
+    const url = URL.createObjectURL(file)
+    const video = document.createElement("video")
+    video.preload = "auto"
+    video.src = url
+    video.crossOrigin = "anonymous"
+    video.muted = true
+    video.playsInline = true
+
+    try {
+      await esperarEventoUnaVez(video, "loadedmetadata")
+
+      const stream = obtenerCaptureStream(video)
+      if (!stream) {
+        throw new Error("Este navegador no permite recortar automáticamente el video.")
+      }
+
+      const mimeType = obtenerMimeTypeSoportado() || file.type || "video/webm"
+      const recorder = MediaRecorder.isTypeSupported(mimeType)
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream)
+
+      const chunks: BlobPart[] = []
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          chunks.push(event.data)
+        }
+      }
+
+      const stopPromise = new Promise<void>((resolve) => {
+        recorder.onstop = () => resolve()
+      })
+
+      const detener = () => {
+        if (recorder.state !== "inactive") {
+          recorder.stop()
+        }
+        stream.getTracks().forEach((track) => track.stop())
+        video.pause()
+      }
+
+      recorder.start(250)
+      video.currentTime = 0
+
+      const timeout = window.setTimeout(detener, segundosMaximos * 1000)
+      const onEnded = () => {
+        window.clearTimeout(timeout)
+        detener()
+      }
+
+      video.addEventListener("ended", onEnded, { once: true })
+      await video.play()
+      await stopPromise
+
+      window.clearTimeout(timeout)
+      video.removeEventListener("ended", onEnded)
+
+      const blob = new Blob(chunks, {
+        type: recorder.mimeType || mimeType || "video/webm",
+      })
+
+      const extension = extensionPorMimeType(recorder.mimeType || mimeType || "video/webm")
+      return new File(
+        [blob],
+        `${nombreBaseSinExtension(file.name)}-recortado.${extension}`,
+        {
+          type: recorder.mimeType || mimeType || "video/webm",
+        }
+      )
+    } finally {
+      video.pause()
+      video.removeAttribute("src")
+      video.load()
+      URL.revokeObjectURL(url)
+    }
+  }
+
   const cambiarModo = (modo: "grabar" | "archivo") => {
     setError("")
     setModoSeleccionado(modo)
@@ -300,7 +457,7 @@ export default function GrabadorVideo({
     }
   }
 
-  const seleccionarArchivo = (file: File | null) => {
+  const seleccionarArchivo = async (file: File | null) => {
     setError("")
 
     if (!file) return
@@ -310,14 +467,34 @@ export default function GrabadorVideo({
       return
     }
 
-    if (previewGrabacionUrl) {
-      URL.revokeObjectURL(previewGrabacionUrl)
-    }
+    try {
+      setProcesandoArchivo(true)
+      const duracion = await obtenerDuracionVideo(file)
 
-    const nuevaUrl = URL.createObjectURL(file)
-    setPreviewGrabacionUrl(nuevaUrl)
-    setArchivoSeleccionado(file)
-    onVideoListo(file)
+      if (duracion > maxSegundos + 0.5) {
+        setError(
+          `El video superó los ${maxSegundos} segundos. Lo estamos recortando automáticamente para conservar los primeros ${maxSegundos} segundos.`
+        )
+
+        const archivoRecortado = await recortarVideo(file, maxSegundos)
+        aceptarArchivoListo(archivoRecortado)
+        setError(
+          `El video original excedía los ${maxSegundos} segundos y quedó recortado automáticamente.`
+        )
+        return
+      }
+
+      aceptarArchivoListo(file)
+    } catch (err) {
+      console.error("Error preparando archivo de video:", err)
+      setArchivoSeleccionado(null)
+      onVideoListo(null)
+      setError(
+        "No se pudo preparar el video seleccionado. Probá con otro archivo o grabá nuevamente."
+      )
+    } finally {
+      setProcesandoArchivo(false)
+    }
   }
 
   return (
@@ -381,7 +558,7 @@ export default function GrabadorVideo({
           <button
             type="button"
             onClick={() => setModoSeleccionado("ninguno")}
-            disabled={disabled || grabando}
+            disabled={disabled || grabando || procesandoArchivo}
             className="text-sm text-[var(--muted)] underline disabled:opacity-60"
           >
             Cambiar opción
@@ -406,7 +583,7 @@ export default function GrabadorVideo({
             <button
               type="button"
               onClick={abrirCamara}
-              disabled={disabled || preparandoCamara || grabando}
+              disabled={disabled || preparandoCamara || grabando || procesandoArchivo}
               className="workspace-button-secondary disabled:opacity-60"
             >
               {preparandoCamara ? "Abriendo cámara..." : "Abrir cámara"}
@@ -415,7 +592,7 @@ export default function GrabadorVideo({
             <button
               type="button"
               onClick={iniciarGrabacion}
-              disabled={disabled || grabando || !streamRef.current}
+              disabled={disabled || grabando || !streamRef.current || procesandoArchivo}
               className="workspace-button-primary disabled:opacity-60"
             >
               Grabar video
@@ -424,7 +601,7 @@ export default function GrabadorVideo({
             <button
               type="button"
               onClick={detenerGrabacion}
-              disabled={disabled || !grabando}
+              disabled={disabled || !grabando || procesandoArchivo}
               className="workspace-button-secondary disabled:opacity-60"
             >
               Finalizar grabación
@@ -433,7 +610,7 @@ export default function GrabadorVideo({
             <button
               type="button"
               onClick={cerrarCamara}
-              disabled={disabled || grabando}
+              disabled={disabled || grabando || procesandoArchivo}
               className="workspace-button-secondary disabled:opacity-60"
             >
               Cerrar cámara
@@ -443,7 +620,9 @@ export default function GrabadorVideo({
           <div className="workspace-inline-note">
             {grabando
               ? `Grabando... ${textoTiempo} / ${String(maxSegundos).padStart(2, "0")} seg máx.`
-              : "La cámara está lista para grabar cuando quieras."}
+              : procesandoArchivo
+                ? "Procesando el video para dejarlo listo..."
+                : "La cámara está lista para grabar cuando quieras."}
           </div>
         </div>
       )}
@@ -468,11 +647,15 @@ export default function GrabadorVideo({
           <button
             type="button"
             onClick={() => cameraCaptureInputRef.current?.click()}
-            disabled={disabled}
+            disabled={disabled || procesandoArchivo}
             className="workspace-button-secondary disabled:opacity-60"
           >
             Abrir cámara del dispositivo
           </button>
+
+          <p className="workspace-inline-note">
+            Si el video supera {maxSegundos} segundos, se recortará automáticamente al máximo permitido.
+          </p>
         </div>
       )}
 
@@ -495,11 +678,15 @@ export default function GrabadorVideo({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            disabled={disabled}
+            disabled={disabled || procesandoArchivo}
             className="workspace-button-secondary disabled:opacity-60"
           >
             Elegir archivo de video
           </button>
+
+          <p className="workspace-inline-note">
+            Si elegís un video más largo que {maxSegundos} segundos, se recortará automáticamente.
+          </p>
         </div>
       )}
 
@@ -508,7 +695,9 @@ export default function GrabadorVideo({
 
         {!archivoSeleccionado && (
           <p className="workspace-inline-note">
-            Todavía no hay un video listo para subir.
+            {procesandoArchivo
+              ? "Procesando el video para dejarlo listo..."
+              : "Todavía no hay un video listo para subir."}
           </p>
         )}
 
@@ -530,7 +719,7 @@ export default function GrabadorVideo({
             <button
               type="button"
               onClick={limpiarVideoActual}
-              disabled={disabled}
+              disabled={disabled || procesandoArchivo}
               className="workspace-button-secondary disabled:opacity-60"
             >
               Descartar video
