@@ -86,6 +86,85 @@ function formatearRecordatorio(fecha: Date) {
   })
 }
 
+function obtenerPrimerNombre(nombreCompleto?: string | null) {
+  return String(nombreCompleto || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)[0] || ""
+}
+
+function inferirBienvenida(nombreCompleto?: string | null) {
+  const primerNombre = obtenerPrimerNombre(nombreCompleto)
+  const base = primerNombre
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+
+  if (!base) return "Bienvenido/a"
+
+  const femeninos = new Set([
+    "florencia",
+    "maria",
+    "sofia",
+    "lucia",
+    "valentina",
+    "camila",
+    "martina",
+    "julieta",
+    "paula",
+    "carla",
+    "micaela",
+    "romina",
+    "daniela",
+    "gabriela",
+    "andrea",
+    "natalia",
+    "cecilia",
+    "veronica",
+    "noelia",
+    "agustina",
+  ])
+
+  const masculinos = new Set([
+    "juan",
+    "jose",
+    "manuel",
+    "nicolas",
+    "lucas",
+    "tomas",
+    "mateo",
+    "santiago",
+    "martin",
+    "joaquin",
+    "facundo",
+    "franco",
+    "mariano",
+    "gonzalo",
+    "fernando",
+    "sebastian",
+    "andres",
+    "alejandro",
+    "rodrigo",
+    "agustin",
+  ])
+
+  if (femeninos.has(base)) return "Bienvenida"
+  if (masculinos.has(base)) return "Bienvenido"
+
+  if (base.endsWith("a")) return "Bienvenida"
+  if (
+    base.endsWith("o") ||
+    base.endsWith("n") ||
+    base.endsWith("l") ||
+    base.endsWith("r") ||
+    base.endsWith("s")
+  ) {
+    return "Bienvenido"
+  }
+
+  return "Bienvenido/a"
+}
+
 function Card({
   titulo,
   descripcion,
@@ -388,6 +467,7 @@ export default function CampusPage() {
   }
 
   const nombre = session?.user?.name || "Participante"
+  const bienvenida = inferirBienvenida(nombre)
   const role = session?.user?.role || "participante"
   const esAdmin = role === "admin"
   const totalActividades = [
@@ -403,7 +483,7 @@ export default function CampusPage() {
         <WorkspaceHero
           eyebrow="Coordinación"
           title="Panel operativo"
-          subtitle={`Bienvenido ${nombre}. Acceso rápido a agenda, pagos y tareas de coordinación.`}
+          subtitle={`${bienvenida} ${nombre}. Acceso rápido a agenda, pagos y tareas de coordinación.`}
         >
           <div className="flex flex-wrap gap-3">
             <span className="workspace-chip">Administración</span>
@@ -461,7 +541,7 @@ export default function CampusPage() {
       <main className="workspace-page space-y-8">
         <WorkspaceHero
           eyebrow=""
-          title={`¡Bienvenido ${nombre}!`}
+          title={`¡${bienvenida} ${nombre}!`}
           subtitle={fraseOraculo}
           subtitleClassName="workspace-subtitle-oracle"
           logoClassName="!h-36 !w-36"
