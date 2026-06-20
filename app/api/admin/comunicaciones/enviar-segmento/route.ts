@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server"
 import { requirePermission } from "@/lib/authz"
 import {
+  crearHtmlRecordatorioPagoEntheos,
   enviarComunicacionIndividual,
+  type FiltroPagoPendiente,
   listarDestinatariosSegmento,
   type DestinatarioComunicacion,
   type SegmentoComunicacion,
@@ -17,6 +19,8 @@ type Body = {
   pruebaEmail?: string | null
   emailsManual?: string | null
   destinatariosSeleccionados?: Array<{ email?: string | null; fuente?: string | null }>
+  destinatariosFiltrados?: Array<{ email?: string | null }>
+  filtroPagoPendiente?: FiltroPagoPendiente | null
 }
 
 function normalizarEmail(email?: string | null) {
@@ -54,6 +58,14 @@ function segmentoIncluyeContactosExternos(segmento?: SegmentoComunicacion | null
     segmento === "contactos_externos_todos" ||
     segmento === "usuarios_y_contactos_activos" ||
     segmento === "lista_manual"
+  )
+}
+
+function normalizarListaEmails(items?: Array<{ email?: string | null }> | null) {
+  return new Set(
+    (items || [])
+      .map((item) => normalizarEmail(item.email))
+      .filter(Boolean)
   )
 }
 
@@ -109,6 +121,7 @@ export async function POST(req: Request) {
         segmento,
         emailsManual: body.emailsManual || "",
         destinatariosSeleccionados: body.destinatariosSeleccionados || [],
+        filtroPagoPendiente: body.filtroPagoPendiente || "todos",
       })
       if (resultado.deshabilitado) {
         return NextResponse.json(
@@ -118,6 +131,13 @@ export async function POST(req: Request) {
       }
 
       destinatarios = resultado.destinatarios
+
+      const emailsFiltrados = normalizarListaEmails(body.destinatariosFiltrados)
+      if (emailsFiltrados.size > 0) {
+        destinatarios = destinatarios.filter((item) =>
+          emailsFiltrados.has(normalizarEmail(item.email))
+        )
+      }
 
       if (
         tipoEnvio === "pago" &&
@@ -159,7 +179,10 @@ export async function POST(req: Request) {
           destinatarioEmail: destinatario.email,
           destinatarioNombre: destinatario.nombreCompleto,
           asunto,
-          html,
+          html:
+            !esPrueba && tipoValido(body.tipo) === "pago"
+              ? crearHtmlRecordatorioPagoEntheos(texto || "")
+              : html,
           texto,
           tipo: esPrueba ? "prueba" : tipoValido(body.tipo),
           actividadSlug:
@@ -169,7 +192,19 @@ export async function POST(req: Request) {
             apellido: destinatario.apellido,
             nombre_completo: destinatario.nombreCompleto,
             email: destinatario.email,
-            actividad: body.actividadSlug || destinatario.actividadSlug || "",
+            actividad:
+              body.actividadSlug ||
+              destinatario.actividadNombre ||
+              destinatario.actividadSlug ||
+              "",
+            detalle_pago: destinatario.detallePago || "",
+            monto:
+              destinatario.monto !== null && destinatario.monto !== undefined
+                ? `${destinatario.monto}${destinatario.moneda ? ` ${destinatario.moneda}` : ""}`
+                : "",
+            link_pagos: `${process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000"}/pagos`,
+            fecha_sesion: destinatario.fechaSesion || "",
+            estado_pago: destinatario.estadoPago || "",
           },
           metadata: {
             origen: esPrueba
@@ -181,6 +216,12 @@ export async function POST(req: Request) {
             contactoId: destinatario.contactoId,
             usuarioId: destinatario.usuarioId,
             enviadoPor: auth.actor.email,
+            tipo_deuda: destinatario.tipoPago || null,
+            estado_pago: destinatario.estadoPago || null,
+            monto: destinatario.monto ?? null,
+            moneda: destinatario.moneda || null,
+            reserva_id: destinatario.reservaId || null,
+            pago_mensual_id: destinatario.pagoMensualId || null,
           },
         })
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { requirePermission } from "@/lib/authz"
 import {
   listarDestinatariosSegmento,
+  type FiltroPagoPendiente,
   type SegmentoComunicacion,
 } from "@/lib/comunicaciones"
 
@@ -9,6 +10,7 @@ type Body = {
   segmento?: SegmentoComunicacion
   emailsManual?: string | null
   destinatariosSeleccionados?: Array<{ email?: string | null; fuente?: string | null }>
+  filtroPagoPendiente?: FiltroPagoPendiente | null
 }
 
 export async function POST(req: Request) {
@@ -33,6 +35,7 @@ export async function POST(req: Request) {
       segmento,
       emailsManual: body.emailsManual || "",
       destinatariosSeleccionados: body.destinatariosSeleccionados || [],
+      filtroPagoPendiente: body.filtroPagoPendiente || "todos",
     })
 
     return NextResponse.json({

@@ -28,6 +28,13 @@ type TipoComunicacion =
   | "aviso"
   | "newsletter"
 
+type FiltroPagoPendiente =
+  | "todos"
+  | "mensualidades"
+  | "terapias"
+  | "comprobantes_en_revision"
+  | "rechazados"
+
 type DestinatarioPreview = {
   email: string
   nombreCompleto: string
@@ -35,6 +42,17 @@ type DestinatarioPreview = {
   fuente: "usuario_plataforma" | "contacto_externo" | "manual"
   activo: boolean
   razon: string
+  tipoPago?: "mensualidad" | "proceso" | "sesion_terapia"
+  estadoPago?: "sin_pago" | "en_revision" | "rechazado" | "pendiente_pago"
+  monto?: string | number | null
+  moneda?: string | null
+  detallePago?: string | null
+  fechaSesion?: string | null
+  fechaVencimiento?: string | null
+  reservaId?: number | null
+  pagoMensualId?: number | null
+  comprobantePendienteAprobacion?: boolean
+  recordatorioEnviadoHoy?: boolean
 }
 
 type ContactoExterno = {
@@ -115,8 +133,7 @@ const SEGMENTOS: Array<{
   {
     value: "pagos_pendientes",
     label: "Usuarios con pago pendiente",
-    descripcion: "Próximamente.",
-    disabled: true,
+    descripcion: "Recordatorios manuales para mensualidades, procesos y terapias pendientes.",
   },
   {
     value: "pagos_al_dia",
@@ -164,6 +181,38 @@ const TIPOS: Array<{ value: TipoComunicacion; label: string }> = [
   { value: "newsletter", label: "Newsletter" },
 ]
 
+const FILTROS_PAGO_PENDIENTE: Array<{
+  value: FiltroPagoPendiente
+  label: string
+}> = [
+  { value: "todos", label: "Todos los pagos pendientes" },
+  { value: "mensualidades", label: "Mensualidades y procesos" },
+  { value: "terapias", label: "Terapias pendientes" },
+  { value: "comprobantes_en_revision", label: "Comprobantes en revisión" },
+  { value: "rechazados", label: "Pagos rechazados" },
+]
+
+const ASUNTO_RECORDATORIO_PAGO =
+  "Recordatorio de pago pendiente — Entheos"
+
+const CUERPO_RECORDATORIO_PAGO = `Hola {{nombre}},
+
+Te escribimos para recordarte que tenés un pago pendiente en Entheos.
+
+Detalle:
+{{detalle_pago}}
+
+Podés regularizarlo ingresando a tu espacio de pagos:
+
+{{link_pagos}}
+
+Una vez acreditado el pago, se habilitará o continuará el acceso correspondiente.
+
+Si ya realizaste el pago, podés responder este correo o subir el comprobante desde la plataforma.
+
+Gracias,
+Equipo Entheos`
+
 const ACTIVIDADES = [
   { value: "", label: "Sin actividad específica" },
   { value: "casatalentos", label: "CasaTalentos" },
@@ -210,6 +259,41 @@ function fuenteLabel(fuente: DestinatarioPreview["fuente"]) {
   }
 }
 
+function tipoPagoLabel(tipo?: DestinatarioPreview["tipoPago"]) {
+  switch (tipo) {
+    case "mensualidad":
+      return "Mensualidad"
+    case "proceso":
+      return "Proceso"
+    case "sesion_terapia":
+      return "Sesión de Terapia"
+    default:
+      return "Pago"
+  }
+}
+
+function estadoPagoLabel(estado?: DestinatarioPreview["estadoPago"]) {
+  switch (estado) {
+    case "sin_pago":
+      return "Sin pago"
+    case "en_revision":
+      return "En revisión"
+    case "rechazado":
+      return "Rechazado"
+    case "pendiente_pago":
+      return "Pendiente"
+    default:
+      return "Pendiente"
+  }
+}
+
+function montoPagoTexto(destinatario: DestinatarioPreview) {
+  if (destinatario.monto === null || destinatario.monto === undefined || destinatario.monto === "") {
+    return "No informado"
+  }
+  return `${destinatario.monto}${destinatario.moneda ? ` ${destinatario.moneda}` : ""}`
+}
+
 function contactoNombre(contacto: ContactoExterno) {
   return [contacto.nombre, contacto.apellido].filter(Boolean).join(" ") || contacto.email
 }
@@ -233,6 +317,8 @@ export default function AdminComunicacionesPage() {
   const [tipo, setTipo] = useState<TipoComunicacion>("general")
   const [actividadSlug, setActividadSlug] = useState("")
   const [segmento, setSegmento] = useState<Segmento>("todos_activos")
+  const [filtroPagoPendiente, setFiltroPagoPendiente] =
+    useState<FiltroPagoPendiente>("todos")
   const [emailsManual, setEmailsManual] = useState("")
   const [busquedaDestinatario, setBusquedaDestinatario] = useState("")
   const [resultadosBusqueda, setResultadosBusqueda] = useState<
@@ -247,6 +333,8 @@ export default function AdminComunicacionesPage() {
   const [preview, setPreview] = useState<DestinatarioPreview[]>([])
   const [previewMensaje, setPreviewMensaje] = useState("")
   const [previewCargando, setPreviewCargando] = useState(false)
+  const [destinatariosPagoSeleccionados, setDestinatariosPagoSeleccionados] =
+    useState<string[]>([])
   const [enviando, setEnviando] = useState(false)
   const [mensaje, setMensaje] = useState("")
   const [historial, setHistorial] = useState<HistorialEnvio[]>([])
@@ -284,7 +372,21 @@ export default function AdminComunicacionesPage() {
     (destinatariosSeleccionados.length > 0 || emailsManual.trim().length > 0)
 
   const puedeEnviarSegmento =
-    preview.length > 0 || tieneDestinatariosEspecificosPendientes
+    segmento === "pagos_pendientes"
+      ? destinatariosPagoSeleccionados.length > 0
+      : preview.length > 0 || tieneDestinatariosEspecificosPendientes
+
+  useEffect(() => {
+    if (segmento !== "pagos_pendientes") return
+
+    setTipo("pago")
+    if (!asunto.trim()) {
+      setAsunto(ASUNTO_RECORDATORIO_PAGO)
+    }
+    if (!contenido.trim()) {
+      setContenido(CUERPO_RECORDATORIO_PAGO)
+    }
+  }, [asunto, contenido, segmento])
 
   const cargarPreview = useCallback(async () => {
     try {
@@ -297,6 +399,7 @@ export default function AdminComunicacionesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           segmento,
+          filtroPagoPendiente,
           emailsManual,
           destinatariosSeleccionados,
         }),
@@ -308,9 +411,15 @@ export default function AdminComunicacionesPage() {
         throw new Error(data.error || data.motivo || "No se pudo cargar el segmento.")
       }
 
-      setPreview(data.destinatarios || [])
+      const destinatarios = (data.destinatarios || []) as DestinatarioPreview[]
+      setPreview(destinatarios)
+      if (segmento === "pagos_pendientes") {
+        setDestinatariosPagoSeleccionados(
+          destinatarios.map((item) => item.email)
+        )
+      }
       setPreviewMensaje(`${data.total || 0} destinatario/s encontrados.`)
-      return (data.destinatarios || []) as DestinatarioPreview[]
+      return destinatarios
     } catch (error) {
       setPreview([])
       setPreviewMensaje(
@@ -322,7 +431,7 @@ export default function AdminComunicacionesPage() {
     } finally {
       setPreviewCargando(false)
     }
-  }, [destinatariosSeleccionados, emailsManual, segmento])
+  }, [destinatariosSeleccionados, emailsManual, filtroPagoPendiente, segmento])
 
   const buscarDestinatarios = useCallback(async () => {
     const q = busquedaDestinatario.trim()
@@ -474,6 +583,11 @@ export default function AdminComunicacionesPage() {
     }
 
     let destinatariosParaConfirmar = preview
+    if (segmento === "pagos_pendientes") {
+      destinatariosParaConfirmar = preview.filter((item) =>
+        destinatariosPagoSeleccionados.includes(item.email)
+      )
+    }
 
     if (modo === "segmento" && destinatariosParaConfirmar.length === 0) {
       if (tieneDestinatariosEspecificosPendientes) {
@@ -508,8 +622,15 @@ export default function AdminComunicacionesPage() {
           tipo,
           actividadSlug: actividadSlug || null,
           segmento,
+          filtroPagoPendiente,
           emailsManual,
           destinatariosSeleccionados,
+          destinatariosFiltrados:
+            segmento === "pagos_pendientes"
+              ? destinatariosParaConfirmar.map((item) => ({
+                  email: item.email,
+                }))
+              : [],
           pruebaEmail: modo === "prueba" ? pruebaEmail : null,
         }),
       })
@@ -590,6 +711,22 @@ export default function AdminComunicacionesPage() {
     setDestinatariosSeleccionados((prev) =>
       prev.filter((item) => item.email !== email)
     )
+  }
+
+  const toggleDestinatarioPago = (email: string) => {
+    setDestinatariosPagoSeleccionados((prev) =>
+      prev.includes(email)
+        ? prev.filter((item) => item !== email)
+        : [...prev, email]
+    )
+  }
+
+  const seleccionarTodosPagos = () => {
+    setDestinatariosPagoSeleccionados(preview.map((item) => item.email))
+  }
+
+  const limpiarSeleccionPagos = () => {
+    setDestinatariosPagoSeleccionados([])
   }
 
   const cambiarEstadoContacto = async (contacto: ContactoExterno) => {
@@ -717,7 +854,7 @@ export default function AdminComunicacionesPage() {
                 className="workspace-field min-h-52"
                 value={contenido}
                 onChange={(e) => setContenido(e.target.value)}
-                placeholder="Podés usar variables como {{nombre}}, {{nombre_completo}}, {{email}} o {{actividad}}."
+                placeholder="Podés usar variables como {{nombre}}, {{nombre_completo}}, {{email}}, {{actividad}}, {{detalle_pago}}, {{monto}}, {{link_pagos}}, {{fecha_sesion}} o {{estado_pago}}."
               />
             </label>
           </div>
@@ -789,6 +926,38 @@ export default function AdminComunicacionesPage() {
 
           {segmentoActual && (
             <p className="text-sm text-gray-600">{segmentoActual.descripcion}</p>
+          )}
+
+          {segmento === "pagos_pendientes" && (
+            <div className="space-y-3 rounded-2xl border border-[var(--line)] bg-[rgba(255,250,242,0.7)] p-3">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-gray-800">
+                  Recordatorios de pago
+                </p>
+                <p className="text-sm text-gray-600">
+                  Elegí el tipo de deuda, previsualizá destinatarios y quitá manualmente a quienes no quieras incluir.
+                </p>
+              </div>
+
+              <label className="space-y-2">
+                <span className="text-sm font-medium text-gray-700">
+                  Tipo de deuda
+                </span>
+                <select
+                  className="workspace-field"
+                  value={filtroPagoPendiente}
+                  onChange={(e) =>
+                    setFiltroPagoPendiente(e.target.value as FiltroPagoPendiente)
+                  }
+                >
+                  {FILTROS_PAGO_PENDIENTE.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           )}
 
           {segmento === "destinatarios_especificos" && (
@@ -930,15 +1099,40 @@ export default function AdminComunicacionesPage() {
             >
               {enviando
                 ? "Enviando..."
+                : segmento === "pagos_pendientes"
+                  ? "Enviar recordatorios"
                 : segmento === "destinatarios_especificos"
                   ? "Enviar a destinatarios"
                   : "Enviar comunicación"}
             </button>
+            {segmento === "pagos_pendientes" && (
+              <>
+                <button
+                  type="button"
+                  onClick={seleccionarTodosPagos}
+                  disabled={preview.length === 0}
+                  className="workspace-button-secondary !px-3 !py-1.5 text-xs"
+                >
+                  Seleccionar todos
+                </button>
+                <button
+                  type="button"
+                  onClick={limpiarSeleccionPagos}
+                  disabled={preview.length === 0}
+                  className="workspace-button-secondary !px-3 !py-1.5 text-xs"
+                >
+                  Limpiar selección
+                </button>
+              </>
+            )}
           </div>
 
           {previewMensaje && (
             <p className="rounded-xl border border-[var(--line)] bg-[rgba(255,250,242,0.7)] px-3 py-2 text-sm text-gray-700">
               {previewMensaje}
+              {segmento === "pagos_pendientes"
+                ? ` Seleccionados: ${destinatariosPagoSeleccionados.length}.`
+                : ""}
             </p>
           )}
 
@@ -948,10 +1142,24 @@ export default function AdminComunicacionesPage() {
                 key={destinatario.email}
                 className="rounded-xl border border-[var(--line)] bg-white/80 p-3 text-sm"
               >
-                <p className="font-semibold text-gray-800">
-                  {destinatario.nombreCompleto || destinatario.email}
-                </p>
-                <p className="text-xs text-gray-500">{destinatario.email}</p>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-800">
+                      {destinatario.nombreCompleto || destinatario.email}
+                    </p>
+                    <p className="text-xs text-gray-500">{destinatario.email}</p>
+                  </div>
+                  {segmento === "pagos_pendientes" && (
+                    <label className="inline-flex items-center gap-2 text-xs font-medium text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={destinatariosPagoSeleccionados.includes(destinatario.email)}
+                        onChange={() => toggleDestinatarioPago(destinatario.email)}
+                      />
+                      Enviar
+                    </label>
+                  )}
+                </div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <span className="workspace-chip">
                     {fuenteLabel(destinatario.fuente)}
@@ -970,8 +1178,46 @@ export default function AdminComunicacionesPage() {
                       {nombreActividad(destinatario.actividadSlug)}
                     </span>
                   )}
+                  {segmento === "pagos_pendientes" && (
+                    <>
+                      <span className="workspace-chip">
+                        {tipoPagoLabel(destinatario.tipoPago)}
+                      </span>
+                      <span className="workspace-chip">
+                        {estadoPagoLabel(destinatario.estadoPago)}
+                      </span>
+                    </>
+                  )}
                   <span className="workspace-chip">{destinatario.razon}</span>
                 </div>
+
+                {segmento === "pagos_pendientes" && (
+                  <div className="mt-3 space-y-1 text-xs text-gray-600">
+                    <p>
+                      <strong>Monto:</strong> {montoPagoTexto(destinatario)}
+                    </p>
+                    {destinatario.fechaSesion && (
+                      <p>
+                        <strong>Sesión:</strong> {destinatario.fechaSesion}
+                      </p>
+                    )}
+                    {destinatario.fechaVencimiento && (
+                      <p>
+                        <strong>Período:</strong> {destinatario.fechaVencimiento}
+                      </p>
+                    )}
+                    {destinatario.detallePago && (
+                      <p>
+                        <strong>Detalle:</strong> {destinatario.detallePago}
+                      </p>
+                    )}
+                    {destinatario.recordatorioEnviadoHoy && (
+                      <p className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">
+                        Ya se envió recordatorio hoy.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
 

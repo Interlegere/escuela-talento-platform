@@ -10,6 +10,11 @@ export type VariablesComunicacion = {
   link_login?: string | null
   clave_acceso?: string | null
   actividad?: string | null
+  detalle_pago?: string | null
+  monto?: string | null
+  link_pagos?: string | null
+  fecha_sesion?: string | null
+  estado_pago?: string | null
 }
 
 export type EnviarComunicacionIndividualParams = {
@@ -78,11 +83,23 @@ export type DestinatarioComunicacion = {
   nombreCompleto: string
   role: string
   actividadSlug: string | null
+  actividadNombre?: string | null
   fuente: "usuario_plataforma" | "contacto_externo" | "manual"
   activo: boolean
   contactoId: number | null
   usuarioId: string | number | null
   razon: string
+  tipoPago?: "mensualidad" | "proceso" | "sesion_terapia"
+  estadoPago?: "sin_pago" | "en_revision" | "rechazado" | "pendiente_pago"
+  monto?: string | number | null
+  moneda?: string | null
+  detallePago?: string | null
+  fechaSesion?: string | null
+  fechaVencimiento?: string | null
+  reservaId?: number | null
+  pagoMensualId?: number | null
+  comprobantePendienteAprobacion?: boolean
+  recordatorioEnviadoHoy?: boolean
 }
 
 export type DestinatarioSeleccionadoComunicacion = {
@@ -96,7 +113,35 @@ export type ListarDestinatariosSegmentoParams =
       segmento: SegmentoComunicacion
       emailsManual?: string | null
       destinatariosSeleccionados?: DestinatarioSeleccionadoComunicacion[] | null
+      filtroPagoPendiente?: FiltroPagoPendiente | null
     }
+
+export type FiltroPagoPendiente =
+  | "todos"
+  | "mensualidades"
+  | "terapias"
+  | "comprobantes_en_revision"
+  | "rechazados"
+
+export type DestinatarioPagoPendiente = {
+  email: string
+  nombreCompleto: string
+  nombre: string
+  actividadSlug: string
+  actividadNombre: string
+  tipoPago: "mensualidad" | "proceso" | "sesion_terapia"
+  estadoPago: "sin_pago" | "en_revision" | "rechazado" | "pendiente_pago"
+  monto?: string | number | null
+  moneda?: string | null
+  detallePago: string
+  fechaSesion?: string | null
+  fechaVencimiento?: string | null
+  reservaId?: number | null
+  pagoMensualId?: number | null
+  comprobantePendienteAprobacion: boolean
+  usuarioActivo: boolean
+  recordatorioEnviadoHoy?: boolean
+}
 
 type PlantillaRow = {
   id: number
@@ -144,6 +189,57 @@ type ContactoRow = {
   updated_at?: string | null
 }
 
+type HonorarioPagoRow = {
+  id: number
+  actividad_id: number
+  participante_email?: string | null
+  participante_nombre?: string | null
+  honorario_mensual?: string | number | null
+  modalidad_pago?: string | null
+  moneda?: string | null
+  activo?: boolean | null
+}
+
+type InscripcionPagoRow = {
+  id: number
+  actividad_id?: number | null
+  participante_email?: string | null
+  participante_nombre?: string | null
+  estado?: string | null
+}
+
+type PagoMensualEstadoRow = {
+  id: number
+  inscripcion_id?: number | null
+  anio?: number | null
+  mes?: number | null
+  estado?: string | null
+  monto?: string | number | null
+  moneda?: string | null
+  created_at?: string | null
+}
+
+type ReservaPagoRow = {
+  id: number
+  estado?: string | null
+  participante_email?: string | null
+  participante_nombre?: string | null
+  medio_pago?: string | null
+  monto?: string | number | null
+  monto_transferencia?: string | number | null
+  monto_mercado_pago?: string | number | null
+  comprobante_nombre_archivo?: string | null
+  mp_status?: string | null
+  disponibilidades?:
+    | {
+        actividad_slug?: string | null
+        titulo?: string | null
+        fecha?: string | null
+        hora?: string | null
+      }[]
+    | null
+}
+
 const ACTIVIDAD_SEGMENTO: Partial<Record<SegmentoComunicacion, string>> = {
   casatalentos_activos: "casatalentos",
   conectando_sentidos_activos: "conectando-sentidos",
@@ -151,10 +247,7 @@ const ACTIVIDAD_SEGMENTO: Partial<Record<SegmentoComunicacion, string>> = {
   terapia_activos: "terapia",
 }
 
-const SEGMENTOS_PROXIMAMENTE = new Set<SegmentoComunicacion>([
-  "pagos_pendientes",
-  "pagos_al_dia",
-])
+const SEGMENTOS_PROXIMAMENTE = new Set<SegmentoComunicacion>(["pagos_al_dia"])
 
 const TIMEZONE_ARGENTINA = "America/Argentina/Cordoba"
 
@@ -182,8 +275,96 @@ function textoAHtml(texto: string) {
     .join("")
 }
 
+function periodoMensualTexto(anio?: number | null, mes?: number | null) {
+  if (!anio || !mes) return "período actual"
+  return `${String(mes).padStart(2, "0")}/${anio}`
+}
+
 function normalizarEmail(email?: string | null) {
   return String(email || "").trim().toLowerCase()
+}
+
+function formatearFechaSesionCorta(fecha?: string | null, hora?: string | null) {
+  if (!fecha) return ""
+  const base = new Date(`${fecha}T${String(hora || "00:00").slice(0, 5)}:00`)
+  if (Number.isNaN(base.getTime())) {
+    return [fecha, hora].filter(Boolean).join(" ")
+  }
+
+  return base.toLocaleString("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
+function estadoPagoLabel(estado: string) {
+  switch (estado) {
+    case "sin_pago":
+      return "Sin pago"
+    case "en_revision":
+      return "Comprobante en revisión"
+    case "rechazado":
+      return "Pago rechazado"
+    case "pendiente_pago":
+      return "Pendiente de pago"
+    default:
+      return estado
+  }
+}
+
+function tipoPagoLabel(tipo: DestinatarioPagoPendiente["tipoPago"]) {
+  switch (tipo) {
+    case "mensualidad":
+      return "Mensualidad"
+    case "proceso":
+      return "Proceso"
+    case "sesion_terapia":
+      return "Sesión de Terapia"
+  }
+}
+
+function htmlBotonEntheos(texto: string, href: string) {
+  return `
+    <div style="margin: 24px 0 28px;">
+      <a
+        href="${escapeHtml(href)}"
+        style="display:inline-block;padding:14px 22px;border-radius:999px;background:#c98b1b;color:#ffffff;font-weight:700;text-decoration:none;"
+      >
+        ${escapeHtml(texto)}
+      </a>
+    </div>
+  `
+}
+
+export function crearHtmlRecordatorioPagoEntheos(cuerpoTemplate: string) {
+  const cuerpoHtml = textoAHtml(cuerpoTemplate)
+  return `
+    <div style="margin:0;padding:32px 16px;background:#f6efe2;font-family:Arial,sans-serif;color:#1f2933;">
+      <div style="max-width:680px;margin:0 auto;background:#fffdf8;border:1px solid #eadfc9;border-radius:24px;overflow:hidden;box-shadow:0 10px 30px rgba(77,54,18,0.08);">
+        <div style="padding:32px 32px 20px;background:linear-gradient(135deg, rgba(250,244,229,1) 0%, rgba(255,250,240,1) 55%, rgba(248,237,210,1) 100%);">
+          <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.22em;text-transform:uppercase;color:#8a6a2f;font-weight:700;">ENTHEOS</p>
+          <h1 style="margin:0 0 10px;font-size:30px;line-height:1.15;color:#18202a;">Recordatorio de pago</h1>
+          <p style="margin:0;color:#6b7280;font-size:16px;line-height:1.5;">
+            Seguimiento manual de pagos pendientes desde Administración de Comunicaciones.
+          </p>
+        </div>
+        <div style="padding:28px 32px 32px;line-height:1.75;">
+          ${cuerpoHtml}
+          ${htmlBotonEntheos("Ir a Pagos", "{{link_pagos}}")}
+          <div style="margin-top:16px;border:1px solid #e5dccb;border-radius:18px;padding:18px 20px;background:#fffaf2;">
+            <p style="margin:0 0 10px;"><strong>Actividad:</strong> {{actividad}}</p>
+            <p style="margin:0 0 10px;"><strong>Estado:</strong> {{estado_pago}}</p>
+            <p style="margin:0 0 10px;"><strong>Monto:</strong> {{monto}}</p>
+            <p style="margin:0;"><strong>Detalle:</strong> {{detalle_pago}}</p>
+          </div>
+          <p style="margin:18px 0 0;">Equipo Entheos</p>
+        </div>
+      </div>
+    </div>
+  `
 }
 
 function nombreActividadSesion(slug: "mentorias" | "terapia") {
@@ -388,6 +569,7 @@ function destinatarioDesdeUsuario(
     nombreCompleto,
     role: String(usuario.role || "").trim(),
     actividadSlug: actividadSlug || null,
+    actividadNombre: null,
     fuente: "usuario_plataforma",
     activo: usuario.activo !== false,
     contactoId: null,
@@ -414,6 +596,7 @@ function destinatarioDesdeContacto(
     nombreCompleto,
     role: "contacto_externo",
     actividadSlug: null,
+    actividadNombre: null,
     fuente: "contacto_externo",
     activo: contacto.activo !== false,
     contactoId: contacto.id,
@@ -433,6 +616,7 @@ function destinatarioManual(email: string): DestinatarioComunicacion | null {
     nombreCompleto: normalizado,
     role: "manual",
     actividadSlug: null,
+    actividadNombre: null,
     fuente: "manual",
     activo: true,
     contactoId: null,
@@ -495,6 +679,11 @@ export function renderVariables(
     link_login: String(variables.link_login || `${appUrl()}/login`).trim(),
     clave_acceso: String(variables.clave_acceso || "").trim(),
     actividad: String(variables.actividad || "").trim(),
+    detalle_pago: String(variables.detalle_pago || "").trim(),
+    monto: String(variables.monto || "").trim(),
+    link_pagos: String(variables.link_pagos || `${appUrl()}/pagos`).trim(),
+    fecha_sesion: String(variables.fecha_sesion || "").trim(),
+    estado_pago: String(variables.estado_pago || "").trim(),
   }
 
   return contenido.replace(/{{\s*([a-zA-Z0-9_]+)\s*}}/g, (_, key: string) => {
@@ -504,6 +693,364 @@ export function renderVariables(
 
 export function segmentoDisponible(segmento: SegmentoComunicacion) {
   return !SEGMENTOS_PROXIMAMENTE.has(segmento)
+}
+
+function destinatarioComunicacionDesdePagoPendiente(
+  item: DestinatarioPagoPendiente
+): DestinatarioComunicacion {
+  return {
+    email: item.email,
+    nombre: item.nombre,
+    apellido: "",
+    nombreCompleto: item.nombreCompleto,
+    role: "participante",
+    actividadSlug: item.actividadSlug,
+    actividadNombre: item.actividadNombre,
+    fuente: "usuario_plataforma",
+    activo: item.usuarioActivo,
+    contactoId: null,
+    usuarioId: item.email,
+    razon: item.detallePago,
+    tipoPago: item.tipoPago,
+    estadoPago: item.estadoPago,
+    monto: item.monto ?? null,
+    moneda: item.moneda ?? null,
+    detallePago: item.detallePago,
+    fechaSesion: item.fechaSesion ?? null,
+    fechaVencimiento: item.fechaVencimiento ?? null,
+    reservaId: item.reservaId ?? null,
+    pagoMensualId: item.pagoMensualId ?? null,
+    comprobantePendienteAprobacion: item.comprobantePendienteAprobacion,
+    recordatorioEnviadoHoy: item.recordatorioEnviadoHoy === true,
+  }
+}
+
+export async function listarDestinatariosPagosPendientes(
+  options?: {
+    filtro?: FiltroPagoPendiente | null
+  }
+) {
+  const filtro = options?.filtro || "todos"
+  const supabase = createAdminSupabaseClient()
+  const ahora = new Date()
+  const anioActual = ahora.getFullYear()
+  const mesActual = ahora.getMonth() + 1
+  const inicioDia = new Date(ahora)
+  inicioDia.setHours(0, 0, 0, 0)
+  const finDia = new Date(inicioDia)
+  finDia.setDate(finDia.getDate() + 1)
+
+  const [
+    { data: usuariosData, error: usuariosError },
+    { data: actividadesData, error: actividadesError },
+    { data: honorariosData, error: honorariosError },
+    { data: inscripcionesData, error: inscripcionesError },
+    { data: reservasData, error: reservasError },
+    { data: enviosData, error: enviosError },
+  ] = await Promise.all([
+    supabase
+      .from("usuarios_plataforma")
+      .select("id, nombre, apellido, email, role, activo"),
+    supabase.from("actividades").select("id, slug, nombre"),
+    supabase
+      .from("honorarios_participante")
+      .select(
+        "id, actividad_id, participante_email, participante_nombre, honorario_mensual, modalidad_pago, moneda, activo"
+      )
+      .eq("activo", true),
+    supabase
+      .from("inscripciones")
+      .select("id, actividad_id, participante_email, participante_nombre, estado")
+      .eq("estado", "activa"),
+    supabase
+      .from("reservas")
+      .select(
+        "id, estado, participante_email, participante_nombre, medio_pago, monto, monto_transferencia, monto_mercado_pago, comprobante_nombre_archivo, mp_status, disponibilidades(actividad_slug, titulo, fecha, hora)"
+      )
+      .in("estado", ["pendiente_pago", "confirmada"]),
+    supabase
+      .from("comunicacion_envios")
+      .select("destinatario_email, created_at")
+      .eq("tipo", "pago")
+      .gte("created_at", inicioDia.toISOString())
+      .lt("created_at", finDia.toISOString()),
+  ])
+
+  if (usuariosError) {
+    throw new Error(`No se pudieron cargar usuarios: ${usuariosError.message}`)
+  }
+  if (actividadesError) {
+    throw new Error(`No se pudieron cargar actividades: ${actividadesError.message}`)
+  }
+  if (honorariosError) {
+    throw new Error(`No se pudieron cargar honorarios: ${honorariosError.message}`)
+  }
+  if (inscripcionesError) {
+    throw new Error(`No se pudieron cargar inscripciones: ${inscripcionesError.message}`)
+  }
+  if (reservasError) {
+    throw new Error(`No se pudieron cargar reservas: ${reservasError.message}`)
+  }
+  if (enviosError) {
+    throw new Error(`No se pudo cargar el historial de recordatorios: ${enviosError.message}`)
+  }
+
+  const usuarios = (usuariosData || []) as UsuarioRow[]
+  const actividades = (actividadesData || []) as ActividadRow[]
+  const honorarios = (honorariosData || []) as HonorarioPagoRow[]
+  const inscripciones = (inscripcionesData || []) as InscripcionPagoRow[]
+  const reservas = (reservasData || []) as ReservaPagoRow[]
+  const recordatoriosHoy = new Set(
+    ((enviosData as Array<{ destinatario_email?: string | null }> | null) || [])
+      .map((item) => normalizarEmail(item.destinatario_email))
+      .filter(Boolean)
+  )
+
+  const usuariosPorEmail = new Map<string, UsuarioRow>()
+  for (const usuario of usuarios) {
+    const email = normalizarEmail(usuario.email)
+    if (email && !usuariosPorEmail.has(email)) {
+      usuariosPorEmail.set(email, usuario)
+    }
+  }
+
+  const actividadesPorId = new Map<number, ActividadRow>()
+  for (const actividad of actividades) {
+    actividadesPorId.set(actividad.id, actividad)
+  }
+
+  const inscripcionPorClave = new Map<string, InscripcionPagoRow>()
+  for (const inscripcion of inscripciones) {
+    const email = normalizarEmail(inscripcion.participante_email)
+    const actividadId = Number(inscripcion.actividad_id || 0)
+    if (!email || !actividadId) continue
+    inscripcionPorClave.set(`${actividadId}:${email}`, inscripcion)
+  }
+
+  const inscripcionIds = Array.from(
+    new Set(
+      Array.from(inscripcionPorClave.values())
+        .map((item) => Number(item.id || 0))
+        .filter((value) => value > 0)
+    )
+  )
+
+  const { data: pagosData, error: pagosError } = inscripcionIds.length
+    ? await supabase
+        .from("pagos_mensuales")
+        .select("id, inscripcion_id, anio, mes, estado, monto, moneda, created_at")
+        .in("inscripcion_id", inscripcionIds)
+        .order("created_at", { ascending: false })
+    : { data: [], error: null }
+
+  if (pagosError) {
+    throw new Error(`No se pudieron cargar pagos mensuales: ${pagosError.message}`)
+  }
+
+  const pagos = (pagosData || []) as PagoMensualEstadoRow[]
+  const pagosPorInscripcion = new Map<number, PagoMensualEstadoRow[]>()
+  for (const pago of pagos) {
+    const id = Number(pago.inscripcion_id || 0)
+    if (!id) continue
+    const existentes = pagosPorInscripcion.get(id) || []
+    existentes.push(pago)
+    pagosPorInscripcion.set(id, existentes)
+  }
+
+  const resultado: DestinatarioPagoPendiente[] = []
+
+  for (const honorario of honorarios) {
+    const actividad = actividadesPorId.get(Number(honorario.actividad_id || 0))
+    const actividadSlug = String(actividad?.slug || "").trim()
+    const actividadNombre = String(actividad?.nombre || actividadSlug || "Actividad").trim()
+    const email = normalizarEmail(honorario.participante_email)
+    if (!email || !actividadSlug) continue
+
+    const modalidadPago = String(honorario.modalidad_pago || "").trim().toLowerCase()
+    if (modalidadPago === "sesion") {
+      continue
+    }
+
+    const inscripcion = inscripcionPorClave.get(`${Number(honorario.actividad_id || 0)}:${email}`)
+    if (!inscripcion?.id) continue
+
+    const usuario = usuariosPorEmail.get(email)
+    const nombre =
+      String(usuario?.nombre || "").trim() ||
+      String(honorario.participante_nombre || inscripcion.participante_nombre || "").trim() ||
+      email
+    const apellido = String(usuario?.apellido || "").trim()
+    const nombreCompleto = [nombre, apellido].filter(Boolean).join(" ") || nombre
+    const pagosInscripcion = pagosPorInscripcion.get(Number(inscripcion.id || 0)) || []
+
+    let pagoActual: PagoMensualEstadoRow | null = null
+    let tipoPago: DestinatarioPagoPendiente["tipoPago"] = "mensualidad"
+    let estadoPago: DestinatarioPagoPendiente["estadoPago"] | null = null
+    let detallePago = ""
+    let fechaVencimiento: string | null = null
+
+    if (modalidadPago === "proceso") {
+      tipoPago = "proceso"
+      pagoActual = pagosInscripcion[0] || null
+      if (!pagoActual?.estado) {
+        estadoPago = "sin_pago"
+      } else if (pagoActual.estado === "en_revision") {
+        estadoPago = "en_revision"
+      } else if (pagoActual.estado === "rechazado") {
+        estadoPago = "rechazado"
+      } else if (pagoActual.estado === "pagado") {
+        estadoPago = null
+      } else {
+        estadoPago = "sin_pago"
+      }
+
+      if (estadoPago === "sin_pago") {
+        detallePago = `Pago del proceso pendiente en ${actividadNombre}.`
+      } else if (estadoPago === "en_revision") {
+        detallePago = `Comprobante del proceso pendiente de aprobación en ${actividadNombre}.`
+      } else if (estadoPago === "rechazado") {
+        detallePago = `El pago del proceso en ${actividadNombre} fue rechazado y necesita regularización.`
+      }
+    } else {
+      pagoActual =
+        pagosInscripcion.find(
+          (item) => Number(item.anio || 0) === anioActual && Number(item.mes || 0) === mesActual
+        ) || null
+
+      if (!pagoActual?.estado) {
+        estadoPago = "sin_pago"
+      } else if (pagoActual.estado === "en_revision") {
+        estadoPago = "en_revision"
+      } else if (pagoActual.estado === "rechazado") {
+        estadoPago = "rechazado"
+      } else if (pagoActual.estado === "pagado") {
+        estadoPago = null
+      } else {
+        estadoPago = "sin_pago"
+      }
+
+      fechaVencimiento = periodoMensualTexto(anioActual, mesActual)
+
+      if (estadoPago === "sin_pago") {
+        detallePago = `Mensualidad ${fechaVencimiento} pendiente en ${actividadNombre}.`
+      } else if (estadoPago === "en_revision") {
+        detallePago = `Comprobante de ${fechaVencimiento} pendiente de aprobación en ${actividadNombre}.`
+      } else if (estadoPago === "rechazado") {
+        detallePago = `La mensualidad ${fechaVencimiento} de ${actividadNombre} fue rechazada y requiere regularización.`
+      }
+    }
+
+    if (!estadoPago) continue
+
+    const item: DestinatarioPagoPendiente = {
+      email,
+      nombreCompleto,
+      nombre,
+      actividadSlug,
+      actividadNombre,
+      tipoPago,
+      estadoPago,
+      monto: pagoActual?.monto ?? honorario.honorario_mensual ?? null,
+      moneda: pagoActual?.moneda || honorario.moneda || "ARS",
+      detallePago,
+      fechaSesion: null,
+      fechaVencimiento,
+      reservaId: null,
+      pagoMensualId: pagoActual?.id || null,
+      comprobantePendienteAprobacion: estadoPago === "en_revision",
+      usuarioActivo: usuario?.activo !== false,
+      recordatorioEnviadoHoy: recordatoriosHoy.has(email),
+    }
+
+    resultado.push(item)
+  }
+
+  for (const reserva of reservas) {
+    const disponibilidad = reserva.disponibilidades?.[0] || null
+    if (String(disponibilidad?.actividad_slug || "").trim() !== "terapia") continue
+
+    const email = normalizarEmail(reserva.participante_email)
+    if (!email) continue
+
+    const usuario = usuariosPorEmail.get(email)
+    const nombre =
+      String(usuario?.nombre || "").trim() ||
+      String(reserva.participante_nombre || "").trim() ||
+      email
+    const apellido = String(usuario?.apellido || "").trim()
+    const nombreCompleto = [nombre, apellido].filter(Boolean).join(" ") || nombre
+
+    let estadoPago: DestinatarioPagoPendiente["estadoPago"] | null = null
+    if (String(reserva.estado || "").trim() !== "pendiente_pago") {
+      continue
+    }
+
+    if (String(reserva.mp_status || "").trim().toLowerCase() === "rejected") {
+      estadoPago = "rechazado"
+    } else if (reserva.comprobante_nombre_archivo) {
+      estadoPago = "en_revision"
+    } else {
+      estadoPago = "pendiente_pago"
+    }
+
+    const fechaSesion = formatearFechaSesionCorta(
+      disponibilidad?.fecha || null,
+      disponibilidad?.hora || null
+    )
+    const detalleBase = disponibilidad?.titulo || "Sesión de Terapia"
+    let detallePago = `${detalleBase} pendiente de pago.`
+    if (estadoPago === "en_revision") {
+      detallePago = `${detalleBase}: comprobante pendiente de aprobación.`
+    } else if (estadoPago === "rechazado") {
+      detallePago = `${detalleBase}: el pago fue rechazado y necesita regularización.`
+    }
+
+    resultado.push({
+      email,
+      nombreCompleto,
+      nombre,
+      actividadSlug: "terapia",
+      actividadNombre: "Terapia",
+      tipoPago: "sesion_terapia",
+      estadoPago,
+      monto:
+        reserva.monto_transferencia ??
+        reserva.monto ??
+        reserva.monto_mercado_pago ??
+        null,
+      moneda: "ARS",
+      detallePago,
+      fechaSesion: fechaSesion || null,
+      fechaVencimiento: null,
+      reservaId: reserva.id,
+      pagoMensualId: null,
+      comprobantePendienteAprobacion: estadoPago === "en_revision",
+      usuarioActivo: usuario?.activo !== false,
+      recordatorioEnviadoHoy: recordatoriosHoy.has(email),
+    })
+  }
+
+  const filtrados = resultado.filter((item) => {
+    if (filtro === "mensualidades") {
+      return item.tipoPago === "mensualidad" || item.tipoPago === "proceso"
+    }
+    if (filtro === "terapias") {
+      return item.tipoPago === "sesion_terapia"
+    }
+    if (filtro === "comprobantes_en_revision") {
+      return item.estadoPago === "en_revision"
+    }
+    if (filtro === "rechazados") {
+      return item.estadoPago === "rechazado"
+    }
+    return true
+  })
+
+  return filtrados.sort((a, b) =>
+    a.nombreCompleto.localeCompare(b.nombreCompleto, "es", {
+      sensitivity: "base",
+    })
+  )
 }
 
 export async function resolverDestinatariosEspecificos({
@@ -682,6 +1229,8 @@ export async function listarDestinatariosSegmento(
     typeof params === "string" ? "" : params.emailsManual || ""
   const destinatariosSeleccionados =
     typeof params === "string" ? [] : params.destinatariosSeleccionados || []
+  const filtroPagoPendiente =
+    typeof params === "string" ? "todos" : params.filtroPagoPendiente || "todos"
 
   if (!segmentoDisponible(segmento)) {
     return {
@@ -715,6 +1264,20 @@ export async function listarDestinatariosSegmento(
 
     return {
       destinatarios: ordenarDestinatarios(Array.from(deduplicados.values())),
+      deshabilitado: false,
+      motivo: null,
+    }
+  }
+
+  if (segmento === "pagos_pendientes") {
+    const destinatariosPago = await listarDestinatariosPagosPendientes({
+      filtro: filtroPagoPendiente,
+    })
+
+    return {
+      destinatarios: ordenarDestinatarios(
+        destinatariosPago.map(destinatarioComunicacionDesdePagoPendiente)
+      ),
       deshabilitado: false,
       motivo: null,
     }
