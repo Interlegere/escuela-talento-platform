@@ -379,13 +379,16 @@ function formatearFechaSesion(fecha: string) {
   const [anio, mes, dia] = fecha.split("-").map(Number)
   if (!anio || !mes || !dia) return fecha
 
+  // Usamos mediodía local para evitar corrimientos de día al formatear
+  // fechas "sin hora" en clientes o runtimes con distinta zona horaria.
+  const fechaLocalSegura = new Date(anio, mes - 1, dia, 12, 0, 0)
+
   return new Intl.DateTimeFormat("es-AR", {
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
-    timeZone: TIMEZONE_ARGENTINA,
-  }).format(new Date(Date.UTC(anio, mes - 1, dia)))
+  }).format(fechaLocalSegura)
 }
 
 function formatearHoraSesion(hora: string) {
