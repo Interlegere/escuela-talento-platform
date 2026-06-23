@@ -6,10 +6,10 @@ import {
   type ActivitySlug,
   type Actor,
 } from "@/lib/authz"
-import { estaDentroDeGraciaMensual } from "@/lib/activity-rules"
 import { asegurarActividadBase } from "@/lib/core-activities"
+import { obtenerEconomiaActividadActual } from "@/lib/economy-engine"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
-import { normalizarModalidadPago, type BillingMode } from "@/lib/billing"
+import { type BillingMode } from "@/lib/billing"
 
 export type EspacioActividadSlug = Extract<ActivitySlug, "mentorias" | "terapia">
 
@@ -193,102 +193,45 @@ export async function obtenerEstadoPagoActividadActual(
   actividadSlug: EspacioActividadSlug,
   participanteEmail: string
 ): Promise<EstadoPagoEspacio> {
-  const supabase = createAdminSupabaseClient()
-
   const actividad = await asegurarActividadBase(actividadSlug)
 
   if (!actividad?.id) {
     return {
       habilitado: false,
-      modalidad: normalizarModalidadPago(undefined, actividadSlug),
+      modalidad: actividadSlug === "terapia" ? "proceso" : "mensual",
       motivo: "sin_actividad",
     }
   }
 
-  const email = participanteEmail.trim().toLowerCase()
+  const economia = await obtenerEconomiaActividadActual(
+    actividadSlug,
+    participanteEmail
+  )
 
-  const { data: inscripcion } = await supabase
-    .from("inscripciones")
-    .select("id")
-    .eq("actividad_id", actividad.id)
-    .eq("participante_email", email)
-    .eq("estado", "activa")
-    .maybeSingle()
+  const modalidad: BillingMode =
+    economia.modalidad === "sesion"
+      ? "sesion"
+      : economia.modalidad === "proceso"
+        ? "proceso"
+        : "mensual"
 
-  if (!inscripcion?.id) {
+  if (economia.estado === "no_aplica") {
     return {
       habilitado: false,
-      modalidad: normalizarModalidadPago(undefined, actividadSlug),
+      modalidad,
       motivo: "sin_inscripcion",
     }
   }
 
-  const { data: honorario } = await supabase
-    .from("honorarios_participante")
-    .select("modalidad_pago")
-    .eq("actividad_id", actividad.id)
-    .eq("participante_email", email)
-    .eq("activo", true)
-    .maybeSingle()
-
-  const modalidad = normalizarModalidadPago(
-    honorario?.modalidad_pago,
-    actividadSlug
-  )
-
-  if (modalidad === "sesion") {
+  if (economia.modalidad === "sesion") {
     return {
       habilitado: false,
-      modalidad,
+      modalidad: "sesion",
       motivo: "sesion",
     }
   }
 
-  let pago = null
-
-  if (modalidad === "proceso") {
-    const resultado = await supabase
-      .from("pagos_mensuales")
-      .select("estado")
-      .eq("inscripcion_id", inscripcion.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    pago = resultado.data
-  } else {
-    const ahora = new Date()
-    const anio = ahora.getFullYear()
-    const mes = ahora.getMonth() + 1
-
-    const resultado = await supabase
-      .from("pagos_mensuales")
-      .select("estado")
-      .eq("inscripcion_id", inscripcion.id)
-      .eq("anio", anio)
-      .eq("mes", mes)
-      .maybeSingle()
-
-    pago = resultado.data
-  }
-
-  if (!pago?.estado) {
-    if (estaDentroDeGraciaMensual(actividadSlug, new Date())) {
-      return {
-        habilitado: true,
-        modalidad,
-        motivo: "gracia",
-      }
-    }
-
-    return {
-      habilitado: false,
-      modalidad,
-      motivo: "sin_pago",
-    }
-  }
-
-  if (pago.estado === "pagado") {
+  if (economia.estado === "al_dia" || economia.estado === "bonificado" || economia.estado === "sin_cobro") {
     return {
       habilitado: true,
       modalidad,
@@ -296,15 +239,7 @@ export async function obtenerEstadoPagoActividadActual(
     }
   }
 
-  if (pago.estado === "rechazado") {
-    return {
-      habilitado: false,
-      modalidad,
-      motivo: "rechazado",
-    }
-  }
-
-  if (estaDentroDeGraciaMensual(actividadSlug, new Date())) {
+  if (economia.estado === "gracia") {
     return {
       habilitado: true,
       modalidad,
@@ -312,10 +247,26 @@ export async function obtenerEstadoPagoActividadActual(
     }
   }
 
+  if (economia.estado === "rechazado") {
+    return {
+      habilitado: false,
+      modalidad,
+      motivo: "rechazado",
+    }
+  }
+
+  if (economia.estado === "en_revision") {
+    return {
+      habilitado: false,
+      modalidad,
+      motivo: "pendiente",
+    }
+  }
+
   return {
     habilitado: false,
     modalidad,
-    motivo: "pendiente",
+    motivo: "sin_pago",
   }
 }
 

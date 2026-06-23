@@ -1,7 +1,7 @@
-import { estaDentroDeGraciaMensual } from "@/lib/activity-rules"
-import { normalizarModalidadPago, type BillingMode } from "@/lib/billing"
+import { normalizarModalidadPago } from "@/lib/billing"
 import { ESTADOS_DISPONIBILIDAD_ACTIVA } from "@/lib/disponibilidades"
 import { normalizarDocumentosNotas } from "@/lib/documentos-notas"
+import { resolverEconomiaActividad } from "@/lib/economy-engine"
 import { obtenerFechaISOArgentina } from "@/lib/fechas"
 import { normalizarMeetLink } from "@/lib/meet-links"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
@@ -420,17 +420,41 @@ function estadoPagoParaActividad(params: {
     }
   }
 
-  const modalidad = normalizarModalidadPago(honorario.modalidad_pago, actividadSlug)
-  const modalidadEspecial = modalidadResumen(
-    honorario.modalidad_pago,
-    actividadSlug
-  )
+  const economia = resolverEconomiaActividad({
+    actividadSlug,
+    actividadExiste: true,
+    inscripcionActiva,
+    honorarioId: honorario.id,
+    honorarioActivo: honorario.activo ?? null,
+    honorarioModalidadRaw: honorario.modalidad_pago || null,
+    honorarioMonto: honorario.honorario_mensual ?? null,
+    honorarioMoneda: honorario.moneda || null,
+    pagoMensualId: ultimoPago?.id || null,
+    pagoMensualEstado: ultimoPago?.estado || null,
+    pagoMensualMonto: ultimoPago?.monto ?? null,
+    pagoMensualMoneda: ultimoPago?.moneda || null,
+    pagoMensualAnio: ultimoPago?.anio ?? null,
+    pagoMensualMes: ultimoPago?.mes ?? null,
+  })
+
+  if (economia.modalidad === "sesion") {
+    return {
+      accesoEsperado: false,
+      accesoMotivo: "no_aplica" as const,
+      estadoVisible: "activa" as const,
+      observaciones: ["El acceso económico se resuelve sesión por sesión."],
+    }
+  }
 
   if (
-    modalidadEspecial === "becado" ||
-    modalidadEspecial === "invitado" ||
-    modalidadEspecial === "sin_cobro"
+    economia.estado === "bonificado" ||
+    economia.estado === "sin_cobro"
   ) {
+    const modalidadEspecial = modalidadResumen(
+      honorario.modalidad_pago,
+      actividadSlug
+    )
+
     return {
       accesoEsperado: true,
       accesoMotivo: "ok" as const,
@@ -445,16 +469,7 @@ function estadoPagoParaActividad(params: {
     }
   }
 
-  if (modalidad === "sesion") {
-    return {
-      accesoEsperado: false,
-      accesoMotivo: "no_aplica" as const,
-      estadoVisible: "activa" as const,
-      observaciones: ["El acceso económico se resuelve sesión por sesión."],
-    }
-  }
-
-  if (ultimoPago?.estado === "pagado") {
+  if (economia.estado === "al_dia") {
     return {
       accesoEsperado: true,
       accesoMotivo: "ok" as const,
@@ -463,10 +478,7 @@ function estadoPagoParaActividad(params: {
     }
   }
 
-  if (
-    actividadSlug !== "terapia" &&
-    estaDentroDeGraciaMensual(actividadSlug, new Date())
-  ) {
+  if (economia.estado === "gracia") {
     return {
       accesoEsperado: true,
       accesoMotivo: "gracia" as const,
@@ -475,7 +487,7 @@ function estadoPagoParaActividad(params: {
     }
   }
 
-  if (ultimoPago?.estado === "en_revision") {
+  if (economia.estado === "en_revision") {
     return {
       accesoEsperado: false,
       accesoMotivo: "sin_pago" as const,
@@ -484,7 +496,7 @@ function estadoPagoParaActividad(params: {
     }
   }
 
-  if (ultimoPago?.estado === "rechazado") {
+  if (economia.estado === "rechazado") {
     return {
       accesoEsperado: false,
       accesoMotivo: "bloqueado" as const,
@@ -975,6 +987,24 @@ export async function buildAdminPersonSummaries(): Promise<PersonaResumen[]> {
             estadoVisible: "inactiva" as const,
             observaciones: [] as string[],
           }
+      const economiaActividad = tieneRelacion
+        ? resolverEconomiaActividad({
+            actividadSlug: actividad.slug,
+            actividadExiste: true,
+            inscripcionActiva,
+            honorarioId: honorario?.id || null,
+            honorarioActivo: honorario?.activo ?? null,
+            honorarioModalidadRaw: honorario?.modalidad_pago || null,
+            honorarioMonto: honorario?.honorario_mensual ?? null,
+            honorarioMoneda: honorario?.moneda || null,
+            pagoMensualId: ultimoPago?.id || null,
+            pagoMensualEstado: ultimoPago?.estado || null,
+            pagoMensualMonto: ultimoPago?.monto ?? null,
+            pagoMensualMoneda: ultimoPago?.moneda || null,
+            pagoMensualAnio: ultimoPago?.anio ?? null,
+            pagoMensualMes: ultimoPago?.mes ?? null,
+          })
+        : null
 
       if (marcada && !inscripcionActiva) {
         alertas.push({
@@ -1050,12 +1080,12 @@ export async function buildAdminPersonSummaries(): Promise<PersonaResumen[]> {
                 medio: ultimoPago.medio_pago || null,
               }
             : null,
-          pagoPendiente:
-            Boolean(honorario) &&
-            modalidadResumen(honorario?.modalidad_pago, actividad.slug) !== "becado" &&
-            modalidadResumen(honorario?.modalidad_pago, actividad.slug) !== "invitado" &&
-            modalidadResumen(honorario?.modalidad_pago, actividad.slug) !== "sin_cobro" &&
-            (!ultimoPago || ultimoPago.estado !== "pagado"),
+          pagoPendiente: economiaActividad
+            ? economiaActividad.requierePago &&
+              !economiaActividad.accesoEconomicoHabilitado &&
+              economiaActividad.estado !== "no_aplica" &&
+              economiaActividad.estado !== "sin_configurar"
+            : false,
         })
       }
 

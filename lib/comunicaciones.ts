@@ -1,4 +1,8 @@
 import { enviarEmail } from "@/lib/mailing"
+import {
+  resolverEconomiaActividad,
+  resolverEconomiaEncuentro,
+} from "@/lib/economy-engine"
 import { normalizarMeetLink } from "@/lib/meet-links"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
@@ -886,64 +890,66 @@ export async function listarDestinatariosPagosPendientes(
     const nombreCompleto = [nombre, apellido].filter(Boolean).join(" ") || nombre
     const pagosInscripcion = pagosPorInscripcion.get(Number(inscripcion.id || 0)) || []
 
-    let pagoActual: PagoMensualEstadoRow | null = null
-    let tipoPago: DestinatarioPagoPendiente["tipoPago"] = "mensualidad"
+    const tipoPago: DestinatarioPagoPendiente["tipoPago"] =
+      modalidadPago === "proceso" ? "proceso" : "mensualidad"
+    const pagoActual =
+      modalidadPago === "proceso"
+        ? pagosInscripcion[0] || null
+        : pagosInscripcion.find(
+            (item) =>
+              Number(item.anio || 0) === anioActual &&
+              Number(item.mes || 0) === mesActual
+          ) || null
+    const economia = resolverEconomiaActividad({
+      actividadSlug,
+      actividadExiste: true,
+      inscripcionActiva: true,
+      honorarioId: honorario.id,
+      honorarioActivo: honorario.activo ?? null,
+      honorarioModalidadRaw: honorario.modalidad_pago || null,
+      honorarioMonto: honorario.honorario_mensual ?? null,
+      honorarioMoneda: honorario.moneda || null,
+      pagoMensualId: pagoActual?.id || null,
+      pagoMensualEstado: pagoActual?.estado || null,
+      pagoMensualMonto: pagoActual?.monto ?? null,
+      pagoMensualMoneda: pagoActual?.moneda || null,
+      pagoMensualAnio: pagoActual?.anio ?? null,
+      pagoMensualMes: pagoActual?.mes ?? null,
+      fechaActual: ahora,
+    })
+
     let estadoPago: DestinatarioPagoPendiente["estadoPago"] | null = null
+    if (economia.estado === "pendiente_pago") {
+      estadoPago = "sin_pago"
+    } else if (economia.estado === "en_revision") {
+      estadoPago = "en_revision"
+    } else if (economia.estado === "rechazado") {
+      estadoPago = "rechazado"
+    }
+
+    if (!estadoPago) continue
+
+    const fechaVencimiento =
+      modalidadPago === "proceso"
+        ? null
+        : economia.periodo || periodoMensualTexto(anioActual, mesActual)
     let detallePago = ""
-    let fechaVencimiento: string | null = null
 
-    if (modalidadPago === "proceso") {
-      tipoPago = "proceso"
-      pagoActual = pagosInscripcion[0] || null
-      if (!pagoActual?.estado) {
-        estadoPago = "sin_pago"
-      } else if (pagoActual.estado === "en_revision") {
-        estadoPago = "en_revision"
-      } else if (pagoActual.estado === "rechazado") {
-        estadoPago = "rechazado"
-      } else if (pagoActual.estado === "pagado") {
-        estadoPago = null
-      } else {
-        estadoPago = "sin_pago"
-      }
-
+    if (tipoPago === "proceso") {
       if (estadoPago === "sin_pago") {
         detallePago = `Pago del proceso pendiente en ${actividadNombre}.`
       } else if (estadoPago === "en_revision") {
         detallePago = `Comprobante del proceso pendiente de aprobación en ${actividadNombre}.`
-      } else if (estadoPago === "rechazado") {
+      } else {
         detallePago = `El pago del proceso en ${actividadNombre} fue rechazado y necesita regularización.`
       }
+    } else if (estadoPago === "sin_pago") {
+      detallePago = `Mensualidad ${fechaVencimiento} pendiente en ${actividadNombre}.`
+    } else if (estadoPago === "en_revision") {
+      detallePago = `Comprobante de ${fechaVencimiento} pendiente de aprobación en ${actividadNombre}.`
     } else {
-      pagoActual =
-        pagosInscripcion.find(
-          (item) => Number(item.anio || 0) === anioActual && Number(item.mes || 0) === mesActual
-        ) || null
-
-      if (!pagoActual?.estado) {
-        estadoPago = "sin_pago"
-      } else if (pagoActual.estado === "en_revision") {
-        estadoPago = "en_revision"
-      } else if (pagoActual.estado === "rechazado") {
-        estadoPago = "rechazado"
-      } else if (pagoActual.estado === "pagado") {
-        estadoPago = null
-      } else {
-        estadoPago = "sin_pago"
-      }
-
-      fechaVencimiento = periodoMensualTexto(anioActual, mesActual)
-
-      if (estadoPago === "sin_pago") {
-        detallePago = `Mensualidad ${fechaVencimiento} pendiente en ${actividadNombre}.`
-      } else if (estadoPago === "en_revision") {
-        detallePago = `Comprobante de ${fechaVencimiento} pendiente de aprobación en ${actividadNombre}.`
-      } else if (estadoPago === "rechazado") {
-        detallePago = `La mensualidad ${fechaVencimiento} de ${actividadNombre} fue rechazada y requiere regularización.`
-      }
+      detallePago = `La mensualidad ${fechaVencimiento} de ${actividadNombre} fue rechazada y requiere regularización.`
     }
-
-    if (!estadoPago) continue
 
     const item: DestinatarioPagoPendiente = {
       email,
@@ -983,18 +989,30 @@ export async function listarDestinatariosPagosPendientes(
     const apellido = String(usuario?.apellido || "").trim()
     const nombreCompleto = [nombre, apellido].filter(Boolean).join(" ") || nombre
 
+    const economia = resolverEconomiaEncuentro({
+      actividadSlug: "terapia",
+      disponibilidadEstado: null,
+      reservaId: reserva.id,
+      reservaEstado: reserva.estado || null,
+      medioPago: reserva.medio_pago || null,
+      monto: reserva.monto ?? null,
+      montoTransferencia: reserva.monto_transferencia ?? null,
+      montoMercadoPago: reserva.monto_mercado_pago ?? null,
+      comprobanteNombreArchivo: reserva.comprobante_nombre_archivo || null,
+      mpStatus: reserva.mp_status || null,
+      moneda: "ARS",
+    })
+
     let estadoPago: DestinatarioPagoPendiente["estadoPago"] | null = null
-    if (String(reserva.estado || "").trim() !== "pendiente_pago") {
-      continue
+    if (economia.estado === "pendiente_pago") {
+      estadoPago = "pendiente_pago"
+    } else if (economia.estado === "en_revision") {
+      estadoPago = "en_revision"
+    } else if (economia.estado === "rechazado") {
+      estadoPago = "rechazado"
     }
 
-    if (String(reserva.mp_status || "").trim().toLowerCase() === "rejected") {
-      estadoPago = "rechazado"
-    } else if (reserva.comprobante_nombre_archivo) {
-      estadoPago = "en_revision"
-    } else {
-      estadoPago = "pendiente_pago"
-    }
+    if (!estadoPago) continue
 
     const fechaSesion = formatearFechaSesionCorta(
       disponibilidad?.fecha || null,

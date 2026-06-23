@@ -17,6 +17,13 @@ type HonorarioAsignado = {
   honorarioMensual: string | number
   modalidadPago: BillingMode
   moneda: string
+  economia?: {
+    modalidad: string
+    estado: string
+    requierePago: boolean
+    accesoEconomicoHabilitado: boolean
+    detalle: string
+  } | null
 }
 
 type RetornoMercadoPago = {
@@ -142,7 +149,8 @@ export default function PagosPage() {
   const cargarSesionesTerapia = async (force = false) => {
     const tieneTerapiaPorSesion = honorarios.some(
       (item) =>
-        item.actividadSlug === "terapia" && item.modalidadPago === "sesion"
+        item.actividadSlug === "terapia" &&
+        (item.economia?.modalidad === "sesion" || item.modalidadPago === "sesion")
     )
 
     if (!force && !tieneTerapiaPorSesion) {
@@ -385,7 +393,8 @@ export default function PagosPage() {
 
       <div className="space-y-6">
         {honorarios.map((actividad) => (
-          actividad.modalidadPago === "sesion" ? (
+          (actividad.economia?.modalidad === "sesion" ||
+            actividad.modalidadPago === "sesion") ? (
             <section key={actividad.id} className="workspace-panel space-y-4">
               <div>
                 <p className="workspace-eyebrow">
