@@ -32,6 +32,7 @@ type ReservaEspacioRow = {
   estado: string
   created_at?: string | null
   medio_pago?: string | null
+  mp_status?: string | null
   monto?: string | null
   monto_transferencia?: string | null
   monto_mercado_pago?: string | null
@@ -186,7 +187,7 @@ export async function POST(req: Request) {
     const { data: reservas, error: reservasError } = await supabase
       .from("reservas")
       .select(
-        "id, estado, created_at, medio_pago, monto, monto_transferencia, monto_mercado_pago, porcentaje_recargo_mercado_pago, comprobante_nombre_archivo, disponibilidades(*)"
+        "id, estado, created_at, medio_pago, mp_status, monto, monto_transferencia, monto_mercado_pago, porcentaje_recargo_mercado_pago, comprobante_nombre_archivo, disponibilidades(*)"
       )
       .eq("participante_email", contexto.participanteEmail)
       .order("created_at", { ascending: false })
@@ -269,6 +270,7 @@ export async function POST(req: Request) {
           duracion: item.disponibilidades?.duracion || "",
           estado: item.estado,
           medioPago: item.medio_pago || null,
+          mpStatus: item.mp_status || null,
           montoTransferencia: item.monto_transferencia || item.monto || null,
           montoMercadoPago: item.monto_mercado_pago || null,
           porcentajeRecargoMercadoPago:

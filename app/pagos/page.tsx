@@ -2,10 +2,15 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import PagoReservaTerapiaCard from "@/components/pagos/PagoReservaTerapiaCard"
-import PagoMensualCard from "@/components/pagos/PagoMensualCard"
+import PagoPendienteItem from "@/components/pagos/PagoPendienteItem"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
-import { etiquetaModalidadPago, type BillingMode } from "@/lib/billing"
+import { type BillingMode } from "@/lib/billing"
+import {
+  agruparPagoUiItems,
+  crearPagoUiDesdeActividad,
+  crearPagoUiDesdeTerapia,
+  type PagoUiItem,
+} from "@/lib/payment-ui"
 
 type HonorarioAsignado = {
   id: number
@@ -23,6 +28,8 @@ type HonorarioAsignado = {
     requierePago: boolean
     accesoEconomicoHabilitado: boolean
     detalle: string
+    periodo?: string | null
+    pagoMensualId?: number | null
   } | null
 }
 
@@ -42,6 +49,7 @@ type TerapiaPendiente = {
   hora: string
   duracion: string
   estado: string
+  mpStatus?: string | null
   montoTransferencia?: string | null
   montoMercadoPago?: string | null
   porcentajeRecargoMercadoPago?: number | null
@@ -64,9 +72,7 @@ function formatearFecha(fecha?: string | null) {
 export default function PagosPage() {
   const { data: session, status, error } = useAppSession()
   const [honorarios, setHonorarios] = useState<HonorarioAsignado[]>([])
-  const [sesionesTerapiaPendientes, setSesionesTerapiaPendientes] = useState<
-    TerapiaPendiente[]
-  >([])
+  const [sesionesTerapia, setSesionesTerapia] = useState<TerapiaPendiente[]>([])
   const [cargandoHonorarios, setCargandoHonorarios] = useState(false)
   const [cargandoSesionesTerapia, setCargandoSesionesTerapia] = useState(false)
   const [mensaje, setMensaje] = useState("")
@@ -154,7 +160,7 @@ export default function PagosPage() {
     )
 
     if (!force && !tieneTerapiaPorSesion) {
-      setSesionesTerapiaPendientes([])
+      setSesionesTerapia([])
       setCargandoSesionesTerapia(false)
       return
     }
@@ -175,20 +181,19 @@ export default function PagosPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        setSesionesTerapiaPendientes([])
+        setSesionesTerapia([])
         return
       }
 
-      const pendientes = Array.isArray(data.encuentros)
+      const encuentros = Array.isArray(data.encuentros)
         ? data.encuentros.filter(
-            (item: TerapiaPendiente) =>
-              item.estado === "pendiente_pago" && Boolean(item.reservaId)
+            (item: TerapiaPendiente) => Boolean(item.reservaId)
           )
         : []
 
-      setSesionesTerapiaPendientes(pendientes)
+      setSesionesTerapia(encuentros)
     } catch {
-      setSesionesTerapiaPendientes([])
+      setSesionesTerapia([])
     } finally {
       setCargandoSesionesTerapia(false)
     }
@@ -322,11 +327,29 @@ export default function PagosPage() {
     )
   }
 
+  const itemsActividad = honorarios
+    .map((item) => crearPagoUiDesdeActividad(item))
+    .filter((item): item is PagoUiItem => Boolean(item))
+
+  const itemsTerapia = sesionesTerapia
+    .map((item) => crearPagoUiDesdeTerapia(item))
+    .filter((item): item is PagoUiItem => Boolean(item))
+
+  const pagosUi = agruparPagoUiItems([...itemsActividad, ...itemsTerapia])
+  const sinMovimientos =
+    pagosUi.pendientes.length === 0 &&
+    pagosUi.enRevision.length === 0 &&
+    pagosUi.resueltos.length === 0
+  const hayPendientes =
+    pagosUi.pendientes.length > 0 || pagosUi.enRevision.length > 0
+
   return (
     <main className="p-10 space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Pagos</h1>
-        <p className="text-gray-600 mt-2">Gestioná pagos y habilitaciones.</p>
+        <p className="text-gray-600 mt-2">
+          Revisá qué tenés pendiente, qué estamos verificando y qué ya quedó resuelto.
+        </p>
       </div>
 
       {mensaje && (
@@ -341,93 +364,98 @@ export default function PagosPage() {
         </section>
       )}
 
-      {!cargandoHonorarios && honorarios.length === 0 && !mensaje && (
-        <section className="border rounded-xl p-4">
-          <p>Todavía no tenés actividades asignadas para pagar.</p>
+      {cargandoSesionesTerapia && (
+        <section className="workspace-panel space-y-4">
+          <p className="workspace-inline-note">Cargando sesiones vinculadas...</p>
         </section>
       )}
 
-      {(cargandoSesionesTerapia || sesionesTerapiaPendientes.length > 0) && (
-        <section className="workspace-panel space-y-4">
+      {!cargandoHonorarios && !sinMovimientos && pagosUi.pendientes.length > 0 && (
+        <section className="space-y-4">
           <div>
-            <p className="workspace-eyebrow">Terapia</p>
-            <h2 className="workspace-title-sm mt-2">Sesiones pendientes de pago</h2>
+            <p className="workspace-eyebrow">Acción principal</p>
+            <h2 className="workspace-title-sm mt-2">
+              Pagos pendientes
+            </h2>
             <p className="workspace-inline-note mt-2">
-              Estas sesiones ya fueron asignadas desde Agenda. Podés pagar cada una
-              sin reservar una fecha nueva.
+              {pagosUi.pendientes.length === 1
+                ? "Tenés 1 pago pendiente."
+                : `Tenés ${pagosUi.pendientes.length} pagos pendientes.`}
             </p>
           </div>
 
-          {cargandoSesionesTerapia && (
-            <p className="workspace-inline-note">
-              Cargando sesiones pendientes...
-            </p>
-          )}
-
-          {!cargandoSesionesTerapia &&
-            sesionesTerapiaPendientes.map((sesion) => (
-              <div key={sesion.id} className="workspace-panel-soft space-y-3">
-                <div className="space-y-1">
-                  <p className="font-semibold">{sesion.titulo || "Sesión de Terapia"}</p>
-                  <p className="workspace-inline-note">
-                    {formatearFecha(sesion.fecha)} · {sesion.hora} · {sesion.duracion} min
-                  </p>
-                </div>
-
-                {sesion.reservaId ? (
-                  <PagoReservaTerapiaCard
-                    reservaId={sesion.reservaId}
-                    montoTransferencia={sesion.montoTransferencia}
-                    montoMercadoPago={sesion.montoMercadoPago}
-                    porcentajeRecargoMercadoPago={
-                      sesion.porcentajeRecargoMercadoPago
-                    }
-                    comprobanteNombreArchivo={sesion.comprobanteNombreArchivo}
-                    onActualizado={() => cargarSesionesTerapia(true)}
-                  />
-                ) : null}
-              </div>
-            ))}
+          {pagosUi.pendientes.map((item) => (
+            <PagoPendienteItem
+              key={item.id}
+              item={item}
+              retornoMercadoPago={retornoPagoMensual}
+              onActualizado={() => cargarSesionesTerapia(true)}
+            />
+          ))}
         </section>
       )}
 
-      <div className="space-y-6">
-        {honorarios.map((actividad) => (
-          (actividad.economia?.modalidad === "sesion" ||
-            actividad.modalidadPago === "sesion") ? (
-            <section key={actividad.id} className="workspace-panel space-y-4">
+      {!cargandoHonorarios && pagosUi.enRevision.length > 0 && (
+        <section className="space-y-4">
+          <div>
+            <p className="workspace-eyebrow">Seguimiento</p>
+            <h2 className="workspace-title-sm mt-2">
+              Estamos verificando tu pago
+            </h2>
+            <p className="workspace-inline-note mt-2">
+              Recibimos tu comprobante. Te avisaremos cuando se habilite.
+            </p>
+          </div>
+
+          {pagosUi.enRevision.map((item) => (
+            <PagoPendienteItem key={item.id} item={item} />
+          ))}
+        </section>
+      )}
+
+      {!cargandoHonorarios && sinMovimientos && (
+        <section className="workspace-panel space-y-4">
+          <div>
+            <p className="workspace-eyebrow">Todo al día</p>
+            <h2 className="workspace-title-sm mt-2">
+              No tenés pagos pendientes
+            </h2>
+            <p className="workspace-inline-note mt-2">
+              Cuando se genere un nuevo pago o una sesión para abonar, lo vas a ver acá.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <Link href="/campus" className="workspace-button-secondary">
+              Ir a Campus
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {!cargandoHonorarios && pagosUi.resueltos.length > 0 && (
+        <details className="workspace-panel">
+          <summary className="cursor-pointer list-none">
+            <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="workspace-eyebrow">
-                  {etiquetaModalidadPago(actividad.modalidadPago, actividad.actividadSlug)}
-                </p>
-                <h2 className="workspace-title-sm mt-2">{actividad.actividadNombre}</h2>
-                <p className="workspace-inline-note mt-2">
-                  Esta actividad se abona encuentro por encuentro.
-                </p>
+                <p className="workspace-eyebrow">Secundario</p>
+                <h2 className="workspace-title-sm mt-2">Historial</h2>
               </div>
+              <span className="workspace-chip">
+                {pagosUi.resueltos.length} resuelto/s
+              </span>
+            </div>
+          </summary>
 
-              <p>
-                <strong>Valor por sesión:</strong> {actividad.moneda} {actividad.honorarioMensual}
-              </p>
-              <p className="workspace-inline-note">
-                {sesionesTerapiaPendientes.length > 0
-                  ? "Las sesiones pendientes ya aparecen arriba para que puedas pagarlas sin reservar otra fecha."
-                  : "Cuando te asignen una sesión o reserves un encuentro nuevo, el pago por sesión va a aparecer acá automáticamente."}
-              </p>
-            </section>
-          ) : (
-            <PagoMensualCard
-              key={actividad.id}
-              actividadSlug={actividad.actividadSlug}
-              participanteNombre={actividad.participanteNombre || nombre}
-              participanteEmail={actividad.participanteEmail || email}
-              modalidadPago={actividad.modalidadPago}
-              retornoMercadoPago={retornoPagoMensual}
-            />
-          )
-        ))}
-      </div>
+          <div className="mt-5 space-y-4">
+            {pagosUi.resueltos.map((item) => (
+              <PagoPendienteItem key={item.id} item={item} />
+            ))}
+          </div>
+        </details>
+      )}
 
+      {hayPendientes && (
       <section className="border rounded-2xl p-6 space-y-3">
         <h2 className="text-lg font-semibold">Accesos rápidos</h2>
         <div className="flex flex-wrap gap-3">
@@ -442,6 +470,7 @@ export default function PagosPage() {
           </Link>
         </div>
       </section>
+      )}
     </main>
   )
 }

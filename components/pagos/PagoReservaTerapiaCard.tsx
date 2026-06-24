@@ -8,6 +8,7 @@ type Props = {
   montoMercadoPago?: string | number | null
   porcentajeRecargoMercadoPago?: number | null
   comprobanteNombreArchivo?: string | null
+  variant?: "card" | "inline"
   onActualizado?: () => Promise<void> | void
 }
 
@@ -33,6 +34,7 @@ export default function PagoReservaTerapiaCard({
   montoMercadoPago,
   porcentajeRecargoMercadoPago,
   comprobanteNombreArchivo,
+  variant = "card",
   onActualizado,
 }: Props) {
   const [archivoPendiente, setArchivoPendiente] = useState<File | null>(null)
@@ -41,6 +43,7 @@ export default function PagoReservaTerapiaCard({
   const [mensaje, setMensaje] = useState("")
   const [error, setError] = useState("")
   const inputRef = useRef<HTMLInputElement | null>(null)
+  const esInline = variant === "inline"
 
   const abrirMercadoPago = async () => {
     try {
@@ -119,31 +122,30 @@ export default function PagoReservaTerapiaCard({
     }
   }
 
-  return (
-    <div className="workspace-panel-soft space-y-3">
-      <div className="space-y-1">
-        <p className="workspace-eyebrow">Pago pendiente</p>
-        <h4 className="font-semibold">Completá el pago para habilitar la sesión</h4>
-      </div>
-
+  const acciones = (
+    <>
       {mensaje && <p className="text-sm text-emerald-700">{mensaje}</p>}
       {error && <p className="text-sm text-red-700">{error}</p>}
 
-      <p className="workspace-inline-note">
-        Transferencia: <strong>ARS {montoTransferencia || "0"}</strong>
-      </p>
-      <p className="workspace-inline-note">
-        Mercado Pago: <strong>ARS {montoMercadoPago || montoTransferencia || "0"}</strong>
-      </p>
+      {!esInline && (
+        <>
+          <p className="workspace-inline-note">
+            Transferencia: <strong>ARS {montoTransferencia || "0"}</strong>
+          </p>
+          <p className="workspace-inline-note">
+            Mercado Pago: <strong>ARS {montoMercadoPago || montoTransferencia || "0"}</strong>
+          </p>
+        </>
+      )}
 
-      {porcentajeRecargoMercadoPago ? (
+      {porcentajeRecargoMercadoPago && !esInline ? (
         <p className="workspace-inline-note">
           Mercado Pago incluye un recargo del{" "}
           <strong>{porcentajeRecargoMercadoPago}%</strong>.
         </p>
       ) : null}
 
-      {comprobanteNombreArchivo && (
+      {!esInline && comprobanteNombreArchivo && (
         <p className="workspace-inline-note">
           Comprobante cargado: <strong>{comprobanteNombreArchivo}</strong>
         </p>
@@ -179,7 +181,7 @@ export default function PagoReservaTerapiaCard({
           disabled={cargando}
           className="workspace-button-primary disabled:opacity-60"
         >
-          {cargando ? "Abriendo..." : "Pagar con Mercado Pago"}
+          {cargando ? "Abriendo..." : "Pagar ahora"}
         </button>
 
         <button
@@ -188,7 +190,7 @@ export default function PagoReservaTerapiaCard({
           disabled={subiendo}
           className="workspace-button-secondary disabled:opacity-60"
         >
-          Elegir comprobante
+          {archivoPendiente ? "Cambiar comprobante" : "Ya transferí"}
         </button>
 
         <button
@@ -200,6 +202,20 @@ export default function PagoReservaTerapiaCard({
           {subiendo ? "Enviando..." : "Enviar comprobante"}
         </button>
       </div>
+    </>
+  )
+
+  if (esInline) {
+    return <div className="space-y-3">{acciones}</div>
+  }
+
+  return (
+    <div className="workspace-panel-soft space-y-3">
+      <div className="space-y-1">
+        <p className="workspace-eyebrow">Pago pendiente</p>
+        <h4 className="font-semibold">Completá el pago para habilitar la sesión</h4>
+      </div>
+      {acciones}
     </div>
   )
 }

@@ -36,6 +36,7 @@ type Props = {
   participanteNombre: string
   participanteEmail: string
   modalidadPago?: BillingMode
+  variant?: "card" | "inline"
   retornoMercadoPago?: {
     status: "success" | "failure" | "pending"
     pagoMensualId?: number | null
@@ -92,6 +93,7 @@ export default function PagoMensualCard({
   participanteNombre,
   participanteEmail,
   modalidadPago: modalidadPagoProp = "mensual",
+  variant = "card",
   retornoMercadoPago = null,
 }: Props) {
   const [actividad, setActividad] = useState<Actividad | null>(null)
@@ -103,6 +105,7 @@ export default function PagoMensualCard({
   const inputRef = useRef<HTMLInputElement | null>(null)
   const reconciliacionIntentadaRef = useRef<number | null>(null)
   const esProceso = modalidadPagoProp === "proceso"
+  const esInline = variant === "inline"
 
   const cargar = useCallback(async () => {
     try {
@@ -306,64 +309,60 @@ export default function PagoMensualCard({
     e.target.value = ""
   }
 
-  return (
-    <section className="workspace-panel space-y-4">
-      <div>
-        <p className="workspace-eyebrow">
-          {etiquetaModalidadPago(modalidadPagoProp, actividadSlug)}
-        </p>
-        <h2 className="workspace-title-sm mt-2">
-          {actividad?.nombre || "Actividad mensual"}
-        </h2>
-        {actividad?.descripcion && (
-          <p className="workspace-inline-note mt-2">{actividad.descripcion}</p>
-        )}
-      </div>
-
+  const acciones = (
+    <>
       {mensaje && <div className="workspace-panel-soft text-sm">{mensaje}</div>}
 
       {cargando && !pago && <p className="workspace-inline-note">Cargando...</p>}
 
       {pago && (
         <div className="space-y-2">
-          {!esProceso && (
+          {!esInline && !esProceso && (
             <p>
               <strong>Período:</strong> {pago.mes}/{pago.anio}
             </p>
           )}
-          {esProceso && (
+          {!esInline && esProceso && (
             <p className="workspace-inline-note">
               Este cobro corresponde al proceso activo de esta actividad.
             </p>
           )}
-          <p>
-            <strong>Transferencia:</strong>{" "}
-            {pago.moneda} {resumenMontos ? resumenMontos.montoTransferencia : pago.monto}
-          </p>
-          <p>
-            <strong>Mercado Pago:</strong>{" "}
-            {pago.moneda} {resumenMontos ? resumenMontos.montoMercadoPago : pago.monto}
-          </p>
-          {resumenMontos && resumenMontos.porcentajeRecargoMercadoPago > 0 && (
+          {!esInline && (
+            <>
+              <p>
+                <strong>Transferencia:</strong>{" "}
+                {pago.moneda} {resumenMontos ? resumenMontos.montoTransferencia : pago.monto}
+              </p>
+              <p>
+                <strong>Mercado Pago:</strong>{" "}
+                {pago.moneda} {resumenMontos ? resumenMontos.montoMercadoPago : pago.monto}
+              </p>
+            </>
+          )}
+          {resumenMontos && resumenMontos.porcentajeRecargoMercadoPago > 0 && !esInline && (
             <p className="workspace-inline-note">
               Mercado Pago incluye un recargo del{" "}
               <strong>{resumenMontos.porcentajeRecargoMercadoPago}%</strong>{" "}
               por comisión de la plataforma.
             </p>
           )}
-          <p>
-            <strong>Estado:</strong> {pago.estado}
-          </p>
-          {pago.estado === "en_revision" && (
+          {!esInline && (
+            <p>
+              <strong>Estado:</strong> {pago.estado}
+            </p>
+          )}
+          {pago.estado === "en_revision" && !esInline && (
             <p className="workspace-inline-note">
               Tu comprobante ya fue enviado. Ahora queda pendiente de revisión desde Admin Pagos.
             </p>
           )}
-          <p>
-            <strong>Medio de pago:</strong> {pago.medio_pago || "sin definir"}
-          </p>
+          {!esInline && (
+            <p>
+              <strong>Medio de pago:</strong> {pago.medio_pago || "sin definir"}
+            </p>
+          )}
 
-          {pago.comprobante_nombre_archivo && (
+          {!esInline && pago.comprobante_nombre_archivo && (
             <p>
               <strong>Comprobante:</strong> {pago.comprobante_nombre_archivo}
             </p>
@@ -384,7 +383,7 @@ export default function PagoMensualCard({
                 disabled={cargando}
                 className="workspace-button-primary disabled:opacity-60"
               >
-                Pagar con Mercado Pago
+                Pagar ahora
               </button>
             )}
 
@@ -394,7 +393,7 @@ export default function PagoMensualCard({
                 disabled={cargando}
                 className="workspace-button-secondary disabled:opacity-60"
               >
-                Subir comprobante
+                {archivoPendiente ? "Cambiar comprobante" : "Ya transferí"}
               </button>
             )}
 
@@ -402,7 +401,7 @@ export default function PagoMensualCard({
               <button
                 onClick={() => void subirComprobante(archivoPendiente)}
                 disabled={cargando}
-                className="workspace-button-primary disabled:opacity-60"
+                className="workspace-button-secondary disabled:opacity-60"
               >
                 Enviar comprobante
               </button>
@@ -430,6 +429,28 @@ export default function PagoMensualCard({
           )}
         </div>
       )}
+    </>
+  )
+
+  if (esInline) {
+    return <div className="space-y-2">{acciones}</div>
+  }
+
+  return (
+    <section className="workspace-panel space-y-4">
+      <div>
+        <p className="workspace-eyebrow">
+          {etiquetaModalidadPago(modalidadPagoProp, actividadSlug)}
+        </p>
+        <h2 className="workspace-title-sm mt-2">
+          {actividad?.nombre || "Actividad mensual"}
+        </h2>
+        {actividad?.descripcion && (
+          <p className="workspace-inline-note mt-2">{actividad.descripcion}</p>
+        )}
+      </div>
+
+      {acciones}
     </section>
   )
 }
