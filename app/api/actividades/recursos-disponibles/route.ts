@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server"
 import {
+  cargarRecursosActividad,
   getActivityAdminPermission,
   hasPermission,
   requireAuthenticatedActor,
   resolveActivityAccess,
   type ActivitySlug,
 } from "@/lib/authz"
+import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
 type Body = {
   actividadSlug: string
@@ -37,12 +39,24 @@ export async function POST(req: Request) {
     const adminPermission = getActivityAdminPermission(actividadSlug)
 
     if (adminPermission && hasPermission(auth.actor, adminPermission)) {
+      const supabase = createAdminSupabaseClient()
+      const { data: actividad } = await supabase
+        .from("actividades")
+        .select("*")
+        .eq("slug", actividadSlug)
+        .maybeSingle()
+
+      const recursos =
+        actividad?.id && participanteEmail
+          ? await cargarRecursosActividad(supabase, actividad.id, participanteEmail)
+          : []
+
       return NextResponse.json({
         ok: true,
         acceso: true,
         motivo: "permiso_admin",
-        actividad: null,
-        recursos: [],
+        actividad: actividad || null,
+        recursos,
       })
     }
 

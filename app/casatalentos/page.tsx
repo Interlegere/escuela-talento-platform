@@ -20,6 +20,7 @@ import { supabase } from "@/lib/supabase"
 import WorkspaceHero from "@/components/ui/WorkspaceHero"
 import { usePersistentState } from "@/hooks/usePersistentState"
 import { useSessionDraft } from "@/hooks/useSessionDraft"
+import RecursoCard from "@/components/recursos/RecursoCard"
 
 type Recurso = {
   id: number
@@ -30,6 +31,17 @@ type Recurso = {
   proveedor: string
   url?: string | null
   drive_file_id?: string | null
+}
+
+type RecursoGestion = {
+  id: number
+  actividadRecursoId?: number
+  slug?: string | null
+  titulo: string
+  descripcion?: string | null
+  recurso_tipo: string
+  url?: string | null
+  visible: boolean
 }
 
 type VideoItem = {
@@ -132,6 +144,23 @@ const RECURSOS_PRUEBA_CASATALENTOS: Recurso[] = [
     proveedor: "interno",
   },
 ]
+const RECURSOS_OCULTOS_SOLAPA = new Set([
+  "biblioteca_grabaciones_casatalentos",
+  "dispositivo_videos_casatalentos",
+  "reunion_semanal_casatalentos",
+])
+
+function esRecursoSolapaCasaTalentos(recurso: Recurso) {
+  if (RECURSOS_OCULTOS_SOLAPA.has(recurso.slug)) {
+    return false
+  }
+
+  return (
+    recurso.tipo !== "reunion" &&
+    recurso.tipo !== "biblioteca" &&
+    recurso.tipo !== "dinamica"
+  )
+}
 
 function escaparHtml(texto: string) {
   return texto
@@ -335,6 +364,7 @@ export default function CasaTalentosPage() {
     cargandoAcceso,
     sesionDemorada,
     sesionLista,
+    recargarAcceso,
   } = useActivityAccess({
     activitySlug: "casatalentos",
     previewEnabled: MODO_PRUEBA,
@@ -383,6 +413,13 @@ export default function CasaTalentosPage() {
   const [subiendoVideo, setSubiendoVideo] = useState(false)
   const [estadoSubidaVideo, setEstadoSubidaVideo] = useState("")
   const [eligiendo, setEligiendo] = useState(false)
+  const [recursoTitulo, setRecursoTitulo] = useState("")
+  const [recursoDescripcion, setRecursoDescripcion] = useState("")
+  const [recursoTipo, setRecursoTipo] = useState("enlace")
+  const [recursoUrl, setRecursoUrl] = useState("")
+  const [recursoVisible, setRecursoVisible] = useState(true)
+  const [guardandoRecurso, setGuardandoRecurso] = useState(false)
+  const [recursosAdminGestion, setRecursosAdminGestion] = useState<RecursoGestion[]>([])
 
   const draftOwner = storageEmail
   const draftKey = (campo: string) =>
@@ -600,6 +637,26 @@ export default function CasaTalentosPage() {
   const tieneRecurso = (slug: string) => {
     return recursos.some((r) => r.slug === slug)
   }
+
+  const recursosCasaTalentos = useMemo(() => {
+    return recursos.filter(esRecursoSolapaCasaTalentos)
+  }, [recursos])
+
+  const recursosAdminCasaTalentos = useMemo(() => {
+    return recursosAdminGestion.filter((item) =>
+      esRecursoSolapaCasaTalentos({
+        id: item.id,
+        slug: item.slug || "",
+        nombre: item.titulo,
+        descripcion: item.descripcion,
+        tipo: item.recurso_tipo,
+        proveedor: "externo",
+        url: item.url,
+      })
+    )
+  }, [recursosAdminGestion])
+
+  const recursosSolapa = esAdmin ? recursosAdminCasaTalentos : recursosCasaTalentos
 
   const semanaActual = useMemo(() => {
     return normalizarFechaSemana(ahoraArgentina.fechaIso)
@@ -1019,6 +1076,130 @@ export default function CasaTalentosPage() {
       anfitrion,
     }
   }, [comentarios.length, top3, videos.length, votos.length])
+
+  useEffect(() => {
+    if (!esAdmin) {
+      setRecursosAdminGestion([])
+      return
+    }
+
+    let cancelado = false
+
+    const cargarRecursosAdmin = async () => {
+      try {
+        const res = await fetch("/api/casatalentos/recursos")
+        const data = await leerRespuestaJson<{
+          ok?: boolean
+          recursos?: RecursoGestion[]
+          error?: string
+        }>(res)
+
+        if (!res.ok) {
+          if (!cancelado) {
+            setMensajeError(data.error || "No se pudieron cargar los recursos.")
+          }
+          return
+        }
+
+        if (!cancelado) {
+          setRecursosAdminGestion(data.recursos || [])
+        }
+      } catch {
+        if (!cancelado) {
+          setMensajeError("No se pudieron cargar los recursos.")
+        }
+      }
+    }
+
+    void cargarRecursosAdmin()
+
+    return () => {
+      cancelado = true
+    }
+  }, [esAdmin])
+
+  const guardarRecurso = async () => {
+    try {
+      setGuardandoRecurso(true)
+      setMensajeExito("")
+      setMensajeError("")
+
+      const res = await fetch("/api/casatalentos/recursos", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          titulo: recursoTitulo,
+          descripcion: recursoDescripcion,
+          recursoTipo,
+          url: recursoUrl,
+          visible: recursoVisible,
+        }),
+      })
+
+      const data = await leerRespuestaJson<{ error?: string }>(res)
+
+      if (!res.ok) {
+        setMensajeError(data.error || "No se pudo guardar el recurso.")
+        return
+      }
+
+      setRecursoTitulo("")
+      setRecursoDescripcion("")
+      setRecursoTipo("enlace")
+      setRecursoUrl("")
+      setRecursoVisible(true)
+      setMensajeExito("Recurso guardado correctamente.")
+      recargarAcceso()
+      const resRefetch = await fetch("/api/casatalentos/recursos")
+      const dataRefetch = await leerRespuestaJson<{ recursos?: RecursoGestion[] }>(
+        resRefetch
+      )
+      if (resRefetch.ok) {
+        setRecursosAdminGestion(dataRefetch.recursos || [])
+      }
+    } catch {
+      setMensajeError("Error guardando el recurso.")
+    } finally {
+      setGuardandoRecurso(false)
+    }
+  }
+
+  const cambiarVisibleRecurso = async (recursoId: number, visible: boolean) => {
+    try {
+      setMensajeExito("")
+      setMensajeError("")
+
+      const res = await fetch("/api/casatalentos/recursos", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          recursoId,
+          visible,
+        }),
+      })
+
+      const data = await leerRespuestaJson<{ error?: string }>(res)
+
+      if (!res.ok) {
+        setMensajeError(data.error || "No se pudo actualizar el recurso.")
+        return
+      }
+
+      setMensajeExito("Visibilidad del recurso actualizada.")
+      recargarAcceso()
+      setRecursosAdminGestion((prev) =>
+        prev.map((item) =>
+          item.id === recursoId ? { ...item, visible } : item
+        )
+      )
+    } catch {
+      setMensajeError("Error actualizando el recurso.")
+    }
+  }
 
   const handleArchivo = (file: File | null) => {
     setMensajeExito("")
@@ -1653,6 +1834,137 @@ export default function CasaTalentosPage() {
                 tituloSeccion="Próximo encuentro de CasaTalentos"
                 mostrarSoloProximo
               />
+            </SeccionDesplegable>
+          )}
+
+          {(esAdmin || recursosSolapa.length > 0) && (
+            <SeccionDesplegable
+              titulo="Recursos"
+              storageKey={uiKey("seccion:recursos")}
+            >
+              <div className="space-y-4">
+                {esAdmin && (
+                  <div className="workspace-panel-soft space-y-3">
+                    <div className="space-y-1">
+                      <p className="workspace-eyebrow">Nuevo recurso</p>
+                      <h3 className="font-semibold">Cargar recurso</h3>
+                    </div>
+
+                    <input
+                      className="workspace-field"
+                      placeholder="Título"
+                      value={recursoTitulo}
+                      onChange={(e) => setRecursoTitulo(e.target.value)}
+                    />
+
+                    <textarea
+                      className="workspace-field min-h-[90px]"
+                      placeholder="Descripción"
+                      value={recursoDescripcion}
+                      onChange={(e) => setRecursoDescripcion(e.target.value)}
+                    />
+
+                    <select
+                      className="workspace-field"
+                      value={recursoTipo}
+                      onChange={(e) => setRecursoTipo(e.target.value)}
+                    >
+                      <option value="enlace">Enlace</option>
+                      <option value="video">Video</option>
+                      <option value="imagen">Imagen</option>
+                      <option value="archivo">Archivo</option>
+                      <option value="grabacion">Grabación</option>
+                      <option value="guia">Guía</option>
+                    </select>
+
+                    <input
+                      className="workspace-field"
+                      placeholder="URL"
+                      value={recursoUrl}
+                      onChange={(e) => setRecursoUrl(e.target.value)}
+                    />
+
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={recursoVisible}
+                        onChange={(e) => setRecursoVisible(e.target.checked)}
+                      />
+                      Visible para participante
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={() => void guardarRecurso()}
+                      className="workspace-button-secondary"
+                      disabled={guardandoRecurso}
+                    >
+                      {guardandoRecurso ? "Guardando..." : "Guardar recurso"}
+                    </button>
+                  </div>
+                )}
+
+                {recursosSolapa.length === 0 ? (
+                  <p className="text-gray-600">
+                    Todavía no hay recursos cargados para CasaTalentos.
+                  </p>
+                ) : (
+                  recursosSolapa.map((item) =>
+                    item.url ? (
+                      <RecursoCard
+                        key={item.id}
+                        titulo={"titulo" in item ? item.titulo : item.nombre || "Recurso"}
+                        descripcion={item.descripcion}
+                        recursoTipo={
+                          "recurso_tipo" in item ? item.recurso_tipo : item.tipo
+                        }
+                        url={item.url}
+                        footer={
+                          esAdmin ? (
+                            <label className="flex items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={"visible" in item ? item.visible : true}
+                                onChange={(e) =>
+                                  void cambiarVisibleRecurso(item.id, e.target.checked)
+                                }
+                              />
+                              Visible para participante
+                            </label>
+                          ) : undefined
+                        }
+                      />
+                    ) : (
+                      <div
+                        key={item.id}
+                        className="workspace-card-link !rounded-[1.4rem] !p-4 space-y-2"
+                      >
+                        <p className="font-medium">
+                          {"titulo" in item ? item.titulo : item.nombre || "Recurso"}
+                        </p>
+                        {item.descripcion && (
+                          <p className="workspace-inline-note">{item.descripcion}</p>
+                        )}
+                        <p className="workspace-inline-note">
+                          Este recurso todavía no tiene una URL disponible para abrir.
+                        </p>
+                        {esAdmin && (
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={"visible" in item ? item.visible : true}
+                              onChange={(e) =>
+                                void cambiarVisibleRecurso(item.id, e.target.checked)
+                              }
+                            />
+                            Visible para participante
+                          </label>
+                        )}
+                      </div>
+                    )
+                  )
+                )}
+              </div>
             </SeccionDesplegable>
           )}
 

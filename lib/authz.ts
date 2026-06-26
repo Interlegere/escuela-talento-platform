@@ -144,7 +144,7 @@ function construirRecursosFinales(params: {
   return [...recursosFinales, ...recursosExtra]
 }
 
-async function cargarRecursosActividad(
+export async function cargarRecursosActividad(
   supabase: ReturnType<typeof createAdminSupabaseClient>,
   actividadId: number,
   email: string

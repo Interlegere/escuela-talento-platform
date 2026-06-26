@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
 import type { ActivitySlug } from "@/lib/authz"
@@ -55,6 +55,7 @@ export function useActivityAccess({
   const [recursos, setRecursos] = useState<Recurso[]>([])
   const [cargandoAcceso, setCargandoAcceso] = useState(true)
   const [sesionDemorada, setSesionDemorada] = useState(false)
+  const [reloadToken, setReloadToken] = useState(0)
 
   const nombre = session?.user?.name || "Participante"
   const email = session?.user?.email || ""
@@ -79,6 +80,10 @@ export function useActivityAccess({
 
     router.replace("/login")
   }, [previewActivo, router, status])
+
+  const recargarAcceso = useCallback(() => {
+    setReloadToken((prev) => prev + 1)
+  }, [])
 
   useEffect(() => {
     const cargarAcceso = async () => {
@@ -170,7 +175,7 @@ export function useActivityAccess({
     } else if (status !== "loading") {
       void cargarAcceso()
     }
-  }, [activitySlug, email, previewActivo, previewResources, status])
+  }, [activitySlug, email, previewActivo, previewResources, reloadToken, status])
 
   return {
     session,
@@ -184,5 +189,6 @@ export function useActivityAccess({
     cargandoAcceso,
     sesionDemorada,
     sesionLista,
+    recargarAcceso,
   }
 }
