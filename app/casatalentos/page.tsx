@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import PagoMensualCard from "@/components/pagos/PagoMensualCard"
-import BibliotecaGrabaciones from "@/components/BibliotecaGrabaciones"
 import SeccionDesplegable from "@/components/SeccionDesplegable"
 import VideoEmbed from "@/components/VideoEmbed"
 import AgendaActividad from "@/components/agenda/AgendaActividad"
@@ -1824,7 +1823,7 @@ export default function CasaTalentosPage() {
             </section>
           )}
 
-          {(esAdmin || tieneRecurso("reunion_semanal_casatalentos")) && (
+          {esAdmin && (esAdmin || tieneRecurso("reunion_semanal_casatalentos")) && (
             <SeccionDesplegable
               titulo="Reunión semanal"
               storageKey={uiKey("seccion:reunion-semanal")}
@@ -1837,7 +1836,7 @@ export default function CasaTalentosPage() {
             </SeccionDesplegable>
           )}
 
-          {(esAdmin || recursosSolapa.length > 0) && (
+          {esAdmin && (esAdmin || recursosSolapa.length > 0) && (
             <SeccionDesplegable
               titulo="Recursos"
               storageKey={uiKey("seccion:recursos")}
@@ -2611,16 +2610,18 @@ export default function CasaTalentosPage() {
             </SeccionDesplegable>
           )}
 
-          <SeccionDesplegable
-            titulo="Hoja de Ruta"
-            storageKey={uiKey("seccion:hoja-de-ruta")}
-            mantenerMontado
-          >
-            <HDRActividad
-              actividadSlug="casatalentos"
-              actorEmail={email}
-            />
-          </SeccionDesplegable>
+          {!esAdmin && tieneRecurso("reunion_semanal_casatalentos") && (
+            <SeccionDesplegable
+              titulo="Reunión semanal"
+              storageKey={uiKey("seccion:reunion-semanal")}
+            >
+              <AgendaActividad
+                actividadSlug="casatalentos"
+                tituloSeccion="Próximo encuentro de CasaTalentos"
+                mostrarSoloProximo
+              />
+            </SeccionDesplegable>
+          )}
 
           <SeccionDesplegable
             titulo={tituloMensajes}
@@ -2986,17 +2987,55 @@ export default function CasaTalentosPage() {
             </div>
           </SeccionDesplegable>
 
-          {tieneRecurso("biblioteca_grabaciones_casatalentos") && !esAdmin && (
+          {!esAdmin && recursosSolapa.length > 0 && (
             <SeccionDesplegable
-              titulo="Biblioteca de grabaciones"
-              storageKey={uiKey("seccion:biblioteca")}
+              titulo="Recursos"
+              storageKey={uiKey("seccion:recursos")}
             >
-              <BibliotecaGrabaciones
-                actividadSlug="casatalentos"
-                previewEnabled={MODO_PRUEBA}
-              />
+              <div className="space-y-4">
+                {recursosSolapa.map((item) =>
+                  item.url ? (
+                    <RecursoCard
+                      key={item.id}
+                      titulo={"titulo" in item ? item.titulo : item.nombre || "Recurso"}
+                      descripcion={item.descripcion}
+                      recursoTipo={
+                        "recurso_tipo" in item ? item.recurso_tipo : item.tipo
+                      }
+                      url={item.url}
+                    />
+                  ) : (
+                    <div
+                      key={item.id}
+                      className="workspace-card-link !rounded-[1.4rem] !p-4 space-y-2"
+                    >
+                      <p className="font-medium">
+                        {"titulo" in item ? item.titulo : item.nombre || "Recurso"}
+                      </p>
+                      {item.descripcion && (
+                        <p className="workspace-inline-note">{item.descripcion}</p>
+                      )}
+                      <p className="workspace-inline-note">
+                        Este recurso todavía no tiene una URL disponible para abrir.
+                      </p>
+                    </div>
+                  )
+                )}
+              </div>
             </SeccionDesplegable>
           )}
+
+          <SeccionDesplegable
+            titulo="Hoja de Ruta"
+            storageKey={uiKey("seccion:hoja-de-ruta")}
+            mantenerMontado
+          >
+            <HDRActividad
+              actividadSlug="casatalentos"
+              actorEmail={email}
+            />
+          </SeccionDesplegable>
+
           </div>
         )}
       </main>
