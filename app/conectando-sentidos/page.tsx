@@ -132,6 +132,13 @@ export default function ConectandoSentidosPage() {
   const editorEdicionMensajeRef = useRef<EditorMensajeAdminHandle | null>(null)
   const editorRespuestaRef = useRef<Record<number, EditorMensajeAdminHandle | null>>({})
   const esAdmin = session?.user?.role === "admin"
+  const storageEmail = (email || session?.user?.email || "").trim().toLowerCase()
+  const storageRole = esAdmin ? "admin" : session?.user?.role || "participante"
+  const uiStoragePrefix = storageEmail
+    ? `entheos:v1:ui:${storageEmail}:${storageRole}:conectando-sentidos`
+    : ""
+  const uiKey = (campo: string) =>
+    uiStoragePrefix ? `${uiStoragePrefix}:${campo}` : ""
 
   const tieneRecurso = (slug: string) => {
     return recursos.some((r) => r.slug === slug)
@@ -666,7 +673,10 @@ export default function ConectandoSentidosPage() {
         {!cargandoAcceso && (acceso || MODO_PRUEBA) && (
           <div className="space-y-4">
             {!esAdmin && tieneRecurso("sesion_grupal_conectando") && (
-              <SeccionDesplegable titulo="Próxima reunión">
+              <SeccionDesplegable
+                titulo="Próxima reunión"
+                storageKey={uiKey("seccion:proxima-reunion")}
+              >
                 <AgendaActividad
                   actividadSlug="conectando-sentidos"
                   tituloSeccion="Próximo encuentro de Conectando Sentidos"
@@ -675,7 +685,10 @@ export default function ConectandoSentidosPage() {
               </SeccionDesplegable>
             )}
 
-            <SeccionDesplegable titulo={tituloMensajes}>
+            <SeccionDesplegable
+              titulo={tituloMensajes}
+              storageKey={uiKey("seccion:mensajes")}
+            >
               <div className="space-y-6">
                 {(mensajeExito || mensajeError) && (
                   <div className="space-y-2">
@@ -1038,7 +1051,10 @@ export default function ConectandoSentidosPage() {
             </SeccionDesplegable>
 
             {esAdmin && (
-              <SeccionDesplegable titulo="Próxima reunión">
+              <SeccionDesplegable
+                titulo="Próxima reunión"
+                storageKey={uiKey("seccion:proxima-reunion")}
+              >
                 <AgendaActividad
                   actividadSlug="conectando-sentidos"
                   tituloSeccion="Próximo encuentro de Conectando Sentidos"
@@ -1050,7 +1066,10 @@ export default function ConectandoSentidosPage() {
             {esAdmin && <ConectandoAdminPanel />}
 
             {tieneRecurso("grabaciones_conectando") && !esAdmin && (
-              <SeccionDesplegable titulo="Biblioteca de grabaciones">
+              <SeccionDesplegable
+                titulo="Biblioteca de grabaciones"
+                storageKey={uiKey("seccion:biblioteca")}
+              >
                 <BibliotecaGrabaciones
                   actividadSlug="conectando-sentidos"
                   previewEnabled={MODO_PRUEBA}
@@ -1058,7 +1077,10 @@ export default function ConectandoSentidosPage() {
               </SeccionDesplegable>
             )}
 
-            <SeccionDesplegable titulo="Recursos">
+            <SeccionDesplegable
+              titulo="Recursos"
+              storageKey={uiKey("seccion:recursos")}
+            >
               <div className="space-y-4">
                 {esAdmin && (
                   <div className="workspace-panel-soft space-y-3">

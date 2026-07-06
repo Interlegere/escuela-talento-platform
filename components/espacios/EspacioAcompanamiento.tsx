@@ -235,6 +235,21 @@ export default function EspacioAcompanamiento({
   const [recursoVisible, setRecursoVisible] = useState(true)
 
   const adminActivo = session?.user?.role === "admin"
+  const storageActorEmail = (session?.user?.email || email || "")
+    .trim()
+    .toLowerCase()
+  const storageScope = (
+    adminActivo
+      ? participanteSeleccionado || participanteActual?.email || "admin"
+      : email || session?.user?.email || "participante"
+  )
+    .trim()
+    .toLowerCase()
+  const uiStoragePrefix = storageActorEmail
+    ? `entheos:v1:ui:${storageActorEmail}:${actividadSlug}:${storageScope}`
+    : ""
+  const uiKey = (campo: string) =>
+    uiStoragePrefix ? `${uiStoragePrefix}:${campo}` : ""
   const claveStorageMensajesLeidos = useMemo(() => {
     const participanteClave = (
       adminActivo
@@ -1014,7 +1029,10 @@ export default function EspacioAcompanamiento({
                 </section>
               )}
 
-              <SeccionDesplegable titulo={tituloMensajes}>
+              <SeccionDesplegable
+                titulo={tituloMensajes}
+                storageKey={uiKey("seccion:mensajes")}
+              >
                 <div className="space-y-4">
                   {cargandoResumen && !resumenInicializado && (
                     <p className="workspace-inline-note">Cargando mensajes...</p>
@@ -1258,7 +1276,10 @@ export default function EspacioAcompanamiento({
                 </div>
               </SeccionDesplegable>
 
-              <SeccionDesplegable titulo={etiquetaEncuentros}>
+              <SeccionDesplegable
+                titulo={etiquetaEncuentros}
+                storageKey={uiKey("seccion:encuentros")}
+              >
                 <div className="space-y-4">
                   {cargandoResumen && !resumenInicializado && (
                     <p className="workspace-inline-note">Cargando {tituloEncuentros}...</p>
@@ -1398,7 +1419,10 @@ export default function EspacioAcompanamiento({
 
               {actividadSlug === "terapia" && <ReservaTerapiaSection />}
 
-              <SeccionDesplegable titulo="Recursos">
+              <SeccionDesplegable
+                titulo="Recursos"
+                storageKey={uiKey("seccion:recursos")}
+              >
                 <div className="space-y-4">
                   {adminActivo && (
                     <div className="workspace-panel-soft space-y-3">
@@ -1493,7 +1517,10 @@ export default function EspacioAcompanamiento({
               </SeccionDesplegable>
 
               {puedeVerAccesos && (
-                <SeccionDesplegable titulo="Accesos">
+                <SeccionDesplegable
+                  titulo="Accesos"
+                  storageKey={uiKey("seccion:accesos")}
+                >
                   <div className="space-y-4">
                     {[
                       {

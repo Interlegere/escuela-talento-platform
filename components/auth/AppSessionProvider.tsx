@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import type { Session } from "next-auth"
 
 type AppSessionStatus = "loading" | "authenticated" | "unauthenticated"
@@ -39,14 +39,22 @@ export function AppSessionProvider({
   const [data, setData] = useState<Session | null>(null)
   const [status, setStatus] = useState<AppSessionStatus>("loading")
   const [error, setError] = useState<string | null>(null)
+  const dataRef = useRef<Session | null>(null)
 
-  const refresh = useCallback(async () => {
+  useEffect(() => {
+    dataRef.current = data
+  }, [data])
+
+  const runRefresh = useCallback(async (background = false) => {
     const controller = new AbortController()
     const timeout = window.setTimeout(() => controller.abort(), 8000)
+    const hadSession = Boolean(dataRef.current)
 
     try {
       setError(null)
-      setStatus("loading")
+      if (!background || !hadSession) {
+        setStatus("loading")
+      }
 
       const session = await obtenerSesion(controller.signal)
       setData(session)
@@ -56,6 +64,13 @@ export function AppSessionProvider({
       const mensaje =
         err instanceof Error ? err.message : "No se pudo cargar la sesión."
       const nombre = err instanceof Error ? err.name : ""
+
+      if (background && hadSession) {
+        if (nombre !== "AbortError") {
+          setError(mensaje)
+        }
+        return dataRef.current
+      }
 
       setData(null)
       setStatus("unauthenticated")
@@ -70,6 +85,10 @@ export function AppSessionProvider({
     }
   }, [])
 
+  const refresh = useCallback(async () => {
+    return runRefresh(false)
+  }, [runRefresh])
+
   useEffect(() => {
     void refresh()
   }, [refresh])
@@ -77,13 +96,13 @@ export function AppSessionProvider({
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === "visible") {
-        void refresh()
+        void runRefresh(true)
       }
     }
 
     document.addEventListener("visibilitychange", onVisible)
     return () => document.removeEventListener("visibilitychange", onVisible)
-  }, [refresh])
+  }, [runRefresh])
 
   const value = useMemo(
     () => ({
