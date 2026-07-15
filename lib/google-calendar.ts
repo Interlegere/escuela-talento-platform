@@ -43,6 +43,18 @@ type GoogleCalendarTokenRow = {
   expiry_date?: string | null
 }
 
+export type GoogleCalendarConnectionStatus = {
+  expectedAccount: string | null
+  connectedAccount: string | null
+  storedAccount: string | null
+  latestStoredAccount: string | null
+  connected: boolean
+  mismatch: boolean
+  hasRefreshToken: boolean
+  expiryDate: string | null
+  warning: string | null
+}
+
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -54,7 +66,7 @@ function getSupabaseAdmin() {
   return createClient(supabaseUrl, supabaseServiceRoleKey)
 }
 
-function getConfiguredGoogleCalendarOwnerEmail() {
+export function getConfiguredGoogleCalendarOwnerEmail() {
   return String(process.env.GOOGLE_CALENDAR_OWNER_EMAIL || "")
     .trim()
     .toLowerCase()
@@ -143,13 +155,51 @@ async function buscarUltimoTokenGoogleCalendar() {
   return (data || null) as GoogleCalendarTokenRow | null
 }
 
+function construirOauth2Client(tokenRow?: GoogleCalendarTokenRow | null) {
+  const oauth2Client = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.GOOGLE_REDIRECT_URI
+  )
+
+  if (tokenRow) {
+    oauth2Client.setCredentials({
+      access_token: tokenRow.access_token || undefined,
+      refresh_token: tokenRow.refresh_token || undefined,
+    })
+  }
+
+  return oauth2Client
+}
+
+export async function resolverGoogleAccountEmailDesdeCalendar(
+  oauth2Client: InstanceType<typeof google.auth.OAuth2>
+) {
+  const calendar = google.calendar({
+    version: "v3",
+    auth: oauth2Client,
+  })
+
+  const primaryCalendar = await calendar.calendarList.get({
+    calendarId: "primary",
+  })
+
+  const realEmail = String(primaryCalendar.data.id || "")
+    .trim()
+    .toLowerCase()
+
+  if (!realEmail) {
+    throw new Error(
+      "Google no devolvió el email real de la cuenta autenticada."
+    )
+  }
+
+  return realEmail
+}
+
 async function obtenerTokenGoogleCalendar(userEmail?: string) {
   const configuredOwnerEmail = getConfiguredGoogleCalendarOwnerEmail()
-  const emailNormalizado = (
-    configuredOwnerEmail ||
-    userEmail ||
-    ""
-  )
+  const emailNormalizado = (configuredOwnerEmail || userEmail || "")
     .trim()
     .toLowerCase()
 
@@ -161,23 +211,10 @@ async function obtenerTokenGoogleCalendar(userEmail?: string) {
     if (tokenPreferido) {
       return tokenPreferido
     }
-  }
 
-  const tokenFallback = await buscarUltimoTokenGoogleCalendar()
-
-  if (tokenFallback) {
-    if (configuredOwnerEmail && process.env.NODE_ENV !== "production") {
-      console.warn(
-        `No se encontró token exacto para GOOGLE_CALENDAR_OWNER_EMAIL=${configuredOwnerEmail}. Se usará el último token conectado (${tokenFallback.user_email || "sin email"}).`
-      )
-    }
-
-    return tokenFallback
-  }
-
-  if (configuredOwnerEmail) {
+    const cuentaEsperada = configuredOwnerEmail || emailNormalizado
     throw new Error(
-      `No se encontró token de Google Calendar para la cuenta configurada: ${configuredOwnerEmail}`
+      `No se encontró token de Google Calendar para la cuenta configurada: ${cuentaEsperada}`
     )
   }
 
@@ -191,16 +228,7 @@ export async function getGoogleCalendarClient(userEmail?: string) {
     throw new Error("No se encontró token de Google Calendar")
   }
 
-  const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI
-  )
-
-  oauth2Client.setCredentials({
-    access_token: tokenRow.access_token || undefined,
-    refresh_token: tokenRow.refresh_token || undefined,
-  })
+  const oauth2Client = construirOauth2Client(tokenRow)
 
   oauth2Client.on("tokens", async (tokens) => {
     try {
@@ -241,6 +269,60 @@ export async function getGoogleCalendarClient(userEmail?: string) {
     version: "v3",
     auth: oauth2Client,
   })
+}
+
+export async function getGoogleCalendarConnectionStatus(): Promise<GoogleCalendarConnectionStatus> {
+  const expectedAccount = getConfiguredGoogleCalendarOwnerEmail() || null
+  const exactToken = expectedAccount
+    ? await buscarTokenGoogleCalendarPorEmail(expectedAccount)
+    : null
+  const latestToken = await buscarUltimoTokenGoogleCalendar()
+
+  let connectedAccount: string | null = null
+  let warning: string | null = null
+
+  if (exactToken) {
+    try {
+      connectedAccount = await resolverGoogleAccountEmailDesdeCalendar(
+        construirOauth2Client(exactToken)
+      )
+    } catch (error) {
+      warning =
+        error instanceof Error
+          ? error.message
+          : "No se pudo verificar la cuenta conectada en Google."
+    }
+  }
+
+  const storedAccount = String(exactToken?.user_email || "")
+    .trim()
+    .toLowerCase() || null
+  const latestStoredAccount = String(latestToken?.user_email || "")
+    .trim()
+    .toLowerCase() || null
+  const cuentaConectada = connectedAccount || storedAccount
+  const mismatch = Boolean(
+    expectedAccount &&
+      latestStoredAccount &&
+      latestStoredAccount !== expectedAccount &&
+      !exactToken
+  )
+
+  if (!warning && mismatch) {
+    warning = `Hay tokens guardados para ${latestStoredAccount}, pero ENTHEOS espera ${expectedAccount}.`
+  }
+
+  return {
+    expectedAccount,
+    connectedAccount: cuentaConectada,
+    storedAccount,
+    latestStoredAccount,
+    connected: Boolean(exactToken),
+    mismatch,
+    hasRefreshToken: Boolean(exactToken?.refresh_token),
+    expiryDate: exactToken?.expiry_date || null,
+    warning,
+  }
 }
 
 function buildMeetConferenceData(
