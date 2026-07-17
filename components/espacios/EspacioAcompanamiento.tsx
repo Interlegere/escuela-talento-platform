@@ -12,6 +12,7 @@ import EditorMensajeAdmin from "@/components/espacios/EditorMensajeAdmin"
 import RecursoCard from "@/components/recursos/RecursoCard"
 import { mismaFechaArgentina } from "@/lib/fechas"
 import type { EspacioActividadSlug } from "@/lib/espacios"
+import { supabase } from "@/lib/supabase"
 import WorkspaceHero from "@/components/ui/WorkspaceHero"
 import type { DocumentoNota } from "@/lib/documentos-notas"
 
@@ -67,6 +68,13 @@ type Recurso = {
   recurso_tipo: string
   url: string
   visible: boolean
+}
+
+type UploadPreparado = {
+  bucket: string
+  storagePath: string
+  signedToken: string
+  publicUrl: string
 }
 
 type Props = {
@@ -233,6 +241,8 @@ export default function EspacioAcompanamiento({
   const [recursoTipo, setRecursoTipo] = useState("enlace")
   const [recursoUrl, setRecursoUrl] = useState("")
   const [recursoVisible, setRecursoVisible] = useState(true)
+  const [recursoArchivo, setRecursoArchivo] = useState<File | null>(null)
+  const [subiendoAsset, setSubiendoAsset] = useState<null | "mensaje" | "recurso">(null)
 
   const adminActivo = session?.user?.role === "admin"
   const storageActorEmail = (session?.user?.email || email || "")
@@ -609,6 +619,60 @@ export default function EspacioAcompanamiento({
     )
   }
 
+  const inferirTipoRecursoDesdeArchivo = (file: File) => {
+    if (file.type.startsWith("image/")) return "imagen"
+    if (file.type.startsWith("video/")) return "video"
+    return "archivo"
+  }
+
+  const subirArchivoEspacio = async (
+    file: File,
+    destino: "mensaje" | "recurso"
+  ) => {
+    setSubiendoAsset(destino)
+
+    try {
+      const prepararRes = await fetch("/api/espacios/preparar-upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          actividadSlug,
+          participanteEmail: adminActivo ? participanteSeleccionado || undefined : undefined,
+          fileName: file.name,
+          mimeType: file.type,
+          fileSize: file.size,
+          destino,
+        }),
+      })
+
+      const preparacion = await leerJson<UploadPreparado & { error?: string }>(
+        prepararRes
+      )
+
+      if (!prepararRes.ok) {
+        throw new Error(preparacion.error || "No se pudo preparar la subida.")
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from(preparacion.bucket)
+        .uploadToSignedUrl(preparacion.storagePath, preparacion.signedToken, file)
+
+      if (uploadError) {
+        throw uploadError
+      }
+
+      return {
+        url: preparacion.publicUrl,
+        name: file.name,
+        mimeType: file.type,
+      }
+    } finally {
+      setSubiendoAsset(null)
+    }
+  }
+
   const guardarMensaje = async (parentId?: number) => {
     try {
       setMensajeError("")
@@ -716,6 +780,14 @@ export default function EspacioAcompanamiento({
     try {
       setMensajeError("")
       setMensajeInfo("")
+      let urlFinal = recursoUrl.trim()
+      let tipoFinal = recursoTipo
+
+      if (recursoArchivo) {
+        const asset = await subirArchivoEspacio(recursoArchivo, "recurso")
+        urlFinal = asset.url
+        tipoFinal = inferirTipoRecursoDesdeArchivo(recursoArchivo)
+      }
 
       const res = await fetch("/api/espacios/recursos", {
         method: "POST",
@@ -727,8 +799,8 @@ export default function EspacioAcompanamiento({
           participanteEmail: participanteSeleccionado || undefined,
           titulo: recursoTitulo,
           descripcion: recursoDescripcion,
-          recursoTipo,
-          url: recursoUrl,
+          recursoTipo: tipoFinal,
+          url: urlFinal,
           visible: recursoVisible,
         }),
       })
@@ -745,6 +817,7 @@ export default function EspacioAcompanamiento({
       setRecursoTipo("enlace")
       setRecursoUrl("")
       setRecursoVisible(true)
+      setRecursoArchivo(null)
       setMensajeInfo("Recurso guardado correctamente.")
       await cargarResumen(participanteSeleccionado || undefined, {
         silencioso: true,
@@ -1181,6 +1254,8 @@ export default function EspacioAcompanamiento({
                                         [item.id]: value,
                                       }))
                                     }
+                                    onUploadImage={(file) => subirArchivoEspacio(file, "mensaje")}
+                                    onUploadFile={(file) => subirArchivoEspacio(file, "mensaje")}
                                   />
                                 ) : (
                                   <textarea
@@ -1201,6 +1276,7 @@ export default function EspacioAcompanamiento({
                                   onClick={() => void guardarMensaje(item.id)}
                                   disabled={
                                     cargandoResumen ||
+                                    subiendoAsset === "mensaje" ||
                                     (adminActivo
                                       ? !respuestaHtmlActual.trim()
                                       : !respuestaTextoActual.trim())
@@ -1234,6 +1310,8 @@ export default function EspacioAcompanamiento({
                       <EditorMensajeAdmin
                         value={mensajeHtml}
                         onChange={setMensajeHtml}
+                        onUploadImage={(file) => subirArchivoEspacio(file, "mensaje")}
+                        onUploadFile={(file) => subirArchivoEspacio(file, "mensaje")}
                       />
                     ) : requierePagoParaMensajeria && !mensajeriaHabilitada ? (
                       <div className="space-y-2">
@@ -1261,6 +1339,7 @@ export default function EspacioAcompanamiento({
                       onClick={() => void guardarMensaje()}
                       disabled={
                         cargandoResumen ||
+                        subiendoAsset === "mensaje" ||
                         !mensajeAsunto.trim() ||
                         (!adminActivo &&
                           requierePagoParaMensajeria &&
@@ -1449,6 +1528,7 @@ export default function EspacioAcompanamiento({
                         className="workspace-field"
                         value={recursoTipo}
                         onChange={(e) => setRecursoTipo(e.target.value)}
+                        disabled={Boolean(recursoArchivo)}
                       >
                         <option value="enlace">Enlace</option>
                         <option value="video">Video</option>
@@ -1460,10 +1540,40 @@ export default function EspacioAcompanamiento({
 
                       <input
                         className="workspace-field"
-                        placeholder="URL"
+                        placeholder={
+                          recursoArchivo
+                            ? "La URL se completará automáticamente al guardar el recurso."
+                            : "URL"
+                        }
                         value={recursoUrl}
                         onChange={(e) => setRecursoUrl(e.target.value)}
+                        disabled={Boolean(recursoArchivo)}
                       />
+
+                      <div className="space-y-2">
+                        <label className="workspace-inline-note text-xs uppercase tracking-[0.12em]">
+                          Imagen o archivo adjunto
+                        </label>
+                        <input
+                          type="file"
+                          accept=".pdf,.txt,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] || null
+                            setRecursoArchivo(file)
+                            if (file) {
+                              setRecursoTipo(inferirTipoRecursoDesdeArchivo(file))
+                              if (!recursoTitulo.trim()) {
+                                setRecursoTitulo(file.name.replace(/\.[^.]+$/, ""))
+                              }
+                            }
+                          }}
+                        />
+                        {recursoArchivo && (
+                          <p className="workspace-inline-note">
+                            Archivo listo para guardar: {recursoArchivo.name}
+                          </p>
+                        )}
+                      </div>
 
                       <label className="flex items-center gap-2">
                         <input
@@ -1477,9 +1587,14 @@ export default function EspacioAcompanamiento({
                       <button
                         type="button"
                         onClick={() => void guardarRecurso()}
-                        className="workspace-button-secondary"
+                        disabled={
+                          subiendoAsset === "recurso" ||
+                          !recursoTitulo.trim() ||
+                          (!recursoArchivo && !recursoUrl.trim())
+                        }
+                        className="workspace-button-secondary disabled:opacity-60"
                       >
-                        Guardar recurso
+                        {subiendoAsset === "recurso" ? "Subiendo recurso..." : "Guardar recurso"}
                       </button>
                     </div>
                   )}
