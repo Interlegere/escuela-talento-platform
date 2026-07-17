@@ -7,8 +7,12 @@ type Props = {
   titulo: string
   descripcion?: string | null
   recursoTipo?: string | null
-  url: string
+  url?: string | null
   footer?: ReactNode
+}
+
+function descripcionTieneHtml(descripcion?: string | null) {
+  return /<\/?[a-z][\s\S]*>/i.test(String(descripcion || ""))
 }
 
 function normalizarTipo(recursoTipo?: string | null, url?: string) {
@@ -61,23 +65,29 @@ export default function RecursoCard({
   url,
   footer,
 }: Props) {
-  const tipo = normalizarTipo(recursoTipo, url)
+  const tipo = normalizarTipo(recursoTipo, url ?? undefined)
 
   return (
     <div className="workspace-card-link !rounded-[1.4rem] !p-4 space-y-3">
       <div className="space-y-2">
         <p className="font-medium">{titulo}</p>
 
-        {descripcion && (
-          <p className="workspace-inline-note">{descripcion}</p>
-        )}
+        {descripcion &&
+          (descripcionTieneHtml(descripcion) ? (
+            <div
+              className="workspace-inline-note max-w-none [&_a]:underline [&_img]:max-h-[24rem] [&_img]:w-full [&_img]:rounded-2xl [&_img]:object-contain"
+              dangerouslySetInnerHTML={{ __html: descripcion }}
+            />
+          ) : (
+            <p className="workspace-inline-note whitespace-pre-wrap">{descripcion}</p>
+          ))}
 
         <p className="workspace-inline-note text-xs uppercase tracking-[0.12em]">
-          Tipo: {etiquetaTipo(tipo, url)}
+          Tipo: {etiquetaTipo(tipo, url ?? undefined)}
         </p>
       </div>
 
-      {tipo === "video" && (
+      {url && tipo === "video" && (
         <VideoEmbed
           src={url}
           title={titulo}
@@ -85,7 +95,7 @@ export default function RecursoCard({
         />
       )}
 
-      {tipo === "imagen" && (
+      {url && tipo === "imagen" && (
         <img
           src={url}
           alt={titulo}
@@ -94,14 +104,20 @@ export default function RecursoCard({
       )}
 
       <div className="flex flex-wrap gap-3">
-        <a
-          href={url}
-          target="_blank"
-          rel="noreferrer"
-          className="workspace-button-secondary"
-        >
-          {tipo === "archivo" ? "Abrir archivo" : "Abrir recurso"}
-        </a>
+        {url ? (
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="workspace-button-secondary"
+          >
+            {tipo === "archivo" ? "Abrir archivo" : "Abrir recurso"}
+          </a>
+        ) : (
+          <p className="workspace-inline-note">
+            Este recurso todavía no tiene una URL disponible para abrir.
+          </p>
+        )}
       </div>
 
       {footer}

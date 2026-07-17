@@ -766,6 +766,9 @@ export default function CasaTalentosPage() {
         email?: string | null
         dias: Set<string>
         totalVotos: number
+        bonusAportes: number
+        puntajeTotal: number
+        aportesRecibidos: number
         participoEligiendo: boolean
         subioLunes: boolean
         subioMiercoles: boolean
@@ -783,6 +786,9 @@ export default function CasaTalentosPage() {
           email: video.participante_email || null,
           dias: new Set<string>(),
           totalVotos: 0,
+          bonusAportes: 0,
+          puntajeTotal: 0,
+          aportesRecibidos: 0,
           participoEligiendo: false,
           subioLunes: false,
           subioMiercoles: false,
@@ -802,13 +808,28 @@ export default function CasaTalentosPage() {
     }
 
     const participantesQueEligieron = new Set(votosSemana.map((v) => claveVotante(v)))
+    const maxAportesRecibidos = Array.from(mapa.values()).reduce((maximo, participante) => {
+      const idsVideosParticipante = new Set(
+        participante.videos.map((video) => video.id)
+      )
+      const aportesRecibidos = comentariosSemana.filter((comentario) =>
+        idsVideosParticipante.has(comentario.video_id)
+      ).length
+      participante.aportesRecibidos = aportesRecibidos
+      return Math.max(maximo, aportesRecibidos)
+    }, 0)
 
     const lista = Array.from(mapa.values()).map((item) => {
       const participoEligiendo = participantesQueEligieron.has(item.clave)
       const elegible = item.subioLunes && item.subioMiercoles && participoEligiendo
+      const bonusAportes =
+        item.aportesRecibidos > 0 && item.aportesRecibidos === maxAportesRecibidos ? 1 : 0
+      const puntajeTotal = item.totalVotos + bonusAportes
 
       return {
         ...item,
+        bonusAportes,
+        puntajeTotal,
         participoEligiendo,
         elegible,
       }
@@ -816,12 +837,14 @@ export default function CasaTalentosPage() {
 
     lista.sort((a, b) => {
       if (a.elegible !== b.elegible) return a.elegible ? -1 : 1
+      if (b.puntajeTotal !== a.puntajeTotal) return b.puntajeTotal - a.puntajeTotal
       if (b.totalVotos !== a.totalVotos) return b.totalVotos - a.totalVotos
+      if (b.aportesRecibidos !== a.aportesRecibidos) return b.aportesRecibidos - a.aportesRecibidos
       return a.nombre.localeCompare(b.nombre)
     })
 
     return lista
-  }, [videosSemana, votosSemana, votosPorVideo])
+  }, [comentariosSemana, videosSemana, votosSemana, votosPorVideo])
 
   const top3 = useMemo(() => rankingParticipantes.slice(0, 3), [rankingParticipantes])
 
@@ -829,11 +852,11 @@ export default function CasaTalentosPage() {
     const elegibles = rankingParticipantes.filter((p) => p.elegible)
     if (elegibles.length === 0) return null
 
-    const maxVotos = elegibles[0].totalVotos
-    const empatados = elegibles.filter((p) => p.totalVotos === maxVotos)
+    const maxPuntaje = elegibles[0].puntajeTotal
+    const empatados = elegibles.filter((p) => p.puntajeTotal === maxPuntaje)
 
     if (empatados.length > 1) {
-      return { empate: true as const, votos: maxVotos, participantes: empatados }
+      return { empate: true as const, puntaje: maxPuntaje, participantes: empatados }
     }
 
     return { empate: false as const, participante: empatados[0] }
@@ -846,9 +869,6 @@ export default function CasaTalentosPage() {
         const idsVideosParticipante = new Set(
           participante.videos.map((video) => video.id)
         )
-        const aportesRecibidos = comentariosSemana.filter((comentario) =>
-          idsVideosParticipante.has(comentario.video_id)
-        ).length
         const aportesRealizados = comentariosSemana.filter(
           (comentario) => claveVotante({
             votante_email: comentario.autor_email || null,
@@ -859,7 +879,6 @@ export default function CasaTalentosPage() {
         return {
           ...participante,
           videoRepresentativo,
-          aportesRecibidos,
           aportesRealizados,
         }
       })
@@ -1064,7 +1083,7 @@ export default function CasaTalentosPage() {
         ? {
             participante_nombre: top3[0].nombre,
             titulo: top3[0].videos[0]?.titulo || "Sin título",
-            votos: top3[0].totalVotos,
+            votos: top3[0].puntajeTotal,
           }
         : null
 
@@ -1856,11 +1875,9 @@ export default function CasaTalentosPage() {
                       onChange={(e) => setRecursoTitulo(e.target.value)}
                     />
 
-                    <textarea
-                      className="workspace-field min-h-[90px]"
-                      placeholder="Descripción"
+                    <EditorMensajeAdmin
                       value={recursoDescripcion}
-                      onChange={(e) => setRecursoDescripcion(e.target.value)}
+                      onChange={setRecursoDescripcion}
                     />
 
                     <select
@@ -1934,32 +1951,29 @@ export default function CasaTalentosPage() {
                         }
                       />
                     ) : (
-                      <div
+                      <RecursoCard
                         key={item.id}
-                        className="workspace-card-link !rounded-[1.4rem] !p-4 space-y-2"
-                      >
-                        <p className="font-medium">
-                          {"titulo" in item ? item.titulo : item.nombre || "Recurso"}
-                        </p>
-                        {item.descripcion && (
-                          <p className="workspace-inline-note">{item.descripcion}</p>
-                        )}
-                        <p className="workspace-inline-note">
-                          Este recurso todavía no tiene una URL disponible para abrir.
-                        </p>
-                        {esAdmin && (
-                          <label className="flex items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={"visible" in item ? item.visible : true}
-                              onChange={(e) =>
-                                void cambiarVisibleRecurso(item.id, e.target.checked)
-                              }
-                            />
-                            Visible para participante
-                          </label>
-                        )}
-                      </div>
+                        titulo={"titulo" in item ? item.titulo : item.nombre || "Recurso"}
+                        descripcion={item.descripcion}
+                        recursoTipo={
+                          "recurso_tipo" in item ? item.recurso_tipo : item.tipo
+                        }
+                        url={item.url}
+                        footer={
+                          esAdmin ? (
+                            <label className="flex items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={"visible" in item ? item.visible : true}
+                                onChange={(e) =>
+                                  void cambiarVisibleRecurso(item.id, e.target.checked)
+                                }
+                              />
+                              Visible para participante
+                            </label>
+                          ) : undefined
+                        }
+                      />
                     )
                   )
                 )}
@@ -2399,12 +2413,20 @@ export default function CasaTalentosPage() {
                                     Aportes recibidos: {participante.aportesRecibidos}
                                   </p>
                                   <p className="workspace-inline-note text-xs">
+                                    Bonus por aportes recibidos: {participante.bonusAportes}
+                                  </p>
+                                  <p className="workspace-inline-note text-xs">
                                     Aportes realizados: {participante.aportesRealizados}
                                   </p>
                                   {resultadosVotacionVisibles && (
-                                    <p className="workspace-inline-note text-xs">
-                                      Elecciones recibidas: {participante.totalVotos}
-                                    </p>
+                                    <>
+                                      <p className="workspace-inline-note text-xs">
+                                        Elecciones recibidas: {participante.totalVotos}
+                                      </p>
+                                      <p className="workspace-inline-note text-xs">
+                                        Puntaje total: {participante.puntajeTotal}
+                                      </p>
+                                    </>
                                   )}
                                 </div>
                               </div>
@@ -2480,6 +2502,15 @@ export default function CasaTalentosPage() {
                                   Elecciones recibidas: {item.totalVotos}
                                 </p>
                                 <p className="workspace-inline-note text-xs">
+                                  Aportes recibidos: {item.aportesRecibidos}
+                                </p>
+                                <p className="workspace-inline-note text-xs">
+                                  Bonus por aportes recibidos: {item.bonusAportes}
+                                </p>
+                                <p className="workspace-inline-note text-xs">
+                                  Puntaje total: {item.puntajeTotal}
+                                </p>
+                                <p className="workspace-inline-note text-xs">
                                   Subió lunes y miércoles:{" "}
                                   {item.subioLunes && item.subioMiercoles ? "sí" : "no"}
                                 </p>
@@ -2535,6 +2566,9 @@ export default function CasaTalentosPage() {
                                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6D4F17]">
                                       Eligieron a {participante.nombre}
                                     </p>
+                                    <p className="mt-2 workspace-inline-note text-xs">
+                                      Puntaje total: {participante.puntajeTotal}
+                                    </p>
                                     <div className="mt-2 space-y-1">
                                       {(eleccionesPorParticipante.get(participante.clave) || []).map((eleccion) => (
                                         <p key={eleccion.id} className="workspace-inline-note text-xs">
@@ -2552,6 +2586,15 @@ export default function CasaTalentosPage() {
                                 <p className="font-medium">{ganadorSemana.participante.nombre}</p>
                                 <p className="workspace-inline-note text-xs">
                                   Elecciones recibidas: {ganadorSemana.participante.totalVotos}
+                                </p>
+                                <p className="workspace-inline-note text-xs">
+                                  Aportes recibidos: {ganadorSemana.participante.aportesRecibidos}
+                                </p>
+                                <p className="workspace-inline-note text-xs">
+                                  Bonus por aportes recibidos: {ganadorSemana.participante.bonusAportes}
+                                </p>
+                                <p className="workspace-inline-note text-xs">
+                                  Puntaje total: {ganadorSemana.participante.puntajeTotal}
                                 </p>
                                 <p className="workspace-inline-note text-xs">
                                   Cumplió con subir lunes y miércoles y además participó de la
@@ -3005,20 +3048,15 @@ export default function CasaTalentosPage() {
                       url={item.url}
                     />
                   ) : (
-                    <div
+                    <RecursoCard
                       key={item.id}
-                      className="workspace-card-link !rounded-[1.4rem] !p-4 space-y-2"
-                    >
-                      <p className="font-medium">
-                        {"titulo" in item ? item.titulo : item.nombre || "Recurso"}
-                      </p>
-                      {item.descripcion && (
-                        <p className="workspace-inline-note">{item.descripcion}</p>
-                      )}
-                      <p className="workspace-inline-note">
-                        Este recurso todavía no tiene una URL disponible para abrir.
-                      </p>
-                    </div>
+                      titulo={"titulo" in item ? item.titulo : item.nombre || "Recurso"}
+                      descripcion={item.descripcion}
+                      recursoTipo={
+                        "recurso_tipo" in item ? item.recurso_tipo : item.tipo
+                      }
+                      url={item.url}
+                    />
                   )
                 )}
               </div>

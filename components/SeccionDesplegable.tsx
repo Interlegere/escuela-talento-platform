@@ -1,5 +1,6 @@
 "use client"
 
+import { usePathname } from "next/navigation"
 import { usePersistentState } from "@/hooks/usePersistentState"
 
 export default function SeccionDesplegable({
@@ -15,10 +16,21 @@ export default function SeccionDesplegable({
   storageKey?: string
   mantenerMontado?: boolean
 }) {
+  const pathname = usePathname()
+  const tituloTexto =
+    typeof titulo === "string"
+      ? titulo
+      : typeof titulo === "number"
+        ? String(titulo)
+        : "seccion"
+  const fallbackKey = `entheos:v1:ui:${pathname}:${tituloTexto
+    .toLowerCase()
+    .replace(/\s+/g, "-")}`
+  const persistentKey = storageKey || fallbackKey
   const [abierta, setAbierta] = usePersistentState(
-    storageKey || "entheos:v1:ui:seccion:sin-persistencia",
+    persistentKey,
     abiertaPorDefecto,
-    { enabled: Boolean(storageKey) }
+    { enabled: true }
   )
 
   return (

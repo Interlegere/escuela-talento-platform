@@ -26,6 +26,8 @@ export function usePersistentState<T>(
     deserialize = JSON.parse as (value: string) => T,
   } = options
   const puedeEscribirRef = useRef(false)
+  const inicializadoRef = useRef(false)
+  const ultimoKeyRef = useRef<string | null>(key || null)
 
   const [value, setValue] = useState<T>(() => {
     if (!enabled || !key || typeof window === "undefined") {
@@ -57,8 +59,12 @@ export function usePersistentState<T>(
     if (!enabled || !key || typeof window === "undefined") {
       puedeEscribirRef.current = false
       setHydrated(true)
+      inicializadoRef.current = true
       return
     }
+
+    const keyCambio = ultimoKeyRef.current !== key
+    ultimoKeyRef.current = key
 
     try {
       const raw = window.localStorage.getItem(key)
@@ -66,16 +72,21 @@ export function usePersistentState<T>(
         setValue(deserialize(raw))
         puedeEscribirRef.current = true
       } else {
-        setValue(initialValue)
+        if (!inicializadoRef.current || keyCambio) {
+          setValue(initialValue)
+        }
         puedeEscribirRef.current = false
       }
     } catch {
-      setValue(initialValue)
+      if (!inicializadoRef.current || keyCambio) {
+        setValue(initialValue)
+      }
       puedeEscribirRef.current = false
       if (process.env.NODE_ENV !== "production") {
         console.warn(`No se pudo hidratar localStorage para ${key}.`)
       }
     } finally {
+      inicializadoRef.current = true
       setHydrated(true)
     }
   }, [deserialize, enabled, initialValue, key])

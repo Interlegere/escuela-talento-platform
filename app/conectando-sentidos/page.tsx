@@ -1096,11 +1096,9 @@ export default function ConectandoSentidosPage() {
                       onChange={(e) => setRecursoTitulo(e.target.value)}
                     />
 
-                    <textarea
-                      className="workspace-field min-h-[90px]"
-                      placeholder="Descripción"
+                    <EditorMensajeAdmin
                       value={recursoDescripcion}
-                      onChange={(e) => setRecursoDescripcion(e.target.value)}
+                      onChange={setRecursoDescripcion}
                     />
 
                     <select
