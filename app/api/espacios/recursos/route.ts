@@ -4,6 +4,7 @@ import {
   resolverContextoEspacio,
 } from "@/lib/espacios"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
+import { tieneContenidoRecurso } from "@/lib/recursos"
 
 type Body = {
   actividadSlug?: string
@@ -52,9 +53,18 @@ export async function POST(req: Request) {
       )
     }
 
-    if (!body.titulo?.trim() || !body.url?.trim()) {
+    if (
+      !body.titulo?.trim() ||
+      !tieneContenidoRecurso({
+        descripcion: body.descripcion,
+        url: body.url,
+      })
+    ) {
       return NextResponse.json(
-        { error: "Completá al menos título y URL." },
+        {
+          error:
+            "Completá el título y agregá una descripción, una URL o un archivo.",
+        },
         { status: 400 }
       )
     }
@@ -67,7 +77,7 @@ export async function POST(req: Request) {
         titulo: body.titulo.trim(),
         descripcion: body.descripcion?.trim() || null,
         recurso_tipo: body.recursoTipo?.trim() || "enlace",
-        url: body.url.trim(),
+        url: body.url?.trim() || "",
         visible: body.visible !== false,
         created_by_email: contexto.actor.email,
       })

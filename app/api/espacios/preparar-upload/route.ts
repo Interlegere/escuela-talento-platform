@@ -61,6 +61,45 @@ function extensionDesdeNombre(nombre?: string, mimeType?: string) {
   return "bin"
 }
 
+async function asegurarBucketEspacios(
+  supabase: ReturnType<typeof createAdminSupabaseClient>
+) {
+  const { data: buckets, error: listarError } = await supabase.storage.listBuckets()
+
+  if (listarError) {
+    throw listarError
+  }
+
+  const bucketExistente = buckets.find((bucket) => bucket.name === BUCKET)
+
+  if (bucketExistente) {
+    if (!bucketExistente.public) {
+      const { error: actualizarError } = await supabase.storage.updateBucket(
+        BUCKET,
+        {
+          public: true,
+          fileSizeLimit: MAX_BYTES,
+        }
+      )
+
+      if (actualizarError) {
+        throw actualizarError
+      }
+    }
+
+    return
+  }
+
+  const { error: crearError } = await supabase.storage.createBucket(BUCKET, {
+    public: true,
+    fileSizeLimit: MAX_BYTES,
+  })
+
+  if (crearError && !crearError.message.toLowerCase().includes("already exists")) {
+    throw crearError
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as Body
@@ -122,6 +161,7 @@ export async function POST(req: Request) {
     }
 
     const supabase = createAdminSupabaseClient()
+    await asegurarBucketEspacios(supabase)
     const extension = extensionDesdeNombre(fileName, mimeType)
     const base = limpiarNombreArchivo(fileName.replace(/\.[^.]+$/, "")) || destino
     const participante = limpiarNombreArchivo(contexto.participanteEmail)

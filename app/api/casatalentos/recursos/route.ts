@@ -7,6 +7,7 @@ import {
 } from "@/lib/authz"
 import { asegurarActividadBase } from "@/lib/core-activities"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
+import { tieneContenidoRecurso } from "@/lib/recursos"
 
 type Body = {
   recursoId?: number
@@ -181,9 +182,18 @@ export async function POST(req: Request) {
 
     const body = (await req.json()) as Body
 
-    if (!body.titulo?.trim() || !body.url?.trim()) {
+    if (
+      !body.titulo?.trim() ||
+      !tieneContenidoRecurso({
+        descripcion: body.descripcion,
+        url: body.url,
+      })
+    ) {
       return NextResponse.json(
-        { error: "Completá al menos título y URL." },
+        {
+          error:
+            "Completá el título y agregá una descripción o una URL.",
+        },
         { status: 400 }
       )
     }
@@ -201,7 +211,7 @@ export async function POST(req: Request) {
         descripcion: body.descripcion?.trim() || null,
         tipo: body.recursoTipo?.trim() || "enlace",
         proveedor: "externo",
-        url: body.url.trim(),
+        url: body.url?.trim() || "",
       })
       .select("*")
       .single()

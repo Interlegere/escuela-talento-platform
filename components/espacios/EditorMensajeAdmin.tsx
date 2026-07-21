@@ -291,6 +291,15 @@ const EditorMensajeAdmin = forwardRef<EditorMensajeAdminHandle, Props>(
             type="button"
             className="border px-3 py-1 rounded"
             onMouseDown={preservarFocoToolbar}
+            onClick={() => ejecutarComando("foreColor", "#111827")}
+          >
+            Negro
+          </button>
+
+          <button
+            type="button"
+            className="border px-3 py-1 rounded"
+            onMouseDown={preservarFocoToolbar}
             onClick={() => ejecutarComando("formatBlock", "h3")}
           >
             Título

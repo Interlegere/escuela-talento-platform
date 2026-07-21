@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import PagoMensualCard from "@/components/pagos/PagoMensualCard"
 import PagoReservaTerapiaCard from "@/components/pagos/PagoReservaTerapiaCard"
 import ReservaTerapiaSection from "@/components/agenda/ReservaTerapiaSection"
@@ -9,12 +9,14 @@ import SeccionDesplegable from "@/components/SeccionDesplegable"
 import { useActivityAccess } from "@/components/auth/useActivityAccess"
 import ConsentimientoMeetButton from "@/components/consentimientos/ConsentimientoMeetButton"
 import EditorMensajeAdmin from "@/components/espacios/EditorMensajeAdmin"
+import type { EditorMensajeAdminHandle } from "@/components/espacios/EditorMensajeAdmin"
 import RecursoCard from "@/components/recursos/RecursoCard"
 import { mismaFechaArgentina } from "@/lib/fechas"
 import type { EspacioActividadSlug } from "@/lib/espacios"
 import { supabase } from "@/lib/supabase"
 import WorkspaceHero from "@/components/ui/WorkspaceHero"
 import type { DocumentoNota } from "@/lib/documentos-notas"
+import { tieneContenidoRecurso } from "@/lib/recursos"
 
 type AccesoExtra = {
   id: number
@@ -243,6 +245,7 @@ export default function EspacioAcompanamiento({
   const [recursoVisible, setRecursoVisible] = useState(true)
   const [recursoArchivo, setRecursoArchivo] = useState<File | null>(null)
   const [subiendoAsset, setSubiendoAsset] = useState<null | "mensaje" | "recurso">(null)
+  const recursoEditorRef = useRef<EditorMensajeAdminHandle | null>(null)
 
   const adminActivo = session?.user?.role === "admin"
   const storageActorEmail = (session?.user?.email || email || "")
@@ -782,6 +785,22 @@ export default function EspacioAcompanamiento({
       setMensajeInfo("")
       let urlFinal = recursoUrl.trim()
       let tipoFinal = recursoTipo
+      const descripcionFinal =
+        recursoEditorRef.current?.getHtml() || recursoDescripcion
+
+      if (
+        !recursoTitulo.trim() ||
+        !tieneContenidoRecurso({
+          descripcion: descripcionFinal,
+          url: urlFinal,
+          tieneArchivo: Boolean(recursoArchivo),
+        })
+      ) {
+        setMensajeError(
+          "Completá el título y agregá una descripción, una URL o un archivo."
+        )
+        return
+      }
 
       if (recursoArchivo) {
         const asset = await subirArchivoEspacio(recursoArchivo, "recurso")
@@ -798,7 +817,7 @@ export default function EspacioAcompanamiento({
           actividadSlug,
           participanteEmail: participanteSeleccionado || undefined,
           titulo: recursoTitulo,
-          descripcion: recursoDescripcion,
+          descripcion: descripcionFinal,
           recursoTipo: tipoFinal,
           url: urlFinal,
           visible: recursoVisible,
@@ -822,8 +841,10 @@ export default function EspacioAcompanamiento({
       await cargarResumen(participanteSeleccionado || undefined, {
         silencioso: true,
       })
-    } catch {
-      setMensajeError("Error guardando el recurso.")
+    } catch (error) {
+      setMensajeError(
+        error instanceof Error ? error.message : "Error guardando el recurso."
+      )
     }
   }
 
@@ -1518,8 +1539,11 @@ export default function EspacioAcompanamiento({
                       />
 
                       <EditorMensajeAdmin
+                        ref={recursoEditorRef}
                         value={recursoDescripcion}
                         onChange={setRecursoDescripcion}
+                        onUploadImage={(file) => subirArchivoEspacio(file, "recurso")}
+                        onUploadFile={(file) => subirArchivoEspacio(file, "recurso")}
                       />
 
                       <select
@@ -1588,7 +1612,11 @@ export default function EspacioAcompanamiento({
                         disabled={
                           subiendoAsset === "recurso" ||
                           !recursoTitulo.trim() ||
-                          (!recursoArchivo && !recursoUrl.trim())
+                          !tieneContenidoRecurso({
+                            descripcion: recursoDescripcion,
+                            url: recursoUrl,
+                            tieneArchivo: Boolean(recursoArchivo),
+                          })
                         }
                         className="workspace-button-secondary disabled:opacity-60"
                       >

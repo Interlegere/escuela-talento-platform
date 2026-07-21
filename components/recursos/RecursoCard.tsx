@@ -113,11 +113,11 @@ export default function RecursoCard({
           >
             {tipo === "archivo" ? "Abrir archivo" : "Abrir recurso"}
           </a>
-        ) : (
+        ) : !descripcion ? (
           <p className="workspace-inline-note">
             Este recurso todavía no tiene una URL disponible para abrir.
           </p>
-        )}
+        ) : null}
       </div>
 
       {footer}

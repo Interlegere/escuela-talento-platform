@@ -20,6 +20,7 @@ import WorkspaceHero from "@/components/ui/WorkspaceHero"
 import { usePersistentState } from "@/hooks/usePersistentState"
 import { useSessionDraft } from "@/hooks/useSessionDraft"
 import RecursoCard from "@/components/recursos/RecursoCard"
+import { tieneContenidoRecurso } from "@/lib/recursos"
 
 type Recurso = {
   id: number
@@ -417,6 +418,7 @@ export default function CasaTalentosPage() {
   const [recursoTipo, setRecursoTipo] = useState("enlace")
   const [recursoUrl, setRecursoUrl] = useState("")
   const [recursoVisible, setRecursoVisible] = useState(true)
+  const recursoEditorRef = useRef<EditorMensajeAdminHandle | null>(null)
   const [guardandoRecurso, setGuardandoRecurso] = useState(false)
   const [recursosAdminGestion, setRecursosAdminGestion] = useState<RecursoGestion[]>([])
 
@@ -1141,6 +1143,21 @@ export default function CasaTalentosPage() {
       setGuardandoRecurso(true)
       setMensajeExito("")
       setMensajeError("")
+      const descripcionFinal =
+        recursoEditorRef.current?.getHtml() || recursoDescripcion
+
+      if (
+        !recursoTitulo.trim() ||
+        !tieneContenidoRecurso({
+          descripcion: descripcionFinal,
+          url: recursoUrl,
+        })
+      ) {
+        setMensajeError(
+          "Completá el título y agregá una descripción o una URL."
+        )
+        return
+      }
 
       const res = await fetch("/api/casatalentos/recursos", {
         method: "POST",
@@ -1149,7 +1166,7 @@ export default function CasaTalentosPage() {
         },
         body: JSON.stringify({
           titulo: recursoTitulo,
-          descripcion: recursoDescripcion,
+          descripcion: descripcionFinal,
           recursoTipo,
           url: recursoUrl,
           visible: recursoVisible,
@@ -1876,6 +1893,7 @@ export default function CasaTalentosPage() {
                     />
 
                     <EditorMensajeAdmin
+                      ref={recursoEditorRef}
                       value={recursoDescripcion}
                       onChange={setRecursoDescripcion}
                     />
@@ -1913,7 +1931,14 @@ export default function CasaTalentosPage() {
                       type="button"
                       onClick={() => void guardarRecurso()}
                       className="workspace-button-secondary"
-                      disabled={guardandoRecurso}
+                      disabled={
+                        guardandoRecurso ||
+                        !recursoTitulo.trim() ||
+                        !tieneContenidoRecurso({
+                          descripcion: recursoDescripcion,
+                          url: recursoUrl,
+                        })
+                      }
                     >
                       {guardandoRecurso ? "Guardando..." : "Guardar recurso"}
                     </button>

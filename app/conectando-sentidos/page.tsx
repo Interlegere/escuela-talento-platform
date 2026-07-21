@@ -12,6 +12,7 @@ import RecursoCard from "@/components/recursos/RecursoCard"
 import type { EditorMensajeAdminHandle } from "@/components/espacios/EditorMensajeAdmin"
 import { isDevelopmentPreviewEnabled } from "@/lib/dev-flags"
 import WorkspaceHero from "@/components/ui/WorkspaceHero"
+import { tieneContenidoRecurso } from "@/lib/recursos"
 
 type Recurso = {
   id: number
@@ -128,6 +129,7 @@ export default function ConectandoSentidosPage() {
   const [recursoTipo, setRecursoTipo] = useState("enlace")
   const [recursoUrl, setRecursoUrl] = useState("")
   const [recursoVisible, setRecursoVisible] = useState(true)
+  const recursoEditorRef = useRef<EditorMensajeAdminHandle | null>(null)
   const editorNuevoMensajeRef = useRef<EditorMensajeAdminHandle | null>(null)
   const editorEdicionMensajeRef = useRef<EditorMensajeAdminHandle | null>(null)
   const editorRespuestaRef = useRef<Record<number, EditorMensajeAdminHandle | null>>({})
@@ -319,6 +321,21 @@ export default function ConectandoSentidosPage() {
     try {
       setMensajeExito("")
       setMensajeError("")
+      const descripcionFinal =
+        recursoEditorRef.current?.getHtml() || recursoDescripcion
+
+      if (
+        !recursoTitulo.trim() ||
+        !tieneContenidoRecurso({
+          descripcion: descripcionFinal,
+          url: recursoUrl,
+        })
+      ) {
+        setMensajeError(
+          "Completá el título y agregá una descripción o una URL."
+        )
+        return
+      }
 
       const res = await fetch("/api/conectando-sentidos/recursos", {
         method: "POST",
@@ -327,7 +344,7 @@ export default function ConectandoSentidosPage() {
         },
         body: JSON.stringify({
           titulo: recursoTitulo,
-          descripcion: recursoDescripcion,
+          descripcion: descripcionFinal,
           recursoTipo,
           url: recursoUrl,
           visible: recursoVisible,
@@ -1097,6 +1114,7 @@ export default function ConectandoSentidosPage() {
                     />
 
                     <EditorMensajeAdmin
+                      ref={recursoEditorRef}
                       value={recursoDescripcion}
                       onChange={setRecursoDescripcion}
                     />
@@ -1133,6 +1151,13 @@ export default function ConectandoSentidosPage() {
                       type="button"
                       onClick={() => void guardarRecurso()}
                       className="workspace-button-secondary"
+                      disabled={
+                        !recursoTitulo.trim() ||
+                        !tieneContenidoRecurso({
+                          descripcion: recursoDescripcion,
+                          url: recursoUrl,
+                        })
+                      }
                     >
                       Guardar recurso
                     </button>
