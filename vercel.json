@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/casatalentos/limpiar-antiguos",
+      "schedule": "0 3 * * 0"
+    }
+  ]
+}
