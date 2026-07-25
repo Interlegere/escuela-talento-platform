@@ -467,10 +467,7 @@ export default function EspacioAcompanamiento({
     cargarResumen,
   ])
 
-  const puedeVerAccesos =
-    mostrarAccesos &&
-    (actividadSlug === "mentorias" ||
-      (actividadSlug === "terapia" && adminActivo))
+  const puedeVerAccesos = mostrarAccesos && adminActivo
   const tituloEncuentro = actividadSlug === "terapia" ? "sesión" : "reunión"
   const tituloEncuentros =
     actividadSlug === "terapia" ? "sesiones" : "reuniones"
