@@ -3,7 +3,6 @@ import {
   esErrorConfiguracionEspacios,
   resolverContextoEspacio,
 } from "@/lib/espacios"
-import { obtenerRangoDiaArgentinaUTC } from "@/lib/fechas"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
 type Body = {
@@ -96,45 +95,6 @@ export async function POST(req: Request) {
           { error: "No se encontró el mensaje que querés responder." },
           { status: 404 }
         )
-      }
-    }
-
-    if (!contexto.esAdmin) {
-      if (!parentId) {
-        const { inicioUtc, finUtc } = obtenerRangoDiaArgentinaUTC()
-
-        let { data: mensajesHoy, error: mensajesHoyError } = await supabase
-          .from("espacios_mensajes")
-          .select("id")
-          .eq("espacio_id", espacio.id)
-          .eq("autor_email", contexto.actor.email)
-          .eq("activo", true)
-          .gte("created_at", inicioUtc)
-          .lte("created_at", finUtc)
-
-        if (mensajesHoyError && faltaColumnaActivo(mensajesHoyError)) {
-          const retry = await supabase
-            .from("espacios_mensajes")
-            .select("id")
-            .eq("espacio_id", espacio.id)
-            .eq("autor_email", contexto.actor.email)
-            .gte("created_at", inicioUtc)
-            .lte("created_at", finUtc)
-
-          mensajesHoy = retry.data
-          mensajesHoyError = retry.error
-        }
-
-        if (mensajesHoyError) {
-          throw mensajesHoyError
-        }
-
-        if ((mensajesHoy || []).length > 0) {
-          return NextResponse.json(
-            { error: "Ya enviaste tu mensaje de hoy. Mañana podrás enviar otro." },
-            { status: 400 }
-          )
-        }
       }
     }
 

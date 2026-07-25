@@ -11,7 +11,6 @@ import ConsentimientoMeetButton from "@/components/consentimientos/Consentimient
 import EditorMensajeAdmin from "@/components/espacios/EditorMensajeAdmin"
 import type { EditorMensajeAdminHandle } from "@/components/espacios/EditorMensajeAdmin"
 import RecursoCard from "@/components/recursos/RecursoCard"
-import { mismaFechaArgentina } from "@/lib/fechas"
 import type { EspacioActividadSlug } from "@/lib/espacios"
 import { supabase } from "@/lib/supabase"
 import WorkspaceHero from "@/components/ui/WorkspaceHero"
@@ -462,14 +461,6 @@ export default function EspacioAcompanamiento({
   const vistaCompactaEncuentros =
     !adminActivo && actividadSlug === "mentorias"
   const mostrarPagoDentroDelEspacio = actividadSlug !== "mentorias"
-
-  const mensajeParticipanteHoy = useMemo(() => {
-    return mensajes.some(
-      (item) =>
-        item.autor_email === email &&
-        mismaFechaArgentina(item.created_at, new Date())
-    )
-  }, [email, mensajes])
 
   const firmaMensaje = (mensaje?: Mensaje | null) => {
     return mensaje?.updated_at || mensaje?.created_at || String(mensaje?.id || "")
@@ -1341,18 +1332,12 @@ export default function EspacioAcompanamiento({
                         </p>
                       </div>
                     ) : (
-                      <>
-                        <textarea
-                          className="workspace-field min-h-[120px]"
-                          placeholder="Escribí tu mensaje del día..."
-                          value={mensajeTexto}
-                          onChange={(e) => setMensajeTexto(e.target.value)}
-                          disabled={mensajeParticipanteHoy}
-                        />
-                        <p className="workspace-inline-note text-xs">
-                          Podés enviar un mensaje por día en este espacio.
-                        </p>
-                      </>
+                      <textarea
+                        className="workspace-field min-h-[120px]"
+                        placeholder="Escribí tu mensaje..."
+                        value={mensajeTexto}
+                        onChange={(e) => setMensajeTexto(e.target.value)}
+                      />
                     )}
 
                     <button
@@ -1365,7 +1350,7 @@ export default function EspacioAcompanamiento({
                         (!adminActivo &&
                           requierePagoParaMensajeria &&
                           !mensajeriaHabilitada) ||
-                        (!adminActivo && (mensajeParticipanteHoy || !mensajeTexto.trim())) ||
+                        (!adminActivo && !mensajeTexto.trim()) ||
                         (adminActivo && !mensajeHtml.trim())
                       }
                       className="workspace-button-secondary disabled:opacity-60"
