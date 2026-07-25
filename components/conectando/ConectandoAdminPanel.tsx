@@ -166,6 +166,38 @@ export default function ConectandoAdminPanel() {
     })
   }
 
+  const eliminarGrabacion = async (grabacionId: number) => {
+    const confirmar = window.confirm(
+      "¿Seguro que querés eliminar esta grabación? Esta acción no se puede deshacer."
+    )
+
+    if (!confirmar) return
+
+    try {
+      setMensaje("")
+
+      const res = await fetch("/api/admin/grabaciones/eliminar", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ grabacionId }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setMensaje(data.error || "No se pudo eliminar la grabación.")
+        return
+      }
+
+      setMensaje("Grabación eliminada correctamente.")
+      await cargar()
+    } catch {
+      setMensaje("Error eliminando grabación.")
+    }
+  }
+
   const guardarEdicion = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!editando) return
@@ -327,6 +359,14 @@ export default function ConectandoAdminPanel() {
               className="text-blue-600 underline"
             >
               Editar
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void eliminarGrabacion(grabacion.id)}
+              className="text-red-600 underline"
+            >
+              Eliminar
             </button>
           </div>
         </div>

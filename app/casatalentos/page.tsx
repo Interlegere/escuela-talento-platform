@@ -388,6 +388,7 @@ export default function CasaTalentosPage() {
   const [nombreParticipante, setNombreParticipante] = useState("")
   const [videoAbierto, setVideoAbierto] = useState<string | null>(null)
   const [elegidoSeleccionado, setElegidoSeleccionado] = useState<number | null>(null)
+  const [eliminandoVideoId, setEliminandoVideoId] = useState<number | null>(null)
   const esAdmin = session?.user?.role === "admin"
   const storageEmail = (email || session?.user?.email || "")
     .trim()
@@ -1491,7 +1492,51 @@ export default function CasaTalentosPage() {
     }
   }
 
+  const handleEliminarVideoParticipante = async (videoId: number) => {
+    const confirmar = window.confirm(
+      "¿Seguro que querés borrar este video? Se eliminan también sus votos y aportes. Esta acción no se puede deshacer."
+    )
+
+    if (!confirmar) return
+
+    try {
+      setMensajeError("")
+      setMensajeExito("")
+      setEliminandoVideoId(videoId)
+
+      const res = await fetch("/api/casatalentos/eliminar-video", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ videoId }),
+      })
+
+      const data = await leerRespuestaJson<{ error?: string }>(res)
+
+      if (!res.ok) {
+        setMensajeError(data.error || "No se pudo eliminar el video.")
+        return
+      }
+
+      setMensajeExito("Video eliminado correctamente.")
+      await cargarDatosCasaTalentos()
+    } catch {
+      setMensajeError("Hubo un problema al eliminar el video.")
+    } finally {
+      setEliminandoVideoId(null)
+    }
+  }
+
   const handleLimpiarVideos = async () => {
+    if (
+      !window.confirm(
+        "¿Seguro que querés borrar TODOS los videos, votos y aportes de CasaTalentos? Esta acción no se puede deshacer."
+      )
+    ) {
+      return
+    }
+
     setMensajeExito("")
     setMensajeError("")
 
@@ -2281,6 +2326,19 @@ export default function CasaTalentosPage() {
                               <p className="workspace-inline-note text-xs">
                                 Semana: {formatearFecha(video.fecha_semana)}
                               </p>
+
+                              {esAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleEliminarVideoParticipante(video.id)}
+                                  disabled={eliminandoVideoId === video.id}
+                                  className="workspace-button-secondary disabled:opacity-60"
+                                >
+                                  {eliminandoVideoId === video.id
+                                    ? "Eliminando..."
+                                    : "Eliminar video"}
+                                </button>
+                              )}
                             </div>
 
                             {video.video_url && (
@@ -2485,13 +2543,13 @@ export default function CasaTalentosPage() {
                         </button>
                       )}
 
-                      {MODO_PRUEBA && !esAdmin && (
+                      {esAdmin && (
                         <button
                           type="button"
                           onClick={handleLimpiarVideos}
                           className="workspace-button-secondary"
                         >
-                          Limpiar prueba
+                          Limpiar todos los videos y votos
                         </button>
                       )}
                     </div>
