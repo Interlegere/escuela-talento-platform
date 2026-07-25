@@ -236,6 +236,12 @@ export default function EspacioAcompanamiento({
   const [respuestasHtml, setRespuestasHtml] = useState<Record<number, string>>({})
   const [mensajesAbiertos, setMensajesAbiertos] = useState<Record<number, boolean>>({})
   const [mensajesLeidos, setMensajesLeidos] = useState<Record<number, string>>({})
+  const [mensajeEditandoId, setMensajeEditandoId] = useState<number | null>(null)
+  const [mensajeEditandoAsunto, setMensajeEditandoAsunto] = useState("")
+  const [mensajeEditandoTexto, setMensajeEditandoTexto] = useState("")
+  const [mensajeEditandoHtml, setMensajeEditandoHtml] = useState("")
+  const [guardandoEdicionMensaje, setGuardandoEdicionMensaje] = useState(false)
+  const mensajeEditandoEditorRef = useRef<EditorMensajeAdminHandle | null>(null)
 
   const [recursoTitulo, setRecursoTitulo] = useState("")
   const [recursoDescripcion, setRecursoDescripcion] = useState("")
@@ -779,6 +785,72 @@ export default function EspacioAcompanamiento({
     }
   }
 
+  const iniciarEdicionMensaje = (mensaje: Mensaje) => {
+    setMensajeError("")
+    setMensajeInfo("")
+    setMensajeEditandoId(mensaje.id)
+    setMensajeEditandoAsunto(mensaje.parent_id ? "" : mensaje.asunto || "")
+    setMensajeEditandoTexto(mensaje.contenido_texto || "")
+    setMensajeEditandoHtml(mensaje.contenido_html || "")
+  }
+
+  const cancelarEdicionMensaje = () => {
+    setMensajeEditandoId(null)
+  }
+
+  const guardarEdicionMensaje = async (mensajeId: number) => {
+    const contenidoHtml = (
+      mensajeEditandoEditorRef.current?.getHtml() || mensajeEditandoHtml
+    ).trim()
+    const contenidoTexto = (
+      mensajeEditandoEditorRef.current?.getText() || mensajeEditandoTexto
+    ).trim()
+
+    if (!contenidoTexto) {
+      setMensajeError("Escribí el contenido actualizado del mensaje.")
+      return
+    }
+
+    try {
+      setGuardandoEdicionMensaje(true)
+      setMensajeError("")
+      setMensajeInfo("")
+
+      const res = await fetch("/api/espacios/mensajes", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          actividadSlug,
+          participanteEmail: adminActivo ? participanteSeleccionado || undefined : undefined,
+          mensajeId,
+          asunto: mensajeEditandoAsunto,
+          contenidoTexto,
+          contenidoHtml,
+        }),
+      })
+
+      const data = await leerJson<{ error?: string }>(res)
+
+      if (!res.ok) {
+        setMensajeError(data.error || "No se pudo editar el mensaje.")
+        return
+      }
+
+      setMensajeInfo("Mensaje editado correctamente.")
+      setMensajeEditandoId(null)
+      await cargarResumen(
+        adminActivo ? participanteSeleccionado || undefined : undefined,
+        { silencioso: true }
+      )
+    } catch {
+      setMensajeError("Error editando el mensaje.")
+    } finally {
+      setGuardandoEdicionMensaje(false)
+    }
+  }
+
   const guardarRecurso = async () => {
     try {
       setMensajeError("")
@@ -1310,7 +1382,16 @@ export default function EspacioAcompanamiento({
                               >
                                 {abierto ? "Cerrar" : "Ver mensaje"}
                               </button>
-                              {adminActivo && (
+                              {adminActivo && mensajeEditandoId !== item.id && (
+                                <button
+                                  type="button"
+                                  onClick={() => iniciarEdicionMensaje(item)}
+                                  className="workspace-button-secondary"
+                                >
+                                  Editar mensaje
+                                </button>
+                              )}
+                              {adminActivo && mensajeEditandoId !== item.id && (
                                 <button
                                   type="button"
                                   onClick={() => void eliminarMensaje(item.id)}
@@ -1325,7 +1406,41 @@ export default function EspacioAcompanamiento({
                           {abierto && (
                             <div className="workspace-divider pt-4 space-y-4">
                               <div>
-                                {item.contenido_html ? (
+                                {mensajeEditandoId === item.id ? (
+                                  <div className="space-y-3">
+                                    <input
+                                      className="workspace-field"
+                                      placeholder="Asunto"
+                                      value={mensajeEditandoAsunto}
+                                      onChange={(e) => setMensajeEditandoAsunto(e.target.value)}
+                                    />
+
+                                    <EditorMensajeAdmin
+                                      ref={mensajeEditandoEditorRef}
+                                      value={mensajeEditandoHtml}
+                                      onChange={setMensajeEditandoHtml}
+                                    />
+
+                                    <div className="flex gap-3 flex-wrap">
+                                      <button
+                                        type="button"
+                                        onClick={() => void guardarEdicionMensaje(item.id)}
+                                        disabled={guardandoEdicionMensaje}
+                                        className="workspace-button-primary disabled:opacity-60"
+                                      >
+                                        {guardandoEdicionMensaje ? "Guardando..." : "Guardar cambios"}
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={cancelarEdicionMensaje}
+                                        className="workspace-button-secondary"
+                                      >
+                                        Cancelar
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : item.contenido_html ? (
                                   <div
                                     className="max-w-none text-sm leading-7 text-gray-700"
                                     dangerouslySetInnerHTML={{ __html: item.contenido_html }}
@@ -1355,7 +1470,36 @@ export default function EspacioAcompanamiento({
                                         </p>
                                       </div>
 
-                                      {respuesta.contenido_html ? (
+                                      {mensajeEditandoId === respuesta.id ? (
+                                        <div className="space-y-3">
+                                          <EditorMensajeAdmin
+                                            ref={mensajeEditandoEditorRef}
+                                            value={mensajeEditandoHtml}
+                                            onChange={setMensajeEditandoHtml}
+                                          />
+
+                                          <div className="flex gap-3 flex-wrap">
+                                            <button
+                                              type="button"
+                                              onClick={() => void guardarEdicionMensaje(respuesta.id)}
+                                              disabled={guardandoEdicionMensaje}
+                                              className="workspace-button-primary disabled:opacity-60"
+                                            >
+                                              {guardandoEdicionMensaje
+                                                ? "Guardando..."
+                                                : "Guardar cambios"}
+                                            </button>
+
+                                            <button
+                                              type="button"
+                                              onClick={cancelarEdicionMensaje}
+                                              className="workspace-button-secondary"
+                                            >
+                                              Cancelar
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ) : respuesta.contenido_html ? (
                                         <div
                                           className="max-w-none text-sm leading-7 text-gray-700"
                                           dangerouslySetInnerHTML={{
@@ -1367,14 +1511,24 @@ export default function EspacioAcompanamiento({
                                           {respuesta.contenido_texto}
                                         </p>
                                       )}
-                                      {adminActivo && (
-                                        <button
-                                          type="button"
-                                          onClick={() => void eliminarMensaje(respuesta.id)}
-                                          className="workspace-button-secondary mt-2"
-                                        >
-                                          Eliminar mensaje
-                                        </button>
+                                      {adminActivo && mensajeEditandoId !== respuesta.id && (
+                                        <div className="flex gap-3 flex-wrap mt-2">
+                                          <button
+                                            type="button"
+                                            onClick={() => iniciarEdicionMensaje(respuesta)}
+                                            className="workspace-button-secondary"
+                                          >
+                                            Editar mensaje
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            onClick={() => void eliminarMensaje(respuesta.id)}
+                                            className="workspace-button-secondary"
+                                          >
+                                            Eliminar mensaje
+                                          </button>
+                                        </div>
                                       )}
                                     </div>
                                   ))}
