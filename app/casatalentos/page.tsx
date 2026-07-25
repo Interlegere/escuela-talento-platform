@@ -173,6 +173,10 @@ function textoPlanoAHtmlSeguro(texto: string) {
   return escaparHtml(texto).replaceAll("\n", "<br />")
 }
 
+function contieneHtml(valor?: string | null) {
+  return /<\/?[a-z][\s\S]*>/i.test(String(valor || ""))
+}
+
 function htmlATextoPlano(html: string) {
   if (typeof window === "undefined") {
     return html.replace(/<[^>]+>/g, " ").trim()
@@ -2148,9 +2152,16 @@ export default function CasaTalentosPage() {
                   <div className="space-y-4">
                     <div className="workspace-panel-soft space-y-3">
                       <h3 className="text-lg font-semibold">Referente general</h3>
-                      <div className="whitespace-pre-wrap text-[var(--muted)]">
-                        {textoReferentesGenerales}
-                      </div>
+                      {contieneHtml(textoReferentesGenerales) ? (
+                        <div
+                          className="max-w-none text-[var(--muted)] [&_a]:underline"
+                          dangerouslySetInnerHTML={{ __html: textoReferentesGenerales }}
+                        />
+                      ) : (
+                        <div className="whitespace-pre-wrap text-[var(--muted)]">
+                          {textoReferentesGenerales}
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-4">
@@ -2171,9 +2182,18 @@ export default function CasaTalentosPage() {
                           <p className="font-medium">{referenteSemanalActual.titulo}</p>
 
                           {referenteSemanalActual.descripcion && (
-                            <p className="whitespace-pre-wrap text-[var(--muted)]">
-                              {referenteSemanalActual.descripcion}
-                            </p>
+                            contieneHtml(referenteSemanalActual.descripcion) ? (
+                              <div
+                                className="max-w-none text-[var(--muted)] [&_a]:underline"
+                                dangerouslySetInnerHTML={{
+                                  __html: referenteSemanalActual.descripcion,
+                                }}
+                              />
+                            ) : (
+                              <p className="whitespace-pre-wrap text-[var(--muted)]">
+                                {referenteSemanalActual.descripcion}
+                              </p>
+                            )
                           )}
 
                           {referenteSemanalActual.video_url && (

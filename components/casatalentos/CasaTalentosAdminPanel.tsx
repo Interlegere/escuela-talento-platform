@@ -5,8 +5,26 @@ import SeccionDesplegable from "@/components/SeccionDesplegable"
 import VideoEmbed from "@/components/VideoEmbed"
 import GrabadorVideo from "@/components/casatalentos/GrabadorVideo"
 import BibliotecaGrabaciones from "@/components/BibliotecaGrabaciones"
+import EditorMensajeAdmin from "@/components/espacios/EditorMensajeAdmin"
 import { useSessionDraft } from "@/hooks/useSessionDraft"
 import { supabase } from "@/lib/supabase"
+
+function contieneHtml(valor?: string | null) {
+  return /<\/?[a-z][\s\S]*>/i.test(String(valor || ""))
+}
+
+function escaparHtml(texto: string) {
+  return texto
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+}
+
+function paraEditorEnriquecido(valor?: string | null) {
+  const texto = valor || ""
+  if (contieneHtml(texto)) return texto
+  return escaparHtml(texto).replaceAll("\n", "<br />")
+}
 
 type VideoItem = {
   id: number
@@ -240,7 +258,9 @@ export default function CasaTalentosAdminPanel({
       }
 
       setReferentesSemanales(dataCasaTalentos.referentesSemanales || [])
-      hydrateContenidoGeneral(dataCasaTalentos.referentesGenerales?.contenido || "")
+      hydrateContenidoGeneral(
+        paraEditorEnriquecido(dataCasaTalentos.referentesGenerales?.contenido)
+      )
       setGrabaciones(
         (dataGrabaciones.grabaciones || []).filter(
           (grabacion) => grabacion.actividades?.slug === "casatalentos"
@@ -417,7 +437,7 @@ export default function CasaTalentosAdminPanel({
   const cargarSemanaExistente = (semana: ReferenteSemanal) => {
     setFechaSemana(semana.fecha_semana)
     setTituloSemanal(semana.titulo || "")
-    setDescripcionSemanal(semana.descripcion || "")
+    setDescripcionSemanal(paraEditorEnriquecido(semana.descripcion))
     setVideoUrlSemanal(esUrlExterna(semana.video_url) ? semana.video_url || "" : "")
     setArchivoSemanal(null)
   }
@@ -787,12 +807,7 @@ export default function CasaTalentosAdminPanel({
               Este contenido acompaña el dispositivo de forma estable y podés ajustarlo
               cada vez que haga falta.
             </p>
-            <textarea
-              className="w-full border rounded-xl p-3 min-h-[180px]"
-              value={contenidoGeneral}
-              onChange={(e) => setContenidoGeneral(e.target.value)}
-              placeholder="Escribí aquí los referentes generales del dispositivo..."
-            />
+            <EditorMensajeAdmin value={contenidoGeneral} onChange={setContenidoGeneral} />
 
             <button
               type="button"
@@ -804,9 +819,20 @@ export default function CasaTalentosAdminPanel({
 
             <div className="border rounded-xl p-4 bg-gray-50 space-y-2">
               <p className="text-sm font-medium">Vista previa</p>
-              <div className="whitespace-pre-wrap text-gray-700">
-                {contenidoGeneral.trim() || "Todavía no cargaste un referente general."}
-              </div>
+              {contenidoGeneral.trim() ? (
+                contieneHtml(contenidoGeneral) ? (
+                  <div
+                    className="max-w-none text-gray-700 [&_a]:underline"
+                    dangerouslySetInnerHTML={{ __html: contenidoGeneral }}
+                  />
+                ) : (
+                  <div className="whitespace-pre-wrap text-gray-700">{contenidoGeneral}</div>
+                )
+              ) : (
+                <div className="whitespace-pre-wrap text-gray-700">
+                  Todavía no cargaste un referente general.
+                </div>
+              )}
             </div>
           </div>
 
@@ -827,12 +853,7 @@ export default function CasaTalentosAdminPanel({
               placeholder="Título del referente semanal"
             />
 
-            <textarea
-              className="w-full border rounded-xl p-3 min-h-[120px]"
-              value={descripcionSemanal}
-              onChange={(e) => setDescripcionSemanal(e.target.value)}
-              placeholder="Descripción del referente semanal"
-            />
+            <EditorMensajeAdmin value={descripcionSemanal} onChange={setDescripcionSemanal} />
 
             <input
               className="w-full border rounded-xl p-3"
@@ -885,9 +906,16 @@ export default function CasaTalentosAdminPanel({
                   </p>
 
                   {semana.descripcion && (
-                    <p className="text-sm text-gray-600 whitespace-pre-wrap">
-                      {semana.descripcion}
-                    </p>
+                    contieneHtml(semana.descripcion) ? (
+                      <div
+                        className="text-sm max-w-none text-gray-600 [&_a]:underline"
+                        dangerouslySetInnerHTML={{ __html: semana.descripcion }}
+                      />
+                    ) : (
+                      <p className="text-sm text-gray-600 whitespace-pre-wrap">
+                        {semana.descripcion}
+                      </p>
+                    )
                   )}
 
                   {semana.video_url && (
