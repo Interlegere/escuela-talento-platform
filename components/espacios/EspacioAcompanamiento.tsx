@@ -87,6 +87,8 @@ type Props = {
   mostrarAccesos?: boolean
 }
 
+const RESERVA_NUEVA_SESION_TERAPIA_HABILITADA = false
+
 function mensajeBloqueoMensajeria(motivo?: string) {
   switch (motivo) {
     default:
@@ -1783,7 +1785,9 @@ export default function EspacioAcompanamiento({
                 </div>
               </SeccionDesplegable>
 
-              {actividadSlug === "terapia" && <ReservaTerapiaSection />}
+              {actividadSlug === "terapia" && RESERVA_NUEVA_SESION_TERAPIA_HABILITADA && (
+                <ReservaTerapiaSection />
+              )}
 
               <SeccionDesplegable
                 titulo="Recursos"

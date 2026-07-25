@@ -387,77 +387,77 @@ export default function ConectandoAdminPanel() {
       {mensaje && <div className="border rounded-xl p-3">{mensaje}</div>}
 
       <SeccionDesplegable titulo="Grabaciones y biblioteca">
-        <div className="space-y-6">
-          <form onSubmit={crearGrabacion} className="space-y-4 border rounded-2xl p-4">
-            <h3 className="text-lg font-semibold">Nueva grabación</h3>
+          <div className="space-y-6">
+            <form onSubmit={crearGrabacion} className="space-y-4 border rounded-2xl p-4">
+              <h3 className="text-lg font-semibold">Nueva grabación</h3>
 
-            <input
-              className="w-full border rounded-xl p-3"
-              placeholder="Título"
-              value={titulo}
-              onChange={(e) => setTitulo(e.target.value)}
-            />
-
-            <textarea
-              className="w-full border rounded-xl p-3 min-h-[100px]"
-              placeholder="Descripción (opcional)"
-              value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
-            />
-
-            <input
-              className="w-full border rounded-xl p-3"
-              placeholder="Link de archivo de Drive"
-              value={driveUrl}
-              onChange={(e) => setDriveUrl(e.target.value)}
-            />
-
-            <input
-              type="date"
-              className="w-full border rounded-xl p-3"
-              value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
-            />
-
-            <label className="flex items-center gap-2">
               <input
-                type="checkbox"
-                checked={visible}
-                onChange={(e) => setVisible(e.target.checked)}
+                className="w-full border rounded-xl p-3"
+                placeholder="Título"
+                value={titulo}
+                onChange={(e) => setTitulo(e.target.value)}
               />
-              Visible
-            </label>
 
-            <button
-              type="submit"
-              disabled={guardando}
-              className="bg-black text-white px-4 py-2 rounded-xl disabled:opacity-60"
-            >
-              {guardando ? "Guardando..." : "Crear grabación"}
-            </button>
-          </form>
+              <textarea
+                className="w-full border rounded-xl p-3 min-h-[100px]"
+                placeholder="Descripción (opcional)"
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+              />
 
-          <div className="border-t pt-6 space-y-4">
-            <h3 className="text-lg font-semibold">Grabaciones cargadas</h3>
-            {cargando ? (
-              <p>Cargando grabaciones...</p>
-            ) : grabaciones.length === 0 ? (
-              <p className="text-gray-600">Todavía no hay grabaciones cargadas.</p>
-            ) : (
-              <div className="space-y-4">{renderListaGrabaciones()}</div>
-            )}
+              <input
+                className="w-full border rounded-xl p-3"
+                placeholder="Link de archivo de Drive"
+                value={driveUrl}
+                onChange={(e) => setDriveUrl(e.target.value)}
+              />
+
+              <input
+                type="date"
+                className="w-full border rounded-xl p-3"
+                value={fecha}
+                onChange={(e) => setFecha(e.target.value)}
+              />
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={visible}
+                  onChange={(e) => setVisible(e.target.checked)}
+                />
+                Visible
+              </label>
+
+              <button
+                type="submit"
+                disabled={guardando}
+                className="bg-black text-white px-4 py-2 rounded-xl disabled:opacity-60"
+              >
+                {guardando ? "Guardando..." : "Crear grabación"}
+              </button>
+            </form>
+
+            <div className="border-t pt-6 space-y-4">
+              <h3 className="text-lg font-semibold">Grabaciones cargadas</h3>
+              {cargando ? (
+                <p>Cargando grabaciones...</p>
+              ) : grabaciones.length === 0 ? (
+                <p className="text-gray-600">Todavía no hay grabaciones cargadas.</p>
+              ) : (
+                <div className="space-y-4">{renderListaGrabaciones()}</div>
+              )}
+            </div>
+
+            <div className="border-t pt-6 space-y-4">
+              <h3 className="text-lg font-semibold">Biblioteca visible</h3>
+              <BibliotecaGrabaciones
+                actividadSlug="conectando-sentidos"
+                previewEnabled={isDevelopmentPreviewEnabled()}
+                mostrarAccesoDrive
+              />
+            </div>
           </div>
-
-          <div className="border-t pt-6 space-y-4">
-            <h3 className="text-lg font-semibold">Biblioteca visible</h3>
-            <BibliotecaGrabaciones
-              actividadSlug="conectando-sentidos"
-              previewEnabled={isDevelopmentPreviewEnabled()}
-              mostrarAccesoDrive
-            />
-          </div>
-        </div>
-      </SeccionDesplegable>
+        </SeccionDesplegable>
     </section>
   )
 }

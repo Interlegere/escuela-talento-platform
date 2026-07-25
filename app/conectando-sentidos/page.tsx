@@ -46,6 +46,7 @@ type MensajeGeneral = {
 }
 
 const MODO_PRUEBA = isDevelopmentPreviewEnabled()
+const BIBLIOTECA_GRABACIONES_HABILITADA = false
 const STORAGE_MENSAJES_LEIDOS_CONECTANDO = "conectando_mensajes_leidos"
 const RECURSOS_PRUEBA_CONECTANDO: Recurso[] = [
   {
@@ -1199,7 +1200,9 @@ export default function ConectandoSentidosPage() {
 
             {esAdmin && <ConectandoAdminPanel />}
 
-            {tieneRecurso("grabaciones_conectando") && !esAdmin && (
+            {BIBLIOTECA_GRABACIONES_HABILITADA &&
+              tieneRecurso("grabaciones_conectando") &&
+              !esAdmin && (
               <SeccionDesplegable
                 titulo="Biblioteca de grabaciones"
                 storageKey={uiKey("seccion:biblioteca")}

@@ -957,73 +957,73 @@ export default function CasaTalentosAdminPanel({
       </SeccionDesplegable>
 
       <SeccionDesplegable
-        titulo="Grabaciones y biblioteca"
-        storageKey={uiKey("seccion:grabaciones")}
-      >
-        <div className="space-y-6">
-          <form onSubmit={crearGrabacion} className="space-y-4 border rounded-2xl p-4">
-            <h3 className="text-lg font-semibold">Nueva grabación</h3>
+          titulo="Grabaciones y biblioteca"
+          storageKey={uiKey("seccion:grabaciones")}
+        >
+          <div className="space-y-6">
+            <form onSubmit={crearGrabacion} className="space-y-4 border rounded-2xl p-4">
+              <h3 className="text-lg font-semibold">Nueva grabación</h3>
 
-            <input
-              className="w-full border rounded-xl p-3"
-              placeholder="Título"
-              value={tituloGrabacion}
-              onChange={(e) => setTituloGrabacion(e.target.value)}
-            />
-
-            <textarea
-              className="w-full border rounded-xl p-3 min-h-[100px]"
-              placeholder="Descripción (opcional)"
-              value={descripcionGrabacion}
-              onChange={(e) => setDescripcionGrabacion(e.target.value)}
-            />
-
-            <input
-              className="w-full border rounded-xl p-3"
-              placeholder="Link de archivo de Drive"
-              value={driveUrlGrabacion}
-              onChange={(e) => setDriveUrlGrabacion(e.target.value)}
-            />
-
-            <input
-              type="date"
-              className="w-full border rounded-xl p-3"
-              value={fechaGrabacion}
-              onChange={(e) => setFechaGrabacion(e.target.value)}
-            />
-
-            <label className="flex items-center gap-2">
               <input
-                type="checkbox"
-                checked={visibleGrabacion}
-                onChange={(e) => setVisibleGrabacion(e.target.checked)}
+                className="w-full border rounded-xl p-3"
+                placeholder="Título"
+                value={tituloGrabacion}
+                onChange={(e) => setTituloGrabacion(e.target.value)}
               />
-              Visible
-            </label>
 
-            <button
-              type="submit"
-              disabled={guardandoGrabacion}
-              className="bg-black text-white px-4 py-2 rounded-xl disabled:opacity-60"
-            >
-              {guardandoGrabacion ? "Guardando..." : "Crear grabación"}
-            </button>
-          </form>
+              <textarea
+                className="w-full border rounded-xl p-3 min-h-[100px]"
+                placeholder="Descripción (opcional)"
+                value={descripcionGrabacion}
+                onChange={(e) => setDescripcionGrabacion(e.target.value)}
+              />
 
-          <div className="border-t pt-6 space-y-4">
-            <h3 className="text-lg font-semibold">Grabaciones cargadas</h3>
-            {cargando ? <p>Cargando grabaciones...</p> : renderListaGrabaciones()}
+              <input
+                className="w-full border rounded-xl p-3"
+                placeholder="Link de archivo de Drive"
+                value={driveUrlGrabacion}
+                onChange={(e) => setDriveUrlGrabacion(e.target.value)}
+              />
+
+              <input
+                type="date"
+                className="w-full border rounded-xl p-3"
+                value={fechaGrabacion}
+                onChange={(e) => setFechaGrabacion(e.target.value)}
+              />
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={visibleGrabacion}
+                  onChange={(e) => setVisibleGrabacion(e.target.checked)}
+                />
+                Visible
+              </label>
+
+              <button
+                type="submit"
+                disabled={guardandoGrabacion}
+                className="bg-black text-white px-4 py-2 rounded-xl disabled:opacity-60"
+              >
+                {guardandoGrabacion ? "Guardando..." : "Crear grabación"}
+              </button>
+            </form>
+
+            <div className="border-t pt-6 space-y-4">
+              <h3 className="text-lg font-semibold">Grabaciones cargadas</h3>
+              {cargando ? <p>Cargando grabaciones...</p> : renderListaGrabaciones()}
+            </div>
+
+            <div className="border-t pt-6 space-y-4">
+              <h3 className="text-lg font-semibold">Biblioteca visible</h3>
+              <BibliotecaGrabaciones
+                actividadSlug="casatalentos"
+                mostrarAccesoDrive
+              />
+            </div>
           </div>
-
-          <div className="border-t pt-6 space-y-4">
-            <h3 className="text-lg font-semibold">Biblioteca visible</h3>
-            <BibliotecaGrabaciones
-              actividadSlug="casatalentos"
-              mostrarAccesoDrive
-            />
-          </div>
-        </div>
-      </SeccionDesplegable>
+        </SeccionDesplegable>
 
     </section>
   )
