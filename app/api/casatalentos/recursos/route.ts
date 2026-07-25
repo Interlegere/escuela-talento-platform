@@ -294,6 +294,37 @@ export async function PATCH(req: Request) {
     const actividad = await asegurarActividadBase("casatalentos")
     const supabase = createAdminSupabaseClient()
 
+    if (body.titulo !== undefined) {
+      if (
+        !body.titulo.trim() ||
+        !tieneContenidoRecurso({
+          descripcion: body.descripcion,
+          url: body.url,
+        })
+      ) {
+        return NextResponse.json(
+          {
+            error: "Completá el título y agregá una descripción o una URL.",
+          },
+          { status: 400 }
+        )
+      }
+
+      const { error: recursoError } = await supabase
+        .from("recursos")
+        .update({
+          nombre: body.titulo.trim(),
+          descripcion: body.descripcion?.trim() || null,
+          tipo: body.recursoTipo?.trim() || "enlace",
+          url: body.url?.trim() || "",
+        })
+        .eq("id", body.recursoId)
+
+      if (recursoError) {
+        throw recursoError
+      }
+    }
+
     const { data, error } = await supabase
       .from("actividad_recursos")
       .update({
@@ -316,6 +347,72 @@ export async function PATCH(req: Request) {
     return NextResponse.json(
       {
         error: "No se pudo actualizar el recurso.",
+        detalle: String(error),
+      },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const auth = await requireAuthenticatedActor()
+
+    if ("response" in auth) {
+      return auth.response
+    }
+
+    const adminPermission = getActivityAdminPermission("casatalentos")
+    const esAdmin = adminPermission
+      ? hasPermission(auth.actor, adminPermission)
+      : false
+
+    if (!esAdmin) {
+      return NextResponse.json(
+        { error: "No tenés permisos para eliminar recursos." },
+        { status: 403 }
+      )
+    }
+
+    const body = (await req.json()) as Body
+
+    if (!body.recursoId) {
+      return NextResponse.json(
+        { error: "Falta el recurso a eliminar." },
+        { status: 400 }
+      )
+    }
+
+    const actividad = await asegurarActividadBase("casatalentos")
+    const supabase = createAdminSupabaseClient()
+
+    const { error: joinError } = await supabase
+      .from("actividad_recursos")
+      .delete()
+      .eq("actividad_id", actividad.id)
+      .eq("recurso_id", body.recursoId)
+
+    if (joinError) {
+      throw joinError
+    }
+
+    const { error: recursoError } = await supabase
+      .from("recursos")
+      .delete()
+      .eq("id", body.recursoId)
+
+    if (recursoError) {
+      throw recursoError
+    }
+
+    return NextResponse.json({
+      ok: true,
+      recursoId: body.recursoId,
+    })
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: "No se pudo eliminar el recurso.",
         detalle: String(error),
       },
       { status: 500 }

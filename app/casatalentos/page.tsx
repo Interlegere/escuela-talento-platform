@@ -426,6 +426,15 @@ export default function CasaTalentosPage() {
   const recursoEditorRef = useRef<EditorMensajeAdminHandle | null>(null)
   const [guardandoRecurso, setGuardandoRecurso] = useState(false)
   const [recursosAdminGestion, setRecursosAdminGestion] = useState<RecursoGestion[]>([])
+  const [recursoEditandoId, setRecursoEditandoId] = useState<number | null>(null)
+  const [recursoEditTitulo, setRecursoEditTitulo] = useState("")
+  const [recursoEditDescripcion, setRecursoEditDescripcion] = useState("")
+  const [recursoEditTipo, setRecursoEditTipo] = useState("enlace")
+  const [recursoEditUrl, setRecursoEditUrl] = useState("")
+  const [recursoEditVisible, setRecursoEditVisible] = useState(true)
+  const recursoEditEditorRef = useRef<EditorMensajeAdminHandle | null>(null)
+  const [guardandoEdicionRecurso, setGuardandoEdicionRecurso] = useState(false)
+  const [eliminandoRecursoId, setEliminandoRecursoId] = useState<number | null>(null)
 
   const draftOwner = storageEmail
   const draftKey = (campo: string) =>
@@ -1241,6 +1250,129 @@ export default function CasaTalentosPage() {
     }
   }
 
+  const iniciarEdicionRecurso = (item: RecursoGestion) => {
+    setMensajeExito("")
+    setMensajeError("")
+    setRecursoEditandoId(item.id)
+    setRecursoEditTitulo(item.titulo)
+    setRecursoEditDescripcion(item.descripcion || "")
+    setRecursoEditTipo(item.recurso_tipo || "enlace")
+    setRecursoEditUrl(item.url || "")
+    setRecursoEditVisible(item.visible)
+  }
+
+  const cancelarEdicionRecurso = () => {
+    setRecursoEditandoId(null)
+  }
+
+  const guardarEdicionRecurso = async () => {
+    if (!recursoEditandoId) return
+
+    try {
+      setGuardandoEdicionRecurso(true)
+      setMensajeExito("")
+      setMensajeError("")
+
+      const descripcionFinal =
+        recursoEditEditorRef.current?.getHtml() || recursoEditDescripcion
+
+      if (
+        !recursoEditTitulo.trim() ||
+        !tieneContenidoRecurso({
+          descripcion: descripcionFinal,
+          url: recursoEditUrl,
+        })
+      ) {
+        setMensajeError("Completá el título y agregá una descripción o una URL.")
+        return
+      }
+
+      const res = await fetch("/api/casatalentos/recursos", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          recursoId: recursoEditandoId,
+          titulo: recursoEditTitulo,
+          descripcion: descripcionFinal,
+          recursoTipo: recursoEditTipo,
+          url: recursoEditUrl,
+          visible: recursoEditVisible,
+        }),
+      })
+
+      const data = await leerRespuestaJson<{ error?: string }>(res)
+
+      if (!res.ok) {
+        setMensajeError(data.error || "No se pudo actualizar el recurso.")
+        return
+      }
+
+      setMensajeExito("Recurso actualizado correctamente.")
+      recargarAcceso()
+      setRecursosAdminGestion((prev) =>
+        prev.map((item) =>
+          item.id === recursoEditandoId
+            ? {
+                ...item,
+                titulo: recursoEditTitulo,
+                descripcion: descripcionFinal,
+                recurso_tipo: recursoEditTipo,
+                url: recursoEditUrl,
+                visible: recursoEditVisible,
+              }
+            : item
+        )
+      )
+      setRecursoEditandoId(null)
+    } catch {
+      setMensajeError("Error actualizando el recurso.")
+    } finally {
+      setGuardandoEdicionRecurso(false)
+    }
+  }
+
+  const eliminarRecurso = async (recursoId: number) => {
+    const confirmar = window.confirm(
+      "¿Seguro que querés eliminar este recurso? Esta acción no se puede deshacer."
+    )
+
+    if (!confirmar) return
+
+    try {
+      setMensajeExito("")
+      setMensajeError("")
+      setEliminandoRecursoId(recursoId)
+
+      const res = await fetch("/api/casatalentos/recursos", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ recursoId }),
+      })
+
+      const data = await leerRespuestaJson<{ error?: string }>(res)
+
+      if (!res.ok) {
+        setMensajeError(data.error || "No se pudo eliminar el recurso.")
+        return
+      }
+
+      setMensajeExito("Recurso eliminado correctamente.")
+      recargarAcceso()
+      setRecursosAdminGestion((prev) => prev.filter((item) => item.id !== recursoId))
+      if (recursoEditandoId === recursoId) {
+        setRecursoEditandoId(null)
+      }
+    } catch {
+      setMensajeError("Error eliminando el recurso.")
+    } finally {
+      setEliminandoRecursoId(null)
+    }
+  }
+
   const handleArchivo = (file: File | null) => {
     setMensajeExito("")
     setMensajeError("")
@@ -1999,8 +2131,78 @@ export default function CasaTalentosPage() {
                     Todavía no hay recursos cargados para CasaTalentos.
                   </p>
                 ) : (
-                  recursosSolapa.map((item) =>
-                    item.url ? (
+                  recursosSolapa.map((item) => {
+                    if (esAdmin && "titulo" in item && recursoEditandoId === item.id) {
+                      return (
+                        <div
+                          key={item.id}
+                          className="workspace-panel-soft space-y-3 border border-[var(--line)]"
+                        >
+                          <input
+                            className="workspace-field"
+                            placeholder="Título"
+                            value={recursoEditTitulo}
+                            onChange={(e) => setRecursoEditTitulo(e.target.value)}
+                          />
+
+                          <EditorMensajeAdmin
+                            ref={recursoEditEditorRef}
+                            value={recursoEditDescripcion}
+                            onChange={setRecursoEditDescripcion}
+                          />
+
+                          <select
+                            className="workspace-field"
+                            value={recursoEditTipo}
+                            onChange={(e) => setRecursoEditTipo(e.target.value)}
+                          >
+                            <option value="enlace">Enlace</option>
+                            <option value="video">Video</option>
+                            <option value="imagen">Imagen</option>
+                            <option value="archivo">Archivo</option>
+                            <option value="grabacion">Grabación</option>
+                            <option value="guia">Guía</option>
+                          </select>
+
+                          <input
+                            className="workspace-field"
+                            placeholder="URL"
+                            value={recursoEditUrl}
+                            onChange={(e) => setRecursoEditUrl(e.target.value)}
+                          />
+
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={recursoEditVisible}
+                              onChange={(e) => setRecursoEditVisible(e.target.checked)}
+                            />
+                            Visible para participante
+                          </label>
+
+                          <div className="flex gap-3 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => void guardarEdicionRecurso()}
+                              disabled={guardandoEdicionRecurso}
+                              className="workspace-button-primary disabled:opacity-60"
+                            >
+                              {guardandoEdicionRecurso ? "Guardando..." : "Guardar cambios"}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={cancelarEdicionRecurso}
+                              className="workspace-button-secondary"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    }
+
+                    return (
                       <RecursoCard
                         key={item.id}
                         titulo={"titulo" in item ? item.titulo : item.nombre || "Recurso"}
@@ -2011,45 +2213,46 @@ export default function CasaTalentosPage() {
                         url={item.url}
                         footer={
                           esAdmin ? (
-                            <label className="flex items-center gap-2 text-sm">
-                              <input
-                                type="checkbox"
-                                checked={"visible" in item ? item.visible : true}
-                                onChange={(e) =>
-                                  void cambiarVisibleRecurso(item.id, e.target.checked)
-                                }
-                              />
-                              Visible para participante
-                            </label>
-                          ) : undefined
-                        }
-                      />
-                    ) : (
-                      <RecursoCard
-                        key={item.id}
-                        titulo={"titulo" in item ? item.titulo : item.nombre || "Recurso"}
-                        descripcion={item.descripcion}
-                        recursoTipo={
-                          "recurso_tipo" in item ? item.recurso_tipo : item.tipo
-                        }
-                        url={item.url}
-                        footer={
-                          esAdmin ? (
-                            <label className="flex items-center gap-2 text-sm">
-                              <input
-                                type="checkbox"
-                                checked={"visible" in item ? item.visible : true}
-                                onChange={(e) =>
-                                  void cambiarVisibleRecurso(item.id, e.target.checked)
-                                }
-                              />
-                              Visible para participante
-                            </label>
+                            <div className="space-y-2">
+                              <label className="flex items-center gap-2 text-sm">
+                                <input
+                                  type="checkbox"
+                                  checked={"visible" in item ? item.visible : true}
+                                  onChange={(e) =>
+                                    void cambiarVisibleRecurso(item.id, e.target.checked)
+                                  }
+                                />
+                                Visible para participante
+                              </label>
+
+                              <div className="flex gap-3 flex-wrap">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    "titulo" in item && iniciarEdicionRecurso(item)
+                                  }
+                                  className="text-sm text-blue-600 underline"
+                                >
+                                  Editar
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => void eliminarRecurso(item.id)}
+                                  disabled={eliminandoRecursoId === item.id}
+                                  className="text-sm text-red-600 underline disabled:opacity-60"
+                                >
+                                  {eliminandoRecursoId === item.id
+                                    ? "Eliminando..."
+                                    : "Eliminar"}
+                                </button>
+                              </div>
+                            </div>
                           ) : undefined
                         }
                       />
                     )
-                  )
+                  })
                 )}
               </div>
             </SeccionDesplegable>

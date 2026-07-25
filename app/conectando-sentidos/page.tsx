@@ -130,6 +130,15 @@ export default function ConectandoSentidosPage() {
   const [recursoUrl, setRecursoUrl] = useState("")
   const [recursoVisible, setRecursoVisible] = useState(true)
   const recursoEditorRef = useRef<EditorMensajeAdminHandle | null>(null)
+  const [recursoEditandoId, setRecursoEditandoId] = useState<number | null>(null)
+  const [recursoEditTitulo, setRecursoEditTitulo] = useState("")
+  const [recursoEditDescripcion, setRecursoEditDescripcion] = useState("")
+  const [recursoEditTipo, setRecursoEditTipo] = useState("enlace")
+  const [recursoEditUrl, setRecursoEditUrl] = useState("")
+  const [recursoEditVisible, setRecursoEditVisible] = useState(true)
+  const recursoEditEditorRef = useRef<EditorMensajeAdminHandle | null>(null)
+  const [guardandoEdicionRecurso, setGuardandoEdicionRecurso] = useState(false)
+  const [eliminandoRecursoId, setEliminandoRecursoId] = useState<number | null>(null)
   const editorNuevoMensajeRef = useRef<EditorMensajeAdminHandle | null>(null)
   const editorEdicionMensajeRef = useRef<EditorMensajeAdminHandle | null>(null)
   const editorRespuestaRef = useRef<Record<number, EditorMensajeAdminHandle | null>>({})
@@ -395,6 +404,114 @@ export default function ConectandoSentidosPage() {
       await cargarRecursosConectando()
     } catch {
       setMensajeError("Error actualizando el recurso.")
+    }
+  }
+
+  const iniciarEdicionRecurso = (item: RecursoConectando) => {
+    setMensajeError("")
+    setMensajeExito("")
+    setRecursoEditandoId(item.id)
+    setRecursoEditTitulo(item.titulo)
+    setRecursoEditDescripcion(item.descripcion || "")
+    setRecursoEditTipo(item.recurso_tipo || "enlace")
+    setRecursoEditUrl(item.url || "")
+    setRecursoEditVisible(item.visible)
+  }
+
+  const cancelarEdicionRecurso = () => {
+    setRecursoEditandoId(null)
+  }
+
+  const guardarEdicionRecurso = async () => {
+    if (!recursoEditandoId) return
+
+    try {
+      setGuardandoEdicionRecurso(true)
+      setMensajeError("")
+      setMensajeExito("")
+
+      const descripcionFinal =
+        recursoEditEditorRef.current?.getHtml() || recursoEditDescripcion
+
+      if (
+        !recursoEditTitulo.trim() ||
+        !tieneContenidoRecurso({
+          descripcion: descripcionFinal,
+          url: recursoEditUrl,
+        })
+      ) {
+        setMensajeError("Completá el título y agregá una descripción o una URL.")
+        return
+      }
+
+      const res = await fetch("/api/conectando-sentidos/recursos", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          recursoId: recursoEditandoId,
+          titulo: recursoEditTitulo,
+          descripcion: descripcionFinal,
+          recursoTipo: recursoEditTipo,
+          url: recursoEditUrl,
+          visible: recursoEditVisible,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setMensajeError(data.error || "No se pudo actualizar el recurso.")
+        return
+      }
+
+      setMensajeExito("Recurso actualizado correctamente.")
+      setRecursoEditandoId(null)
+      await cargarRecursosConectando()
+    } catch {
+      setMensajeError("Error actualizando el recurso.")
+    } finally {
+      setGuardandoEdicionRecurso(false)
+    }
+  }
+
+  const eliminarRecurso = async (recursoId: number) => {
+    const confirmar = window.confirm(
+      "¿Seguro que querés eliminar este recurso? Esta acción no se puede deshacer."
+    )
+
+    if (!confirmar) return
+
+    try {
+      setMensajeError("")
+      setMensajeExito("")
+      setEliminandoRecursoId(recursoId)
+
+      const res = await fetch("/api/conectando-sentidos/recursos", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ recursoId }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setMensajeError(data.error || "No se pudo eliminar el recurso.")
+        return
+      }
+
+      setMensajeExito("Recurso eliminado correctamente.")
+      if (recursoEditandoId === recursoId) {
+        setRecursoEditandoId(null)
+      }
+      await cargarRecursosConectando()
+    } catch {
+      setMensajeError("Error eliminando el recurso.")
+    } finally {
+      setEliminandoRecursoId(null)
     }
   }
 
@@ -1174,29 +1291,124 @@ export default function ConectandoSentidosPage() {
                   </p>
                 )}
 
-                {recursosConectando.map((item) => (
-                  <RecursoCard
-                    key={item.id}
-                    titulo={item.titulo}
-                    descripcion={item.descripcion}
-                    recursoTipo={item.recurso_tipo}
-                    url={item.url}
-                    footer={
-                      esAdmin ? (
-                        <label className="flex items-center gap-2 text-sm">
+                {recursosConectando.map((item) => {
+                  if (esAdmin && recursoEditandoId === item.id) {
+                    return (
+                      <div
+                        key={item.id}
+                        className="workspace-panel-soft space-y-3 border border-[var(--line)]"
+                      >
+                        <input
+                          className="workspace-field"
+                          placeholder="Título"
+                          value={recursoEditTitulo}
+                          onChange={(e) => setRecursoEditTitulo(e.target.value)}
+                        />
+
+                        <EditorMensajeAdmin
+                          ref={recursoEditEditorRef}
+                          value={recursoEditDescripcion}
+                          onChange={setRecursoEditDescripcion}
+                        />
+
+                        <select
+                          className="workspace-field"
+                          value={recursoEditTipo}
+                          onChange={(e) => setRecursoEditTipo(e.target.value)}
+                        >
+                          <option value="enlace">Enlace</option>
+                          <option value="video">Video</option>
+                          <option value="imagen">Imagen</option>
+                          <option value="archivo">Archivo</option>
+                          <option value="grabacion">Grabación</option>
+                          <option value="guia">Guía</option>
+                        </select>
+
+                        <input
+                          className="workspace-field"
+                          placeholder="URL"
+                          value={recursoEditUrl}
+                          onChange={(e) => setRecursoEditUrl(e.target.value)}
+                        />
+
+                        <label className="flex items-center gap-2">
                           <input
                             type="checkbox"
-                            checked={item.visible}
-                            onChange={(e) =>
-                              void cambiarVisibleRecurso(item.id, e.target.checked)
-                            }
+                            checked={recursoEditVisible}
+                            onChange={(e) => setRecursoEditVisible(e.target.checked)}
                           />
                           Visible para participantes
                         </label>
-                      ) : undefined
-                    }
-                  />
-                ))}
+
+                        <div className="flex gap-3 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => void guardarEdicionRecurso()}
+                            disabled={guardandoEdicionRecurso}
+                            className="workspace-button-primary disabled:opacity-60"
+                          >
+                            {guardandoEdicionRecurso ? "Guardando..." : "Guardar cambios"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={cancelarEdicionRecurso}
+                            className="workspace-button-secondary"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <RecursoCard
+                      key={item.id}
+                      titulo={item.titulo}
+                      descripcion={item.descripcion}
+                      recursoTipo={item.recurso_tipo}
+                      url={item.url}
+                      footer={
+                        esAdmin ? (
+                          <div className="space-y-2">
+                            <label className="flex items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={item.visible}
+                                onChange={(e) =>
+                                  void cambiarVisibleRecurso(item.id, e.target.checked)
+                                }
+                              />
+                              Visible para participantes
+                            </label>
+
+                            <div className="flex gap-3 flex-wrap">
+                              <button
+                                type="button"
+                                onClick={() => iniciarEdicionRecurso(item)}
+                                className="text-sm text-blue-600 underline"
+                              >
+                                Editar
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => void eliminarRecurso(item.id)}
+                                disabled={eliminandoRecursoId === item.id}
+                                className="text-sm text-red-600 underline disabled:opacity-60"
+                              >
+                                {eliminandoRecursoId === item.id
+                                  ? "Eliminando..."
+                                  : "Eliminar"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : undefined
+                      }
+                    />
+                  )
+                })}
               </div>
             </SeccionDesplegable>
           </div>
