@@ -6,19 +6,26 @@ import {
 import {
   esActividadEspacio,
   listarParticipantesActividad,
+  type EspacioActividadSlug,
 } from "@/lib/espacios"
 
 type Body = {
   actividadSlug?: string
 }
 
+function esActividadPermitida(
+  actividadSlug: string
+): actividadSlug is "casatalentos" | EspacioActividadSlug {
+  return actividadSlug === "casatalentos" || esActividadEspacio(actividadSlug)
+}
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as Body
 
-    if (!body.actividadSlug || !esActividadEspacio(body.actividadSlug)) {
+    if (!body.actividadSlug || !esActividadPermitida(body.actividadSlug)) {
       return NextResponse.json(
-        { error: "Actividad inválida para este espacio." },
+        { error: "Actividad inválida para listar participantes." },
         { status: 400 }
       )
     }

@@ -110,7 +110,7 @@ export function esActividadEspacio(
 }
 
 export async function listarParticipantesActividad(
-  actividadSlug: EspacioActividadSlug
+  actividadSlug: ActivitySlug
 ) {
   const supabase = createAdminSupabaseClient()
 
