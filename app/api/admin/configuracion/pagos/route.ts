@@ -11,6 +11,8 @@ type Body = {
   casatalentosHonorarioBase?: string | number
   conectandoSentidosHonorarioBase?: string | number
   terapiaHonorarioBase?: string | number
+  comboCtCsHonorarioBase?: string | number
+  comboTerapiaSesionPrecio?: string | number
 }
 
 function normalizarNumero(input: string | number | null | undefined) {
@@ -43,6 +45,8 @@ export async function GET() {
       casatalentosHonorarioBase: honorariosBase.casatalentos,
       conectandoSentidosHonorarioBase: honorariosBase.conectandoSentidos,
       terapiaHonorarioBase: honorariosBase.terapia,
+      comboCtCsHonorarioBase: honorariosBase.comboCtCs,
+      comboTerapiaSesionPrecio: honorariosBase.comboTerapiaSesion,
     })
   } catch (error) {
     return NextResponse.json(
@@ -84,6 +88,14 @@ export async function POST(req: Request) {
       body.terapiaHonorarioBase === undefined
         ? honorariosBaseActuales.terapia
         : normalizarNumero(body.terapiaHonorarioBase)
+    const comboCtCsHonorarioBase =
+      body.comboCtCsHonorarioBase === undefined
+        ? honorariosBaseActuales.comboCtCs
+        : normalizarNumero(body.comboCtCsHonorarioBase)
+    const comboTerapiaSesionPrecio =
+      body.comboTerapiaSesionPrecio === undefined
+        ? honorariosBaseActuales.comboTerapiaSesion
+        : normalizarNumero(body.comboTerapiaSesionPrecio)
 
     if (!Number.isFinite(porcentaje) || porcentaje < 0) {
       return NextResponse.json(
@@ -122,6 +134,29 @@ export async function POST(req: Request) {
       )
     }
 
+    if (!Number.isFinite(comboCtCsHonorarioBase) || comboCtCsHonorarioBase < 0) {
+      return NextResponse.json(
+        {
+          error:
+            "Ingresá un honorario válido para Actividades combinadas (CasaTalentos + Conectando Sentidos).",
+        },
+        { status: 400 }
+      )
+    }
+
+    if (
+      !Number.isFinite(comboTerapiaSesionPrecio) ||
+      comboTerapiaSesionPrecio < 0
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Ingresá un precio válido para las sesiones de Terapia con descuento.",
+        },
+        { status: 400 }
+      )
+    }
+
     const supabase = createAdminSupabaseClient()
     const { error } = await supabase
       .from("configuracion_plataforma")
@@ -147,6 +182,16 @@ export async function POST(req: Request) {
             valor_texto: String(terapiaHonorarioBase),
             updated_at: new Date().toISOString(),
           },
+          {
+            clave: "combo_ct_cs_honorario_base",
+            valor_texto: String(comboCtCsHonorarioBase),
+            updated_at: new Date().toISOString(),
+          },
+          {
+            clave: "combo_terapia_sesion_precio",
+            valor_texto: String(comboTerapiaSesionPrecio),
+            updated_at: new Date().toISOString(),
+          },
         ],
         {
           onConflict: "clave",
@@ -170,6 +215,8 @@ export async function POST(req: Request) {
       casatalentosHonorarioBase,
       conectandoSentidosHonorarioBase,
       terapiaHonorarioBase,
+      comboCtCsHonorarioBase,
+      comboTerapiaSesionPrecio,
     })
   } catch (error) {
     return NextResponse.json(

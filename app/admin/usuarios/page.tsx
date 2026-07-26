@@ -417,6 +417,8 @@ export default function AdminUsuariosPage() {
   const [conectandoSentidosHonorarioBase, setConectandoSentidosHonorarioBase] =
     useState("")
   const [terapiaHonorarioBase, setTerapiaHonorarioBase] = useState("")
+  const [comboCtCsHonorarioBase, setComboCtCsHonorarioBase] = useState("")
+  const [comboTerapiaSesionPrecio, setComboTerapiaSesionPrecio] = useState("")
   const [guardandoConfiguracionPagos, setGuardandoConfiguracionPagos] =
     useState(false)
   const [mensajeConfiguracionPagos, setMensajeConfiguracionPagos] = useState("")
@@ -468,6 +470,10 @@ export default function AdminUsuariosPage() {
         String(data.conectandoSentidosHonorarioBase ?? "0")
       )
       setTerapiaHonorarioBase(String(data.terapiaHonorarioBase ?? "0"))
+      setComboCtCsHonorarioBase(String(data.comboCtCsHonorarioBase ?? "0"))
+      setComboTerapiaSesionPrecio(
+        String(data.comboTerapiaSesionPrecio ?? "0")
+      )
     } catch {
       setMensajeConfiguracionPagos("Error cargando la configuración de pagos.")
     }
@@ -488,6 +494,8 @@ export default function AdminUsuariosPage() {
           casatalentosHonorarioBase,
           conectandoSentidosHonorarioBase,
           terapiaHonorarioBase,
+          comboCtCsHonorarioBase,
+          comboTerapiaSesionPrecio,
         }),
       })
 
@@ -514,6 +522,12 @@ export default function AdminUsuariosPage() {
       )
       setTerapiaHonorarioBase(
         String(data.terapiaHonorarioBase ?? terapiaHonorarioBase)
+      )
+      setComboCtCsHonorarioBase(
+        String(data.comboCtCsHonorarioBase ?? comboCtCsHonorarioBase)
+      )
+      setComboTerapiaSesionPrecio(
+        String(data.comboTerapiaSesionPrecio ?? comboTerapiaSesionPrecio)
       )
       setMensajeConfiguracionPagos("Configuración de pagos guardada correctamente.")
     } catch {
@@ -1329,11 +1343,25 @@ export default function AdminUsuariosPage() {
     )
   }
 
+  const personaTieneComboCtCs = (persona: PersonaResumen) => {
+    const ct = persona.economia.find((item) => item.actividad === "casatalentos")
+    const cs = persona.economia.find(
+      (item) => item.actividad === "conectando-sentidos"
+    )
+    return Boolean(ct?.honorarioActivo && cs?.honorarioActivo)
+  }
+
   const renderEconomia = (persona: PersonaResumen, economia: EconomiaResumen) => {
     const key = actividadKey(persona.email, economia.actividad)
     const draft = obtenerDraftEconomia(persona.email, economia.actividad, economia)
     const guardando = economiaGuardandoKey === key
     const mensajeEconomia = economiaMensajes[key]
+    const esSesionConDescuento =
+      economia.actividad === "terapia" &&
+      economia.modalidad === "por_sesion" &&
+      personaTieneComboCtCs(persona) &&
+      Number(comboTerapiaSesionPrecio) > 0 &&
+      economia.monto === Number(comboTerapiaSesionPrecio)
 
     return (
       <div
@@ -1342,7 +1370,11 @@ export default function AdminUsuariosPage() {
       >
         <div className="flex flex-wrap items-center gap-2">
           <strong>{economia.etiqueta}</strong>
-          <span className="workspace-chip">{etiquetaModalidad(economia.modalidad)}</span>
+          <span className="workspace-chip">
+            {esSesionConDescuento
+              ? "Sesiones con descuento"
+              : etiquetaModalidad(economia.modalidad)}
+          </span>
         </div>
         <p className="mt-1 text-gray-700">
           {economia.monto != null
@@ -1864,6 +1896,29 @@ export default function AdminUsuariosPage() {
             </BloqueFicha>
 
             <BloqueFicha titulo="Economía">
+              {personaTieneComboCtCs(persona) && (
+                <div className="mb-3 rounded-xl border border-[rgba(205,147,58,0.4)] bg-[rgba(255,247,225,0.75)] p-3 text-sm">
+                  <p className="font-semibold">Actividades combinadas</p>
+                  <p className="mt-1 text-gray-700">
+                    CasaTalentos + Conectando Sentidos —{" "}
+                    {(() => {
+                      const ct = persona.economia.find(
+                        (item) => item.actividad === "casatalentos"
+                      )
+                      const cs = persona.economia.find(
+                        (item) => item.actividad === "conectando-sentidos"
+                      )
+                      const total = (ct?.monto || 0) + (cs?.monto || 0)
+                      return `${ct?.moneda || cs?.moneda || "ARS"} ${total}/mes`
+                    })()}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-600">
+                    Se reparte entre las dos actividades de abajo; sumadas dan
+                    este total.
+                  </p>
+                </div>
+              )}
+
               {persona.economia.length === 0 ? (
                 <p className="text-sm text-gray-600">
                   Sin configuración económica visible todavía.
@@ -2036,12 +2091,12 @@ export default function AdminUsuariosPage() {
 
             <label className="space-y-2">
               <span className="text-sm font-medium text-gray-700">
-                Honorario base Terapia (ARS, por proceso)
+                Honorario base Terapia (ARS, por sesión)
               </span>
               <input
                 className="workspace-field"
                 inputMode="numeric"
-                placeholder="Ej: 240000"
+                placeholder="Ej: 55000"
                 value={terapiaHonorarioBase}
                 onChange={(e) => setTerapiaHonorarioBase(e.target.value)}
               />
@@ -2059,6 +2114,52 @@ export default function AdminUsuariosPage() {
                 onChange={(e) => setMercadoPagoRecargoPorcentaje(e.target.value)}
               />
             </label>
+          </div>
+
+          <div className="workspace-divider pt-4 space-y-3">
+            <div className="space-y-1">
+              <h3 className="text-lg font-semibold">
+                Actividades combinadas y sesiones con descuento
+              </h3>
+              <p className="workspace-inline-note">
+                Si una persona tiene CasaTalentos Y Conectando Sentidos
+                habilitadas al mismo tiempo, se aplica automáticamente este
+                precio combinado a las dos (repartido en partes iguales
+                entre ambas), y si también tiene Terapia, sus sesiones pasan
+                a este valor con descuento. Si más adelante das de baja una
+                de las dos, ambas vuelven solas al precio estándar de
+                arriba.
+              </p>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="space-y-2">
+                <span className="text-sm font-medium text-gray-700">
+                  Actividades combinadas: CasaTalentos + Conectando Sentidos
+                  (ARS/mes)
+                </span>
+                <input
+                  className="workspace-field"
+                  inputMode="numeric"
+                  placeholder="Ej: 213000"
+                  value={comboCtCsHonorarioBase}
+                  onChange={(e) => setComboCtCsHonorarioBase(e.target.value)}
+                />
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-sm font-medium text-gray-700">
+                  Sesiones con descuento: Terapia en combo (ARS por sesión)
+                </span>
+                <input
+                  className="workspace-field"
+                  inputMode="numeric"
+                  placeholder="Ej: 43000"
+                  value={comboTerapiaSesionPrecio}
+                  onChange={(e) => setComboTerapiaSesionPrecio(e.target.value)}
+                />
+              </label>
+            </div>
           </div>
 
           <button

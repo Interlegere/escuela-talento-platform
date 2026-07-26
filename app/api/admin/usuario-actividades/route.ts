@@ -3,6 +3,7 @@ import { requirePermission, type ActivitySlug } from "@/lib/authz"
 import { asegurarActividadBase } from "@/lib/core-activities"
 import {
   asegurarHonorarioYPagoAdmin,
+  sincronizarPrecioComboSiCorresponde,
   syncInscripcionAdmin,
   syncHonorarioEstadoAdmin,
   syncUsuarioActividadAdmin,
@@ -227,6 +228,8 @@ export async function POST(req: Request) {
         advertencias.push(provision.advertencia)
       }
     }
+
+    await sincronizarPrecioComboSiCorresponde(supabase, usuarioEmail)
 
     const { data, error } = await supabase
       .from("usuario_actividades")

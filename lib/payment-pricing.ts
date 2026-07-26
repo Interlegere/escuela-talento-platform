@@ -95,16 +95,33 @@ async function obtenerNumeroConfigurado(
 }
 
 export async function obtenerHonorariosBaseEscuelaConfigurados() {
-  const [casatalentos, conectandoSentidos, terapia] = await Promise.all([
-    obtenerNumeroConfigurado("casatalentos_honorario_base", 0),
-    obtenerNumeroConfigurado("conectando_sentidos_honorario_base", 0),
-    obtenerNumeroConfigurado("terapia_honorario_base", 0),
-  ])
+  const [casatalentos, conectandoSentidos, terapia, comboCtCs, comboTerapiaSesion] =
+    await Promise.all([
+      obtenerNumeroConfigurado("casatalentos_honorario_base", 0),
+      obtenerNumeroConfigurado("conectando_sentidos_honorario_base", 0),
+      obtenerNumeroConfigurado("terapia_honorario_base", 0),
+      obtenerNumeroConfigurado("combo_ct_cs_honorario_base", 0),
+      obtenerNumeroConfigurado("combo_terapia_sesion_precio", 0),
+    ])
 
   return {
     casatalentos,
     conectandoSentidos,
     terapia,
+    comboCtCs,
+    comboTerapiaSesion,
+  }
+}
+
+export async function obtenerPreciosComboConfigurados() {
+  const [ctCsHonorario, terapiaSesion] = await Promise.all([
+    obtenerNumeroConfigurado("combo_ct_cs_honorario_base", 0),
+    obtenerNumeroConfigurado("combo_terapia_sesion_precio", 0),
+  ])
+
+  return {
+    ctCsHonorario,
+    terapiaSesion,
   }
 }
 

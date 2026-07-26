@@ -1,6 +1,10 @@
 import type { ActivitySlug } from "@/lib/authz"
 import { normalizarModalidadPago } from "@/lib/billing"
-import { obtenerHonorarioBasePorActividadConfigurado } from "@/lib/payment-pricing"
+import { asegurarActividadBase } from "@/lib/core-activities"
+import {
+  obtenerHonorarioBasePorActividadConfigurado,
+  obtenerPreciosComboConfigurados,
+} from "@/lib/payment-pricing"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
 type SupabaseAdmin = ReturnType<typeof createAdminSupabaseClient>
@@ -278,7 +282,7 @@ export async function asegurarHonorarioYPagoAdmin(
           participante_email: participanteEmail,
           participante_nombre: participanteNombre || null,
           honorario_mensual: honorarioBase,
-          modalidad_pago: actividadSlug === "terapia" ? "proceso" : "mensual",
+          modalidad_pago: actividadSlug === "terapia" ? "sesion" : "mensual",
           moneda: "ARS",
           activo: true,
           updated_at: new Date().toISOString(),
@@ -438,5 +442,145 @@ export async function asegurarHonorarioYPagoAdmin(
   return {
     honorarioCreado,
     pagoCreado: true,
+  }
+}
+
+export async function sincronizarPrecioComboSiCorresponde(
+  supabase: SupabaseAdmin,
+  participanteEmailInput: string
+): Promise<void> {
+  const participanteEmail = normalizarEmail(participanteEmailInput)
+
+  if (!participanteEmail) {
+    return
+  }
+
+  const [actividadCT, actividadCS, actividadTerapia] = await Promise.all([
+    asegurarActividadBase("casatalentos"),
+    asegurarActividadBase("conectando-sentidos"),
+    asegurarActividadBase("terapia"),
+  ])
+
+  const { data: inscripciones, error: inscripcionesError } = await supabase
+    .from("inscripciones")
+    .select("actividad_id, estado")
+    .eq("participante_email", participanteEmail)
+    .in("actividad_id", [actividadCT.id, actividadCS.id, actividadTerapia.id])
+
+  if (inscripcionesError) {
+    return
+  }
+
+  const activasPorActividadId = new Set(
+    (inscripciones || [])
+      .filter((item) => item.estado === "activa")
+      .map((item) => item.actividad_id)
+  )
+
+  const tieneCombo =
+    activasPorActividadId.has(actividadCT.id) &&
+    activasPorActividadId.has(actividadCS.id)
+
+  const { ctCsHonorario, terapiaSesion } = await obtenerPreciosComboConfigurados()
+  const comboIndividualCtCs =
+    ctCsHonorario > 0 ? Math.round(ctCsHonorario / 2) : null
+
+  for (const actividad of [actividadCT, actividadCS]) {
+    const { data: honorario } = await supabase
+      .from("honorarios_participante")
+      .select("id, honorario_mensual, activo")
+      .eq("actividad_id", actividad.id)
+      .eq("participante_email", participanteEmail)
+      .maybeSingle()
+
+    if (!honorario || honorario.activo === false) {
+      continue
+    }
+
+    if (tieneCombo && comboIndividualCtCs !== null) {
+      if (Number(honorario.honorario_mensual) !== comboIndividualCtCs) {
+        await supabase
+          .from("honorarios_participante")
+          .update({
+            honorario_mensual: comboIndividualCtCs,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", honorario.id)
+      }
+      continue
+    }
+
+    if (!tieneCombo && comboIndividualCtCs !== null) {
+      // Sólo revierte si el valor sigue siendo el del combo (no pisa una
+      // edición manual posterior del honorario).
+      if (Number(honorario.honorario_mensual) === comboIndividualCtCs) {
+        const baseEstandar = await obtenerHonorarioBasePorActividadConfigurado(
+          actividad.slug
+        )
+
+        if (baseEstandar > 0) {
+          await supabase
+            .from("honorarios_participante")
+            .update({
+              honorario_mensual: baseEstandar,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", honorario.id)
+        }
+      }
+    }
+  }
+
+  const { data: honorarioTerapia } = await supabase
+    .from("honorarios_participante")
+    .select("id, honorario_mensual, modalidad_pago, activo")
+    .eq("actividad_id", actividadTerapia.id)
+    .eq("participante_email", participanteEmail)
+    .maybeSingle()
+
+  if (!honorarioTerapia || honorarioTerapia.activo === false) {
+    return
+  }
+
+  const modalidadTerapia = normalizarModalidadPago(
+    honorarioTerapia.modalidad_pago,
+    "terapia"
+  )
+
+  if (modalidadTerapia !== "sesion") {
+    return
+  }
+
+  if (tieneCombo && terapiaSesion > 0) {
+    if (Number(honorarioTerapia.honorario_mensual) !== terapiaSesion) {
+      await supabase
+        .from("honorarios_participante")
+        .update({
+          honorario_mensual: terapiaSesion,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", honorarioTerapia.id)
+    }
+    return
+  }
+
+  if (
+    !tieneCombo &&
+    terapiaSesion > 0 &&
+    Number(honorarioTerapia.honorario_mensual) === terapiaSesion
+  ) {
+    const baseTerapia = await obtenerHonorarioBasePorActividadConfigurado(
+      "terapia"
+    )
+
+    if (baseTerapia > 0) {
+      await supabase
+        .from("honorarios_participante")
+        .update({
+          honorario_mensual: baseTerapia,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", honorarioTerapia.id)
+    }
   }
 }
