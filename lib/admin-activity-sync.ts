@@ -246,11 +246,12 @@ export async function asegurarHonorarioYPagoAdmin(
   } else {
     if (
       actividadSlug !== "casatalentos" &&
-      actividadSlug !== "conectando-sentidos"
+      actividadSlug !== "conectando-sentidos" &&
+      actividadSlug !== "terapia"
     ) {
       return {
         advertencia:
-          "La actividad quedó habilitada, pero el honorario debe configurarse manualmente en Admin Pagos.",
+          "La actividad quedó habilitada, pero el honorario debe configurarse manualmente (es un pago personalizado).",
       }
     }
 
@@ -262,8 +263,10 @@ export async function asegurarHonorarioYPagoAdmin(
       return {
         advertencia:
           actividadSlug === "casatalentos"
-            ? "CasaTalentos quedó habilitada, pero falta configurar su honorario base en Admin Pagos."
-            : "Conectando Sentidos quedó habilitada, pero falta configurar su honorario base en Admin Pagos.",
+            ? "CasaTalentos quedó habilitada, pero falta configurar su honorario base en Administración."
+            : actividadSlug === "conectando-sentidos"
+              ? "Conectando Sentidos quedó habilitada, pero falta configurar su honorario base en Administración."
+              : "Terapia quedó habilitada, pero falta configurar su honorario base en Administración.",
       }
     }
 
@@ -275,7 +278,7 @@ export async function asegurarHonorarioYPagoAdmin(
           participante_email: participanteEmail,
           participante_nombre: participanteNombre || null,
           honorario_mensual: honorarioBase,
-          modalidad_pago: "mensual",
+          modalidad_pago: actividadSlug === "terapia" ? "proceso" : "mensual",
           moneda: "ARS",
           activo: true,
           updated_at: new Date().toISOString(),

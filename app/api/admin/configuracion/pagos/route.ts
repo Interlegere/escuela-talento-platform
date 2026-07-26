@@ -10,6 +10,7 @@ type Body = {
   mercadoPagoRecargoPorcentaje?: string | number
   casatalentosHonorarioBase?: string | number
   conectandoSentidosHonorarioBase?: string | number
+  terapiaHonorarioBase?: string | number
 }
 
 function normalizarNumero(input: string | number | null | undefined) {
@@ -41,6 +42,7 @@ export async function GET() {
       mercadoPagoRecargoPorcentaje: porcentaje,
       casatalentosHonorarioBase: honorariosBase.casatalentos,
       conectandoSentidosHonorarioBase: honorariosBase.conectandoSentidos,
+      terapiaHonorarioBase: honorariosBase.terapia,
     })
   } catch (error) {
     return NextResponse.json(
@@ -78,6 +80,10 @@ export async function POST(req: Request) {
       body.conectandoSentidosHonorarioBase === undefined
         ? honorariosBaseActuales.conectandoSentidos
         : normalizarNumero(body.conectandoSentidosHonorarioBase)
+    const terapiaHonorarioBase =
+      body.terapiaHonorarioBase === undefined
+        ? honorariosBaseActuales.terapia
+        : normalizarNumero(body.terapiaHonorarioBase)
 
     if (!Number.isFinite(porcentaje) || porcentaje < 0) {
       return NextResponse.json(
@@ -109,6 +115,13 @@ export async function POST(req: Request) {
       )
     }
 
+    if (!Number.isFinite(terapiaHonorarioBase) || terapiaHonorarioBase < 0) {
+      return NextResponse.json(
+        { error: "Ingresá un honorario base válido para Terapia." },
+        { status: 400 }
+      )
+    }
+
     const supabase = createAdminSupabaseClient()
     const { error } = await supabase
       .from("configuracion_plataforma")
@@ -127,6 +140,11 @@ export async function POST(req: Request) {
           {
             clave: "conectando_sentidos_honorario_base",
             valor_texto: String(conectandoSentidosHonorarioBase),
+            updated_at: new Date().toISOString(),
+          },
+          {
+            clave: "terapia_honorario_base",
+            valor_texto: String(terapiaHonorarioBase),
             updated_at: new Date().toISOString(),
           },
         ],
@@ -151,6 +169,7 @@ export async function POST(req: Request) {
       mercadoPagoRecargoPorcentaje: porcentaje,
       casatalentosHonorarioBase,
       conectandoSentidosHonorarioBase,
+      terapiaHonorarioBase,
     })
   } catch (error) {
     return NextResponse.json(

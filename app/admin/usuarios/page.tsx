@@ -410,6 +410,16 @@ export default function AdminUsuariosPage() {
     Record<string, { tipo: "exito" | "error" | "info"; texto: string }>
   >({})
   const [pagoGuardandoKey, setPagoGuardandoKey] = useState<string | null>(null)
+  const [mercadoPagoRecargoPorcentaje, setMercadoPagoRecargoPorcentaje] =
+    useState("")
+  const [casatalentosHonorarioBase, setCasatalentosHonorarioBase] =
+    useState("")
+  const [conectandoSentidosHonorarioBase, setConectandoSentidosHonorarioBase] =
+    useState("")
+  const [terapiaHonorarioBase, setTerapiaHonorarioBase] = useState("")
+  const [guardandoConfiguracionPagos, setGuardandoConfiguracionPagos] =
+    useState(false)
+  const [mensajeConfiguracionPagos, setMensajeConfiguracionPagos] = useState("")
 
   const esAdmin = session?.user?.role === "admin"
   const editando = Boolean(form.id)
@@ -438,13 +448,101 @@ export default function AdminUsuariosPage() {
     setPersonas(data.personas || [])
   }, [])
 
+  const cargarConfiguracionPagos = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/configuracion/pagos")
+      const data = await res.json()
+
+      if (!res.ok) {
+        setMensajeConfiguracionPagos(
+          data.error || "No se pudo cargar la configuración de pagos."
+        )
+        return
+      }
+
+      setMercadoPagoRecargoPorcentaje(
+        String(data.mercadoPagoRecargoPorcentaje ?? "0")
+      )
+      setCasatalentosHonorarioBase(String(data.casatalentosHonorarioBase ?? "0"))
+      setConectandoSentidosHonorarioBase(
+        String(data.conectandoSentidosHonorarioBase ?? "0")
+      )
+      setTerapiaHonorarioBase(String(data.terapiaHonorarioBase ?? "0"))
+    } catch {
+      setMensajeConfiguracionPagos("Error cargando la configuración de pagos.")
+    }
+  }, [])
+
+  const guardarConfiguracionPagos = async () => {
+    try {
+      setGuardandoConfiguracionPagos(true)
+      setMensajeConfiguracionPagos("")
+
+      const res = await fetch("/api/admin/configuracion/pagos", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          mercadoPagoRecargoPorcentaje,
+          casatalentosHonorarioBase,
+          conectandoSentidosHonorarioBase,
+          terapiaHonorarioBase,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setMensajeConfiguracionPagos(
+          data.error || "No se pudo guardar la configuración de pagos."
+        )
+        return
+      }
+
+      setMercadoPagoRecargoPorcentaje(
+        String(data.mercadoPagoRecargoPorcentaje ?? mercadoPagoRecargoPorcentaje)
+      )
+      setCasatalentosHonorarioBase(
+        String(data.casatalentosHonorarioBase ?? casatalentosHonorarioBase)
+      )
+      setConectandoSentidosHonorarioBase(
+        String(
+          data.conectandoSentidosHonorarioBase ??
+            conectandoSentidosHonorarioBase
+        )
+      )
+      setTerapiaHonorarioBase(
+        String(data.terapiaHonorarioBase ?? terapiaHonorarioBase)
+      )
+      setMensajeConfiguracionPagos("Configuración de pagos guardada correctamente.")
+    } catch {
+      setMensajeConfiguracionPagos("Error guardando la configuración de pagos.")
+    } finally {
+      setGuardandoConfiguracionPagos(false)
+    }
+  }
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const participante = params.get("participante")
+
+    if (participante) {
+      setBusqueda(participante)
+    }
+  }, [])
+
   useEffect(() => {
     if (status === "authenticated" && esAdmin) {
       void (async () => {
         try {
           setCargando(true)
           setMensaje("")
-          await Promise.all([cargarUsuarios(), cargarPersonas()])
+          await Promise.all([
+            cargarUsuarios(),
+            cargarPersonas(),
+            cargarConfiguracionPagos(),
+          ])
         } catch (error) {
           setMensaje(String(error))
         } finally {
@@ -452,7 +550,7 @@ export default function AdminUsuariosPage() {
         }
       })()
     }
-  }, [cargarPersonas, cargarUsuarios, esAdmin, status])
+  }, [cargarConfiguracionPagos, cargarPersonas, cargarUsuarios, esAdmin, status])
 
   const usuarioBasePorEmail = useMemo(() => {
     const mapa = new Map<string, Usuario>()
@@ -1685,13 +1783,6 @@ export default function AdminUsuariosPage() {
             )}
 
             <Link
-              href={`/admin/pagos?participante=${encodeURIComponent(persona.email)}`}
-              className="workspace-button-secondary"
-            >
-              Ver pagos
-            </Link>
-
-            <Link
               href={`/agenda?participante=${encodeURIComponent(persona.email)}`}
               className="workspace-button-secondary"
             >
@@ -1879,14 +1970,11 @@ export default function AdminUsuariosPage() {
           <p className="workspace-eyebrow">Administración</p>
           <h1 className="workspace-title">Personas</h1>
           <p className="workspace-subtitle">
-            Ficha administrativa para datos personales, actividades y economía.
-            Los encuentros se gestionan desde Agenda y los mails desde
-            Comunicaciones.
+            Ficha administrativa para datos personales, actividades, economía
+            y pagos. Los encuentros se gestionan desde Agenda y los mails
+            desde Comunicaciones.
           </p>
           <div className="flex flex-wrap gap-3">
-            <Link href="/admin/pagos" className="workspace-button-secondary">
-              Ir a Admin Pagos
-            </Link>
             <Link href="/agenda" className="workspace-button-secondary">
               Ir a Agenda
             </Link>
@@ -1895,6 +1983,94 @@ export default function AdminUsuariosPage() {
       </section>
 
       {mensaje && <section className="workspace-panel-soft">{mensaje}</section>}
+
+      <SeccionDesplegable
+        titulo="Configuración de pagos"
+        storageKey="entheos:v1:ui:admin-usuarios:seccion:configuracion-pagos"
+      >
+        <div className="space-y-4">
+          <p className="workspace-inline-note">
+            Definí el recargo de Mercado Pago y el honorario base mensual de
+            CasaTalentos, Conectando Sentidos y Terapia. Al habilitar una de
+            estas actividades para una persona, si no tiene un honorario
+            propio cargado, se le asigna automáticamente este valor base y se
+            genera su primer cobro. Mentorías queda siempre fuera de esta
+            base: es el único pago personalizado, se carga a mano por
+            persona en la sección &ldquo;Economía&rdquo; de cada ficha.
+          </p>
+
+          {mensajeConfiguracionPagos && (
+            <p className="workspace-panel-soft text-sm">
+              {mensajeConfiguracionPagos}
+            </p>
+          )}
+
+          <div className="grid gap-3 md:grid-cols-4">
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-gray-700">
+                Honorario base CasaTalentos (ARS)
+              </span>
+              <input
+                className="workspace-field"
+                inputMode="numeric"
+                placeholder="Ej: 120000"
+                value={casatalentosHonorarioBase}
+                onChange={(e) => setCasatalentosHonorarioBase(e.target.value)}
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-gray-700">
+                Honorario base Conectando Sentidos (ARS)
+              </span>
+              <input
+                className="workspace-field"
+                inputMode="numeric"
+                placeholder="Ej: 150000"
+                value={conectandoSentidosHonorarioBase}
+                onChange={(e) =>
+                  setConectandoSentidosHonorarioBase(e.target.value)
+                }
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-gray-700">
+                Honorario base Terapia (ARS, por proceso)
+              </span>
+              <input
+                className="workspace-field"
+                inputMode="numeric"
+                placeholder="Ej: 240000"
+                value={terapiaHonorarioBase}
+                onChange={(e) => setTerapiaHonorarioBase(e.target.value)}
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-gray-700">
+                Recargo Mercado Pago (%)
+              </span>
+              <input
+                className="workspace-field"
+                inputMode="decimal"
+                placeholder="Ej: 12"
+                value={mercadoPagoRecargoPorcentaje}
+                onChange={(e) => setMercadoPagoRecargoPorcentaje(e.target.value)}
+              />
+            </label>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => void guardarConfiguracionPagos()}
+            disabled={guardandoConfiguracionPagos}
+            className="workspace-button-primary disabled:opacity-60"
+          >
+            {guardandoConfiguracionPagos ? "Guardando..." : "Guardar configuración"}
+          </button>
+        </div>
+      </SeccionDesplegable>
 
       <section className="workspace-panel space-y-4">
         <div className="space-y-1">

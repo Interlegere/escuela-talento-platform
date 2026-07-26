@@ -501,17 +501,10 @@ export default function CampusPage() {
           />
 
           <Card
-            titulo="Admin Pagos"
-            descripcion="Revisá pagos mensuales, comprobantes, honorarios y estados de habilitación."
-            href="/admin/pagos"
-            subtitulo="Cobros"
-          />
-
-          <Card
             titulo="Admin Usuarios"
-            descripcion="Creá usuarios, actualizá datos y agregá documentos de toma de notas."
+            descripcion="Creá usuarios, gestioná actividades, pagos, honorarios y comprobantes desde la ficha de cada persona."
             href="/admin/usuarios"
-            subtitulo="Accesos"
+            subtitulo="Accesos y pagos"
           />
 
           <Card

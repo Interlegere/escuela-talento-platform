@@ -76,20 +76,18 @@ export default function AppNav() {
   const campusModeActivo =
     !session || esAdmin ? "default" : campusMode
 
-  const links = esLandingPublica
-    ? [
-        { href: "/campus", label: "Campus" },
-        { href: "/login", label: "Ingresar" },
-      ]
-    : esAdmin
+  if (esLandingPublica) {
+    return null
+  }
+
+  const links = esAdmin
     ? [
         { href: "/agenda", label: "Agenda" },
         { href: "/admin/consentimientos", label: "Admin Consentimientos" },
-        { href: "/admin/pagos", label: "Admin Pagos" },
         { href: "/admin/usuarios", label: "Admin Usuarios" },
         { href: "/admin/comunicaciones", label: "Comunicaciones" },
-        { href: "/admin/casatalentos", label: "CasaTalentos" },
-        { href: "/admin/conectando-sentidos", label: "Conectando Sentidos" },
+        { href: "/casatalentos", label: "CasaTalentos" },
+        { href: "/conectando-sentidos", label: "Conectando Sentidos" },
         { href: "/mentorias", label: "Mentorías" },
         { href: "/terapia", label: "Terapia" },
         { href: "/perfil", label: "Perfil" },
@@ -113,24 +111,16 @@ export default function AppNav() {
       ]
 
   return (
-    <nav
-      className={`app-main-nav relative z-40 px-3 pt-3 sm:px-5 ${
-        esLandingPublica ? "landing-main-nav" : ""
-      }`}
-    >
+    <nav className="app-main-nav relative z-40 px-3 pt-3 sm:px-5">
       <div
-        className={`mx-auto flex max-w-7xl flex-col gap-4 rounded-[1.6rem] border border-[var(--line)] bg-[rgba(253,247,236,0.78)] px-3 py-3 shadow-[0_18px_40px_rgba(55,42,28,0.08)] backdrop-blur-2xl sm:px-4 lg:flex-row lg:items-center lg:justify-between ${
-          esLandingPublica ? "landing-nav-shell" : ""
-        }`}
+        className="mx-auto flex max-w-7xl flex-col gap-4 rounded-[1.6rem] border border-[var(--line)] bg-[rgba(253,247,236,0.78)] px-3 py-3 shadow-[0_18px_40px_rgba(55,42,28,0.08)] backdrop-blur-2xl sm:px-4 lg:flex-row lg:items-center lg:justify-between"
       >
         <Link
           href="/landing"
           className="group flex items-center gap-3 rounded-[1.2rem] px-1 py-1"
         >
           <span
-            className={`flex h-14 w-14 items-center justify-center overflow-hidden rounded-[1.15rem] border border-[rgba(205,147,58,0.28)] bg-[rgba(255,252,245,0.72)] shadow-[0_12px_28px_rgba(55,42,28,0.1)] transition group-hover:-translate-y-0.5 ${
-              esLandingPublica ? "landing-logo-shell" : ""
-            }`}
+            className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-[1.15rem] border border-[rgba(205,147,58,0.28)] bg-[rgba(255,252,245,0.72)] shadow-[0_12px_28px_rgba(55,42,28,0.1)] transition group-hover:-translate-y-0.5"
           >
             <Image
               src="/interlegere-icono.png"
@@ -143,16 +133,12 @@ export default function AppNav() {
           </span>
           <span className="min-w-0">
             <span
-              className={`block text-[0.68rem] font-semibold uppercase tracking-[0.28em] text-[var(--sea)] ${
-                esLandingPublica ? "landing-brand-kicker" : ""
-              }`}
+              className="block text-[0.68rem] font-semibold uppercase tracking-[0.28em] text-[var(--sea)]"
             >
               Escuela
             </span>
             <span
-              className={`font-display block truncate text-[1.72rem] font-normal leading-none tracking-[-0.03em] text-[var(--foreground)] ${
-                esLandingPublica ? "landing-brand-title" : ""
-              }`}
+              className="font-display block truncate text-[1.72rem] font-normal leading-none tracking-[-0.03em] text-[var(--foreground)]"
             >
               ENTHEOS
             </span>
@@ -174,10 +160,6 @@ export default function AppNav() {
                   activo
                     ? "border border-[rgba(255,255,255,0.82)] bg-[rgba(255,255,255,0.58)] text-[var(--foreground)] shadow-[0_14px_28px_rgba(55,42,28,0.12)] backdrop-blur-md"
                     : "border border-[rgba(102,86,62,0.14)] bg-[rgba(255,250,242,0.62)] text-[rgba(29,35,40,0.82)] hover:border-[var(--line-strong)] hover:bg-[rgba(255,247,235,0.94)]"
-                } ${esLandingPublica ? "landing-nav-link" : ""} ${
-                  esLandingPublica && link.href === "/login"
-                    ? "landing-nav-login"
-                    : ""
                 }`}
               >
                 {link.label}

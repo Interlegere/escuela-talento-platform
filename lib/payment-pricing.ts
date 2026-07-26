@@ -95,14 +95,16 @@ async function obtenerNumeroConfigurado(
 }
 
 export async function obtenerHonorariosBaseEscuelaConfigurados() {
-  const [casatalentos, conectandoSentidos] = await Promise.all([
+  const [casatalentos, conectandoSentidos, terapia] = await Promise.all([
     obtenerNumeroConfigurado("casatalentos_honorario_base", 0),
     obtenerNumeroConfigurado("conectando_sentidos_honorario_base", 0),
+    obtenerNumeroConfigurado("terapia_honorario_base", 0),
   ])
 
   return {
     casatalentos,
     conectandoSentidos,
+    terapia,
   }
 }
 
@@ -115,6 +117,10 @@ export async function obtenerHonorarioBasePorActividadConfigurado(
 
   if (actividadSlug === "conectando-sentidos") {
     return obtenerNumeroConfigurado("conectando_sentidos_honorario_base", 0)
+  }
+
+  if (actividadSlug === "terapia") {
+    return obtenerNumeroConfigurado("terapia_honorario_base", 0)
   }
 
   return 0

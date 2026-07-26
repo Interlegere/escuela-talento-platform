@@ -1059,12 +1059,10 @@ export default function AdminAgendaCalendar({
               <div className="flex flex-wrap gap-3">
                 {item.requierePago && item.participanteEmail && (
                   <Link
-                    href={`/admin/pagos?actividad=${encodeURIComponent(
-                      item.actividadSlug
-                    )}&participante=${encodeURIComponent(item.participanteEmail)}`}
+                    href={`/admin/usuarios?participante=${encodeURIComponent(item.participanteEmail)}`}
                     className="workspace-button-secondary"
                   >
-                    Ver en Admin Pagos
+                    Ver en Admin Usuarios
                   </Link>
                 )}
 

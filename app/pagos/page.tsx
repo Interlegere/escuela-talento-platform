@@ -311,16 +311,16 @@ export default function PagosPage() {
         <div>
           <h1 className="text-3xl font-bold">Pagos</h1>
           <p className="text-gray-600 mt-2">
-            Como administrador, la gestión de pagos se realiza desde Admin Pagos.
+            Como administrador, la gestión de pagos se realiza desde Admin Usuarios.
           </p>
         </div>
 
         <section className="border rounded-xl p-6 space-y-3">
           <a
-            href="/admin/pagos"
+            href="/admin/usuarios"
             className="inline-block border px-4 py-2 rounded-xl"
           >
-            Ir a Admin Pagos
+            Ir a Admin Usuarios
           </a>
         </section>
       </main>
