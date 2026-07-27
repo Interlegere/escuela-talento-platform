@@ -536,6 +536,43 @@ export async function cancelarDisponibilidadEnGoogle(params: {
   }
 }
 
+export type EventoGoogleCalendar = {
+  id: string
+  titulo: string
+  inicio: string | null
+  fin: string | null
+  esDiaCompleto: boolean
+  cancelado: boolean
+}
+
+export async function listarEventosGoogleCalendarEnRango(params: {
+  timeMinISO: string
+  timeMaxISO: string
+  calendarId?: string
+  actorEmail?: string
+}): Promise<EventoGoogleCalendar[]> {
+  const { timeMinISO, timeMaxISO, calendarId, actorEmail } = params
+  const calendar = await getGoogleCalendarClient(actorEmail)
+
+  const { data } = await calendar.events.list({
+    calendarId: calendarId || "primary",
+    timeMin: timeMinISO,
+    timeMax: timeMaxISO,
+    singleEvents: true,
+    orderBy: "startTime",
+    maxResults: 250,
+  })
+
+  return (data.items || []).map((event) => ({
+    id: String(event.id || ""),
+    titulo: event.summary || "(Sin título)",
+    inicio: event.start?.dateTime || event.start?.date || null,
+    fin: event.end?.dateTime || event.end?.date || null,
+    esDiaCompleto: Boolean(event.start?.date && !event.start?.dateTime),
+    cancelado: event.status === "cancelled",
+  }))
+}
+
 export async function crearEventoGoogleDesdeReserva(params: {
   reserva: Reserva
   disponibilidad: Disponibilidad

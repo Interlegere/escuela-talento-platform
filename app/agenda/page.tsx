@@ -189,7 +189,52 @@ export default function AgendaPage() {
     ParticipanteActividad[]
   >([])
 
+  const [comprobandoGoogle, setComprobandoGoogle] = useState(false)
+  const [errorComprobacionGoogle, setErrorComprobacionGoogle] = useState("")
+  const [resultadoComprobacionGoogle, setResultadoComprobacionGoogle] =
+    useState<{
+      rango: { desde: string; hasta: string }
+      soloEnGoogle: {
+        eventoId: string
+        titulo: string
+        fecha: string | null
+        hora: string | null
+      }[]
+      soloEnPlataforma: {
+        disponibilidadId: number
+        titulo: string
+        actividadSlug: string | null
+        fecha: string
+        hora: string
+      }[]
+    } | null>(null)
+
   const esAdmin = session?.user?.role === "admin"
+
+  const comprobarConGoogle = useCallback(async () => {
+    try {
+      setComprobandoGoogle(true)
+      setErrorComprobacionGoogle("")
+
+      const res = await fetch("/api/agenda/admin/comprobar-google")
+      const data = await res.json()
+
+      if (!res.ok) {
+        setErrorComprobacionGoogle(
+          data.error || "No se pudo comparar la agenda con Google Calendar."
+        )
+        return
+      }
+
+      setResultadoComprobacionGoogle(data)
+    } catch {
+      setErrorComprobacionGoogle(
+        "Error de conexión al comparar con Google Calendar."
+      )
+    } finally {
+      setComprobandoGoogle(false)
+    }
+  }, [])
 
   const cargarAgenda = useCallback(async () => {
     try {
@@ -722,6 +767,85 @@ export default function AgendaPage() {
               {guardando ? "Guardando..." : "Guardar programación"}
             </button>
           </div>
+        </section>
+      )}
+
+      {esAdmin && (
+        <section className="workspace-panel space-y-4">
+          <div className="space-y-1">
+            <p className="workspace-eyebrow">Google Calendar</p>
+            <h2 className="workspace-title-sm">Comprobar con Google Calendar</h2>
+            <p className="workspace-inline-note">
+              Compara los próximos encuentros de la plataforma con los eventos
+              reales del calendario conectado, para detectar reuniones
+              agendadas directo en Google Calendar (o encuentros de la
+              plataforma sin evento correspondiente). No modifica nada, es
+              solo para revisar.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => void comprobarConGoogle()}
+              disabled={comprobandoGoogle}
+              className="workspace-button-secondary disabled:opacity-60"
+            >
+              {comprobandoGoogle ? "Comprobando..." : "Comprobar con Google Calendar"}
+            </button>
+          </div>
+
+          {errorComprobacionGoogle && (
+            <p className="workspace-panel-soft text-sm text-red-700">
+              {errorComprobacionGoogle}
+            </p>
+          )}
+
+          {resultadoComprobacionGoogle && (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="workspace-panel-soft space-y-2">
+                <p className="text-sm font-semibold">
+                  Solo en Google Calendar (
+                  {resultadoComprobacionGoogle.soloEnGoogle.length})
+                </p>
+                {resultadoComprobacionGoogle.soloEnGoogle.length === 0 ? (
+                  <p className="workspace-inline-note">
+                    No hay eventos de Google sin match en la plataforma.
+                  </p>
+                ) : (
+                  <ul className="space-y-1 text-sm">
+                    {resultadoComprobacionGoogle.soloEnGoogle.map((item) => (
+                      <li key={item.eventoId}>
+                        {item.fecha || "sin fecha"}
+                        {item.hora ? ` · ${item.hora}` : ""} — {item.titulo}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="workspace-panel-soft space-y-2">
+                <p className="text-sm font-semibold">
+                  Solo en la plataforma (
+                  {resultadoComprobacionGoogle.soloEnPlataforma.length})
+                </p>
+                {resultadoComprobacionGoogle.soloEnPlataforma.length === 0 ? (
+                  <p className="workspace-inline-note">
+                    No hay encuentros de la plataforma sin evento en Google.
+                  </p>
+                ) : (
+                  <ul className="space-y-1 text-sm">
+                    {resultadoComprobacionGoogle.soloEnPlataforma.map((item) => (
+                      <li key={item.disponibilidadId}>
+                        {item.fecha} · {item.hora} — {item.titulo}
+                        {item.actividadSlug ? ` (${item.actividadSlug})` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
         </section>
       )}
 
