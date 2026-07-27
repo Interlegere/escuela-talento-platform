@@ -15,7 +15,6 @@ export type ActivityFeatureKey =
 type ActivityRule = {
   slug: ActivitySlug
   agendaStrategy: AgendaStrategy
-  paymentGraceDay?: number | null
   tituloAgenda: string
 }
 
@@ -23,31 +22,26 @@ export const ACTIVITY_RULES: Record<ActivitySlug, ActivityRule> = {
   casatalentos: {
     slug: "casatalentos",
     agendaStrategy: "grupo_fijo",
-    paymentGraceDay: 10,
     tituloAgenda: "Reunión semanal",
   },
   "conectando-sentidos": {
     slug: "conectando-sentidos",
     agendaStrategy: "grupo_fijo",
-    paymentGraceDay: 10,
     tituloAgenda: "Sesión Conectando Sentidos",
   },
   mentorias: {
     slug: "mentorias",
     agendaStrategy: "individual_fijo",
-    paymentGraceDay: 10,
     tituloAgenda: "Reuniones TMV",
   },
   terapia: {
     slug: "terapia",
     agendaStrategy: "reserva_individual",
-    paymentGraceDay: null,
     tituloAgenda: "Sesiones de Terapia",
   },
   membresia: {
     slug: "membresia",
     agendaStrategy: "grupo_fijo",
-    paymentGraceDay: 10,
     tituloAgenda: "Membresía",
   },
 }
@@ -57,11 +51,9 @@ export function getActivityRule(actividadSlug: ActivitySlug) {
 }
 
 export function estaDentroDeGraciaMensual(
-  actividadSlug: ActivitySlug,
+  graceDay: number | null | undefined,
   fechaActual = new Date()
 ) {
-  const graceDay = ACTIVITY_RULES[actividadSlug]?.paymentGraceDay
-
   if (!graceDay) {
     return false
   }

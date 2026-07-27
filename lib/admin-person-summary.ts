@@ -17,9 +17,6 @@ export type ModalidadPagoResumen =
   | "mensual"
   | "por_sesion"
   | "por_proceso"
-  | "becado"
-  | "invitado"
-  | "sin_cobro"
   | "desconocida"
 
 export type PerfilResumen = {
@@ -321,18 +318,6 @@ function modalidadResumen(
   modalidad?: string | null,
   actividadSlug?: string | null
 ): ModalidadPagoResumen {
-  if (modalidad === "becado") {
-    return "becado"
-  }
-
-  if (modalidad === "invitado") {
-    return "invitado"
-  }
-
-  if (modalidad === "sin_cobro") {
-    return "sin_cobro"
-  }
-
   const normalizada = normalizarModalidadPago(modalidad, actividadSlug)
 
   if (normalizada === "sesion") {
@@ -446,29 +431,6 @@ function estadoPagoParaActividad(params: {
     }
   }
 
-  if (
-    economia.estado === "bonificado" ||
-    economia.estado === "sin_cobro"
-  ) {
-    const modalidadEspecial = modalidadResumen(
-      honorario.modalidad_pago,
-      actividadSlug
-    )
-
-    return {
-      accesoEsperado: true,
-      accesoMotivo: "ok" as const,
-      estadoVisible: "activa" as const,
-      observaciones: [
-        modalidadEspecial === "becado"
-          ? "La actividad está configurada como becada."
-          : modalidadEspecial === "invitado"
-            ? "La actividad está configurada como invitada."
-            : "La actividad está configurada sin cobro.",
-      ],
-    }
-  }
-
   if (economia.estado === "al_dia") {
     return {
       accesoEsperado: true,
@@ -483,7 +445,7 @@ function estadoPagoParaActividad(params: {
       accesoEsperado: true,
       accesoMotivo: "gracia" as const,
       estadoVisible: "activa" as const,
-      observaciones: ["Está dentro del período de gracia del 1 al 10."],
+      observaciones: ["Está dentro del período de gracia configurado."],
     }
   }
 

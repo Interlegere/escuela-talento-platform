@@ -80,14 +80,6 @@ function normalizarModalidadAdmin(
 ) {
   const value = String(modalidad || "").trim().toLowerCase()
 
-  if (
-    value === "becado" ||
-    value === "invitado" ||
-    value === "sin_cobro"
-  ) {
-    return value
-  }
-
   if (value === "por_sesion") {
     return "sesion"
   }
@@ -97,14 +89,6 @@ function normalizarModalidadAdmin(
   }
 
   return normalizarModalidadPago(value, actividadSlug)
-}
-
-function permiteMontoCero(modalidad: string) {
-  return (
-    modalidad === "becado" ||
-    modalidad === "invitado" ||
-    modalidad === "sin_cobro"
-  )
 }
 
 export async function GET() {
@@ -303,17 +287,11 @@ export async function POST(req: Request) {
       )
     }
 
-    if (
-      Number.isNaN(honorarioMensual) ||
-      (!permiteMontoCero(modalidadPago) && honorarioMensual <= 0) ||
-      (permiteMontoCero(modalidadPago) && honorarioMensual < 0)
-    ) {
+    if (Number.isNaN(honorarioMensual) || honorarioMensual <= 0) {
       return NextResponse.json(
         {
           error:
-            permiteMontoCero(modalidadPago)
-              ? "Ingresá un honorario válido igual o mayor a 0."
-              : "Ingresá un honorario válido mayor a 0. Escribí sólo el número y elegí la moneda aparte.",
+            "Ingresá un honorario válido mayor a 0. Escribí sólo el número y elegí la moneda aparte.",
         },
         { status: 400 }
       )

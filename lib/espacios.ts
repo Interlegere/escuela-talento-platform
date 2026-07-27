@@ -231,7 +231,7 @@ export async function obtenerEstadoPagoActividadActual(
     }
   }
 
-  if (economia.estado === "al_dia" || economia.estado === "bonificado" || economia.estado === "sin_cobro") {
+  if (economia.estado === "al_dia") {
     return {
       habilitado: true,
       modalidad,

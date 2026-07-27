@@ -143,6 +143,38 @@ export async function obtenerHonorarioBasePorActividadConfigurado(
   return 0
 }
 
+export async function obtenerDiasGraciaPorActividadConfigurado(
+  actividadSlug: string
+) {
+  if (actividadSlug === "casatalentos") {
+    return obtenerNumeroConfigurado("casatalentos_gracia_dias", 10)
+  }
+
+  if (actividadSlug === "conectando-sentidos") {
+    return obtenerNumeroConfigurado("conectando_sentidos_gracia_dias", 10)
+  }
+
+  if (actividadSlug === "membresia") {
+    return obtenerNumeroConfigurado("membresia_gracia_dias", 10)
+  }
+
+  return null
+}
+
+export async function obtenerDiasGraciaConfigurados() {
+  const [casatalentos, conectandoSentidos, membresia] = await Promise.all([
+    obtenerNumeroConfigurado("casatalentos_gracia_dias", 10),
+    obtenerNumeroConfigurado("conectando_sentidos_gracia_dias", 10),
+    obtenerNumeroConfigurado("membresia_gracia_dias", 10),
+  ])
+
+  return {
+    casatalentos,
+    conectandoSentidos,
+    membresia,
+  }
+}
+
 export function calcularMontosPagoMensual(
   montoBaseInput: string | number | null | undefined
 ) {

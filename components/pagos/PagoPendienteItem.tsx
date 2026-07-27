@@ -25,10 +25,6 @@ function estadoLabel(estado: PagoUiItem["estado"]) {
       return "Requiere acción"
     case "pagado":
       return "Resuelto"
-    case "bonificado":
-      return "Bonificado"
-    case "sin_cargo":
-      return "Sin cargo"
   }
 }
 
@@ -42,9 +38,6 @@ function estadoBadgeClass(estado: PagoUiItem["estado"]) {
       return "border-red-200 bg-red-50 text-red-700"
     case "pagado":
       return "border-emerald-200 bg-emerald-50 text-emerald-800"
-    case "bonificado":
-    case "sin_cargo":
-      return "border-[var(--line)] bg-white/80 text-gray-700"
   }
 }
 

@@ -55,13 +55,7 @@ type FormState = {
   actividades: ActividadesFormState
 }
 
-type ModalidadOperable =
-  | "mensual"
-  | "por_sesion"
-  | "por_proceso"
-  | "becado"
-  | "invitado"
-  | "sin_cobro"
+type ModalidadOperable = "mensual" | "por_sesion" | "por_proceso"
 
 type MedioSugerido = "transferencia" | "mercado_pago" | "manual" | ""
 
@@ -109,9 +103,6 @@ const MODALIDADES_OPERABLES: Array<{
   { value: "mensual", label: "Mensual" },
   { value: "por_sesion", label: "Por sesión" },
   { value: "por_proceso", label: "Por proceso" },
-  { value: "becado", label: "Becado" },
-  { value: "invitado", label: "Invitado" },
-  { value: "sin_cobro", label: "Sin cobro" },
 ]
 
 const MEDIOS_SUGERIDOS: Array<{
@@ -204,12 +195,6 @@ function etiquetaModalidad(modalidad: EconomiaResumen["modalidad"]) {
       return "Por sesión"
     case "por_proceso":
       return "Por proceso"
-    case "becado":
-      return "Becado"
-    case "invitado":
-      return "Invitado"
-    case "sin_cobro":
-      return "Sin cobro"
     case "desconocida":
       return "Sin configurar"
   }
@@ -221,10 +206,7 @@ function normalizarModalidadOperable(
   if (
     modalidad === "mensual" ||
     modalidad === "por_sesion" ||
-    modalidad === "por_proceso" ||
-    modalidad === "becado" ||
-    modalidad === "invitado" ||
-    modalidad === "sin_cobro"
+    modalidad === "por_proceso"
   ) {
     return modalidad
   }
@@ -255,8 +237,6 @@ function medioPagoLabel(medio?: string | null) {
       return "Mercado Pago"
     case "manual":
       return "Manual"
-    case "sin_cargo":
-      return "Sin cargo"
     default:
       return medio || "Sin definir"
   }
@@ -419,6 +399,10 @@ export default function AdminUsuariosPage() {
   const [terapiaHonorarioBase, setTerapiaHonorarioBase] = useState("")
   const [comboCtCsHonorarioBase, setComboCtCsHonorarioBase] = useState("")
   const [comboTerapiaSesionPrecio, setComboTerapiaSesionPrecio] = useState("")
+  const [casatalentosGraciaDias, setCasatalentosGraciaDias] = useState("")
+  const [conectandoSentidosGraciaDias, setConectandoSentidosGraciaDias] =
+    useState("")
+  const [membresiaGraciaDias, setMembresiaGraciaDias] = useState("")
   const [guardandoConfiguracionPagos, setGuardandoConfiguracionPagos] =
     useState(false)
   const [mensajeConfiguracionPagos, setMensajeConfiguracionPagos] = useState("")
@@ -474,6 +458,11 @@ export default function AdminUsuariosPage() {
       setComboTerapiaSesionPrecio(
         String(data.comboTerapiaSesionPrecio ?? "0")
       )
+      setCasatalentosGraciaDias(String(data.casatalentosGraciaDias ?? "10"))
+      setConectandoSentidosGraciaDias(
+        String(data.conectandoSentidosGraciaDias ?? "10")
+      )
+      setMembresiaGraciaDias(String(data.membresiaGraciaDias ?? "10"))
     } catch {
       setMensajeConfiguracionPagos("Error cargando la configuración de pagos.")
     }
@@ -496,6 +485,9 @@ export default function AdminUsuariosPage() {
           terapiaHonorarioBase,
           comboCtCsHonorarioBase,
           comboTerapiaSesionPrecio,
+          casatalentosGraciaDias,
+          conectandoSentidosGraciaDias,
+          membresiaGraciaDias,
         }),
       })
 
@@ -528,6 +520,17 @@ export default function AdminUsuariosPage() {
       )
       setComboTerapiaSesionPrecio(
         String(data.comboTerapiaSesionPrecio ?? comboTerapiaSesionPrecio)
+      )
+      setCasatalentosGraciaDias(
+        String(data.casatalentosGraciaDias ?? casatalentosGraciaDias)
+      )
+      setConectandoSentidosGraciaDias(
+        String(
+          data.conectandoSentidosGraciaDias ?? conectandoSentidosGraciaDias
+        )
+      )
+      setMembresiaGraciaDias(
+        String(data.membresiaGraciaDias ?? membresiaGraciaDias)
       )
       setMensajeConfiguracionPagos("Configuración de pagos guardada correctamente.")
     } catch {
@@ -994,39 +997,6 @@ export default function AdminUsuariosPage() {
     [guardarActividadesDesdeFicha, obtenerDraftEconomia, recargarTodo]
   )
 
-  const aplicarPresetEconomico = useCallback(
-    async (
-      persona: PersonaResumen,
-      actividadSlug: EconomiaResumen["actividad"],
-      modalidad: Extract<
-        ModalidadOperable,
-        "becado" | "invitado" | "sin_cobro"
-      >
-    ) => {
-      const draftPreset: EconomiaDraft = {
-        monto: "0",
-        moneda: "ARS",
-        modalidad,
-        medioSugerido: "",
-      }
-
-      actualizarDraftEconomia(
-        persona.email,
-        actividadSlug,
-        draftPreset,
-        persona.economia.find((item) => item.actividad === actividadSlug) || null
-      )
-
-      await guardarEconomiaDesdeFicha(
-        persona,
-        actividadSlug,
-        persona.economia.find((item) => item.actividad === actividadSlug) || null,
-        draftPreset
-      )
-    },
-    [actualizarDraftEconomia, guardarEconomiaDesdeFicha]
-  )
-
   const generarCobroDesdeFicha = useCallback(
     async (persona: PersonaResumen, actividadSlug: EconomiaResumen["actividad"]) => {
       const key = actividadKey(persona.email, `${actividadSlug}:cobro`)
@@ -1288,56 +1258,6 @@ export default function AdminUsuariosPage() {
                 ? "Deshabilitar"
                 : "Habilitar"}
           </button>
-
-          {actividad.actividad === "casatalentos" ||
-          actividad.actividad === "conectando-sentidos" ||
-          actividad.actividad === "mentorias" ||
-          actividad.actividad === "terapia" ? (
-            <>
-              <button
-                type="button"
-                disabled={economiaGuardandoKey === key}
-                onClick={() =>
-                  void aplicarPresetEconomico(
-                    persona,
-                    actividad.actividad as EconomiaResumen["actividad"],
-                    "becado"
-                  )
-                }
-                className="workspace-button-secondary !px-3 !py-1.5 text-xs"
-              >
-                Becado
-              </button>
-              <button
-                type="button"
-                disabled={economiaGuardandoKey === key}
-                onClick={() =>
-                  void aplicarPresetEconomico(
-                    persona,
-                    actividad.actividad as EconomiaResumen["actividad"],
-                    "invitado"
-                  )
-                }
-                className="workspace-button-secondary !px-3 !py-1.5 text-xs"
-              >
-                Invitado
-              </button>
-              <button
-                type="button"
-                disabled={economiaGuardandoKey === key}
-                onClick={() =>
-                  void aplicarPresetEconomico(
-                    persona,
-                    actividad.actividad as EconomiaResumen["actividad"],
-                    "sin_cobro"
-                  )
-                }
-                className="workspace-button-secondary !px-3 !py-1.5 text-xs"
-              >
-                Sin cobro
-              </button>
-            </>
-          ) : null}
         </div>
       </div>
     )
@@ -1895,41 +1815,28 @@ export default function AdminUsuariosPage() {
               </div>
             </BloqueFicha>
 
-            <BloqueFicha titulo="Economía">
-              {personaTieneComboCtCs(persona) && (
-                <div className="mb-3 rounded-xl border border-[rgba(205,147,58,0.4)] bg-[rgba(255,247,225,0.75)] p-3 text-sm">
-                  <p className="font-semibold">Actividades combinadas</p>
-                  <p className="mt-1 text-gray-700">
-                    CasaTalentos + Conectando Sentidos —{" "}
-                    {(() => {
-                      const ct = persona.economia.find(
-                        (item) => item.actividad === "casatalentos"
-                      )
-                      const cs = persona.economia.find(
-                        (item) => item.actividad === "conectando-sentidos"
-                      )
-                      const total = (ct?.monto || 0) + (cs?.monto || 0)
-                      return `${ct?.moneda || cs?.moneda || "ARS"} ${total}/mes`
-                    })()}
-                  </p>
-                  <p className="mt-1 text-xs text-gray-600">
-                    Se reparte entre las dos actividades de abajo; sumadas dan
-                    este total.
-                  </p>
-                </div>
-              )}
+            <BloqueFicha titulo="Honorario de Mentoría">
+              <p className="mb-3 text-xs text-gray-500">
+                El único honorario que se configura persona por persona.
+                CasaTalentos, Conectando Sentidos, Terapia y Membresía usan el
+                precio estándar de &ldquo;Configuración de pagos&rdquo; para
+                todos.
+              </p>
+              {(() => {
+                const mentoriaEconomia = persona.economia.find(
+                  (item) => item.actividad === "mentorias"
+                )
 
-              {persona.economia.length === 0 ? (
-                <p className="text-sm text-gray-600">
-                  Sin configuración económica visible todavía.
-                </p>
-              ) : (
-                <div className="grid gap-2">
-                  {persona.economia.map((economia) =>
-                    renderEconomia(persona, economia)
-                  )}
-                </div>
-              )}
+                return mentoriaEconomia ? (
+                  <div className="grid gap-2">
+                    {renderEconomia(persona, mentoriaEconomia)}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-600">
+                    Mentoría no está habilitada para esta persona.
+                  </p>
+                )
+              })()}
             </BloqueFicha>
 
             <BloqueFicha titulo="Historial de pagos y comprobantes">
@@ -2046,12 +1953,12 @@ export default function AdminUsuariosPage() {
         <div className="space-y-4">
           <p className="workspace-inline-note">
             Definí el recargo de Mercado Pago y el honorario base mensual de
-            CasaTalentos, Conectando Sentidos y Terapia. Al habilitar una de
-            estas actividades para una persona, si no tiene un honorario
-            propio cargado, se le asigna automáticamente este valor base y se
-            genera su primer cobro. Mentorías queda siempre fuera de esta
-            base: es el único pago personalizado, se carga a mano por
-            persona en la sección &ldquo;Economía&rdquo; de cada ficha.
+            CasaTalentos, Conectando Sentidos y Terapia. El honorario es el
+            mismo para todas las personas de cada actividad: al habilitarla,
+            se asigna automáticamente este valor y se genera su primer cobro.
+            Mentorías queda siempre fuera de esta base: es el único pago
+            personalizado, se carga a mano por persona en la sección
+            &ldquo;Honorario de Mentoría&rdquo; de cada ficha.
           </p>
 
           {mensajeConfiguracionPagos && (
@@ -2157,6 +2064,63 @@ export default function AdminUsuariosPage() {
                   placeholder="Ej: 43000"
                   value={comboTerapiaSesionPrecio}
                   onChange={(e) => setComboTerapiaSesionPrecio(e.target.value)}
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="workspace-divider pt-4 space-y-3">
+            <div className="space-y-1">
+              <h3 className="text-lg font-semibold">Días de prórroga</h3>
+              <p className="workspace-inline-note">
+                Cuántos días del mes puede pasar una persona sin pago
+                registrado y seguir con acceso habilitado a la actividad.
+                Pasado ese día del mes, si no pagó, se le bloquea el acceso
+                hasta que regularice. Terapia no tiene prórroga (se cobra por
+                sesión reservada) y Mentoría tiene acceso garantizado sin
+                importar el pago, así que no aplica.
+              </p>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <label className="space-y-2">
+                <span className="text-sm font-medium text-gray-700">
+                  Prórroga CasaTalentos (días)
+                </span>
+                <input
+                  className="workspace-field"
+                  inputMode="numeric"
+                  placeholder="Ej: 10"
+                  value={casatalentosGraciaDias}
+                  onChange={(e) => setCasatalentosGraciaDias(e.target.value)}
+                />
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-sm font-medium text-gray-700">
+                  Prórroga Conectando Sentidos (días)
+                </span>
+                <input
+                  className="workspace-field"
+                  inputMode="numeric"
+                  placeholder="Ej: 10"
+                  value={conectandoSentidosGraciaDias}
+                  onChange={(e) =>
+                    setConectandoSentidosGraciaDias(e.target.value)
+                  }
+                />
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-sm font-medium text-gray-700">
+                  Prórroga Membresía (días)
+                </span>
+                <input
+                  className="workspace-field"
+                  inputMode="numeric"
+                  placeholder="Ej: 10"
+                  value={membresiaGraciaDias}
+                  onChange={(e) => setMembresiaGraciaDias(e.target.value)}
                 />
               </label>
             </div>

@@ -56,16 +56,6 @@ function normalizarEmail(email?: string | null) {
   return String(email || "").trim().toLowerCase()
 }
 
-function esModalidadEspecial(
-  modalidad?: string | null
-): modalidad is "becado" | "invitado" | "sin_cobro" {
-  return (
-    modalidad === "becado" ||
-    modalidad === "invitado" ||
-    modalidad === "sin_cobro"
-  )
-}
-
 export async function syncUsuarioActividadAdmin(params: SyncUsuarioActividadParams) {
   const { supabase, usuarioId, actividadSlug, habilitada } = params
   const usuarioEmail = normalizarEmail(params.usuarioEmail)
@@ -308,7 +298,6 @@ export async function asegurarHonorarioYPagoAdmin(
     honorario.modalidad_pago,
     actividadSlug
   )
-  const modalidadEspecial = esModalidadEspecial(honorario.modalidad_pago)
 
   if (modalidadPago === "sesion") {
     return {
@@ -397,10 +386,6 @@ export async function asegurarHonorarioYPagoAdmin(
       cambiosPago.medio_pago = medioPago
     }
 
-    if (modalidadEspecial && pagoExistente.estado !== "pagado") {
-      cambiosPago.estado = "pagado"
-    }
-
     if (Object.keys(cambiosPago).length > 0) {
       const { error: pagoUpdateError } = await supabase
         .from("pagos_mensuales")
@@ -427,7 +412,7 @@ export async function asegurarHonorarioYPagoAdmin(
       inscripcion_id: inscripcion.id,
       anio,
       mes,
-      estado: modalidadEspecial ? "pagado" : "pendiente",
+      estado: "pendiente",
       monto,
       moneda,
       medio_pago: medioPago,

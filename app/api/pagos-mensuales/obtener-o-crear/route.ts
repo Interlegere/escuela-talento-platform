@@ -25,14 +25,6 @@ type HonorarioRow = {
   activo?: boolean | null
 }
 
-function esModalidadSinCobro(modalidad?: string | null) {
-  return (
-    modalidad === "becado" ||
-    modalidad === "invitado" ||
-    modalidad === "sin_cobro"
-  )
-}
-
 function esModalidadPorSesion(modalidad?: string | null) {
   return modalidad === "sesion" || modalidad === "por_sesion"
 }
@@ -166,23 +158,6 @@ export async function POST(req: Request) {
         accion: "no_generable",
         motivo:
           "Esta actividad se abona por sesión. El cobro se gestiona al reservar o confirmar cada encuentro.",
-        actividad,
-        inscripcion,
-        pago: null,
-        modalidadPago,
-      })
-    }
-
-    if (esModalidadSinCobro(modalidadRaw)) {
-      return NextResponse.json({
-        ok: true,
-        accion: "no_generable",
-        motivo:
-          modalidadRaw === "becado"
-            ? "La actividad está configurada como becada. No corresponde generar cobro mensual."
-            : modalidadRaw === "invitado"
-              ? "La actividad está configurada como invitada. No corresponde generar cobro mensual."
-              : "La actividad está configurada sin cobro. No corresponde generar cobro mensual.",
         actividad,
         inscripcion,
         pago: null,

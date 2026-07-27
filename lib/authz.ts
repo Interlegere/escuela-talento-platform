@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth"
 import { estaDentroDeGraciaMensual } from "@/lib/activity-rules"
 import { normalizarModalidadPago } from "@/lib/billing"
 import { asegurarActividadBase } from "@/lib/core-activities"
+import { obtenerDiasGraciaPorActividadConfigurado } from "@/lib/payment-pricing"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
 export type GlobalRole = "admin" | "colaborador" | "participante"
@@ -560,7 +561,9 @@ export async function resolveActivityAccess(
       }
     }
 
-    if (estaDentroDeGraciaMensual(actividadSlug, ahora)) {
+    const graceDay = await obtenerDiasGraciaPorActividadConfigurado(actividadSlug)
+
+    if (estaDentroDeGraciaMensual(graceDay, ahora)) {
       const recursos = await cargarRecursosActividad(supabase, actividad.id, email)
 
       return {

@@ -14,8 +14,6 @@ export type PagoUiItem = {
     | "en_revision"
     | "rechazado"
     | "pagado"
-    | "bonificado"
-    | "sin_cargo"
   accionPrincipal: "pagar_mp" | "esperar_revision" | "ninguna"
   accionSecundaria: "subir_comprobante" | "ver_detalle" | null
   fechaRelevante: string | null
@@ -136,14 +134,6 @@ function descripcionActividad(source: PagoUiActividadSource) {
     return "Pago acreditado correctamente."
   }
 
-  if (estado === "bonificado") {
-    return "Esta actividad está bonificada."
-  }
-
-  if (estado === "sin_cobro") {
-    return "Esta actividad no tiene cargo económico."
-  }
-
   return "Completá el pago para mantener tu actividad habilitada."
 }
 
@@ -154,8 +144,6 @@ function mapEstadoActividad(source: PagoUiActividadSource): PagoUiItem["estado"]
   if (estado === "en_revision") return "en_revision"
   if (estado === "rechazado") return "rechazado"
   if (estado === "al_dia") return "pagado"
-  if (estado === "bonificado") return "bonificado"
-  if (estado === "sin_cobro") return "sin_cargo"
 
   return null
 }
@@ -176,14 +164,14 @@ export function crearPagoUiDesdeActividad(
   const accionPrincipal =
     estado === "en_revision"
       ? "esperar_revision"
-      : estado === "pagado" || estado === "bonificado" || estado === "sin_cargo"
+      : estado === "pagado"
         ? "ninguna"
         : "pagar_mp"
 
   const accionSecundaria =
     estado === "pendiente_pago" || estado === "rechazado"
       ? "subir_comprobante"
-      : estado === "pagado" || estado === "bonificado" || estado === "sin_cargo"
+      : estado === "pagado"
         ? "ver_detalle"
         : null
 
@@ -194,9 +182,7 @@ export function crearPagoUiDesdeActividad(
         ? "Volvé a pagar o subí un nuevo comprobante."
         : estado === "pagado"
           ? "Todo en orden."
-          : estado === "bonificado" || estado === "sin_cargo"
-            ? "No tenés acciones pendientes."
-            : "Pagá ahora o subí tu comprobante."
+          : "Pagá ahora o subí tu comprobante."
 
   const item: PagoUiItem = {
     id: `actividad:${source.id}`,
@@ -334,11 +320,7 @@ export function agruparPagoUiItems(items: PagoUiItem[]) {
       items.filter((item) => item.estado === "en_revision")
     ),
     resueltos: ordenarPagoUiItems(
-      items.filter((item) =>
-        item.estado === "pagado" ||
-        item.estado === "bonificado" ||
-        item.estado === "sin_cargo"
-      )
+      items.filter((item) => item.estado === "pagado")
     ),
   }
 }

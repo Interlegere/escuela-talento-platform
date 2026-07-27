@@ -3,6 +3,7 @@ import { requirePermission } from "@/lib/authz"
 import {
   obtenerRecargoMercadoPagoPorcentajeConfigurado,
   obtenerHonorariosBaseEscuelaConfigurados,
+  obtenerDiasGraciaConfigurados,
 } from "@/lib/payment-pricing"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
@@ -13,6 +14,9 @@ type Body = {
   terapiaHonorarioBase?: string | number
   comboCtCsHonorarioBase?: string | number
   comboTerapiaSesionPrecio?: string | number
+  casatalentosGraciaDias?: string | number
+  conectandoSentidosGraciaDias?: string | number
+  membresiaGraciaDias?: string | number
 }
 
 function normalizarNumero(input: string | number | null | undefined) {
@@ -34,9 +38,10 @@ export async function GET() {
       return auth.response
     }
 
-    const [porcentaje, honorariosBase] = await Promise.all([
+    const [porcentaje, honorariosBase, diasGracia] = await Promise.all([
       obtenerRecargoMercadoPagoPorcentajeConfigurado(),
       obtenerHonorariosBaseEscuelaConfigurados(),
+      obtenerDiasGraciaConfigurados(),
     ])
 
     return NextResponse.json({
@@ -47,6 +52,9 @@ export async function GET() {
       terapiaHonorarioBase: honorariosBase.terapia,
       comboCtCsHonorarioBase: honorariosBase.comboCtCs,
       comboTerapiaSesionPrecio: honorariosBase.comboTerapiaSesion,
+      casatalentosGraciaDias: diasGracia.casatalentos,
+      conectandoSentidosGraciaDias: diasGracia.conectandoSentidos,
+      membresiaGraciaDias: diasGracia.membresia,
     })
   } catch (error) {
     return NextResponse.json(
@@ -68,10 +76,12 @@ export async function POST(req: Request) {
     }
 
     const body = (await req.json()) as Body
-    const [porcentajeActual, honorariosBaseActuales] = await Promise.all([
-      obtenerRecargoMercadoPagoPorcentajeConfigurado(),
-      obtenerHonorariosBaseEscuelaConfigurados(),
-    ])
+    const [porcentajeActual, honorariosBaseActuales, diasGraciaActuales] =
+      await Promise.all([
+        obtenerRecargoMercadoPagoPorcentajeConfigurado(),
+        obtenerHonorariosBaseEscuelaConfigurados(),
+        obtenerDiasGraciaConfigurados(),
+      ])
     const porcentaje =
       body.mercadoPagoRecargoPorcentaje === undefined
         ? porcentajeActual
@@ -96,6 +106,18 @@ export async function POST(req: Request) {
       body.comboTerapiaSesionPrecio === undefined
         ? honorariosBaseActuales.comboTerapiaSesion
         : normalizarNumero(body.comboTerapiaSesionPrecio)
+    const casatalentosGraciaDias =
+      body.casatalentosGraciaDias === undefined
+        ? diasGraciaActuales.casatalentos
+        : normalizarNumero(body.casatalentosGraciaDias)
+    const conectandoSentidosGraciaDias =
+      body.conectandoSentidosGraciaDias === undefined
+        ? diasGraciaActuales.conectandoSentidos
+        : normalizarNumero(body.conectandoSentidosGraciaDias)
+    const membresiaGraciaDias =
+      body.membresiaGraciaDias === undefined
+        ? diasGraciaActuales.membresia
+        : normalizarNumero(body.membresiaGraciaDias)
 
     if (!Number.isFinite(porcentaje) || porcentaje < 0) {
       return NextResponse.json(
@@ -157,6 +179,22 @@ export async function POST(req: Request) {
       )
     }
 
+    if (
+      !Number.isFinite(casatalentosGraciaDias) ||
+      casatalentosGraciaDias < 0 ||
+      !Number.isFinite(conectandoSentidosGraciaDias) ||
+      conectandoSentidosGraciaDias < 0 ||
+      !Number.isFinite(membresiaGraciaDias) ||
+      membresiaGraciaDias < 0
+    ) {
+      return NextResponse.json(
+        {
+          error: "Ingresá una cantidad de días de prórroga válida (0 o más) para cada actividad.",
+        },
+        { status: 400 }
+      )
+    }
+
     const supabase = createAdminSupabaseClient()
     const { error } = await supabase
       .from("configuracion_plataforma")
@@ -192,6 +230,21 @@ export async function POST(req: Request) {
             valor_texto: String(comboTerapiaSesionPrecio),
             updated_at: new Date().toISOString(),
           },
+          {
+            clave: "casatalentos_gracia_dias",
+            valor_texto: String(casatalentosGraciaDias),
+            updated_at: new Date().toISOString(),
+          },
+          {
+            clave: "conectando_sentidos_gracia_dias",
+            valor_texto: String(conectandoSentidosGraciaDias),
+            updated_at: new Date().toISOString(),
+          },
+          {
+            clave: "membresia_gracia_dias",
+            valor_texto: String(membresiaGraciaDias),
+            updated_at: new Date().toISOString(),
+          },
         ],
         {
           onConflict: "clave",
@@ -217,6 +270,9 @@ export async function POST(req: Request) {
       terapiaHonorarioBase,
       comboCtCsHonorarioBase,
       comboTerapiaSesionPrecio,
+      casatalentosGraciaDias,
+      conectandoSentidosGraciaDias,
+      membresiaGraciaDias,
     })
   } catch (error) {
     return NextResponse.json(

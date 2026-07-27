@@ -2,13 +2,13 @@ import type { ActivitySlug } from "@/lib/authz"
 import { estaDentroDeGraciaMensual } from "@/lib/activity-rules"
 import { normalizarModalidadPago } from "@/lib/billing"
 import { asegurarActividadBase } from "@/lib/core-activities"
+import { obtenerDiasGraciaPorActividadConfigurado } from "@/lib/payment-pricing"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
 export type EconomyPaymentMode =
   | "mensual"
   | "proceso"
   | "sesion"
-  | "sin_cobro"
   | "sin_configurar"
 
 export type EconomyStatus =
@@ -16,9 +16,7 @@ export type EconomyStatus =
   | "pendiente_pago"
   | "en_revision"
   | "rechazado"
-  | "bonificado"
   | "gracia"
-  | "sin_cobro"
   | "sin_configurar"
   | "no_aplica"
   | "cancelado"
@@ -46,6 +44,7 @@ export type EconomyRawActivityContext = {
   pagoMensualAnio?: number | null
   pagoMensualMes?: number | null
   fechaActual?: Date
+  diasGraciaConfigurados?: number | null
 }
 
 export type EconomyRawEncounterContext = {
@@ -127,20 +126,6 @@ function normalizarActividadSlug(
   return String(actividadSlug || "").trim().toLowerCase()
 }
 
-function modalidadEspecialSinCobro(raw?: string | null) {
-  const value = String(raw || "").trim().toLowerCase()
-
-  if (value === "becado" || value === "invitado") {
-    return "bonificado" as const
-  }
-
-  if (value === "sin_cobro") {
-    return "sin_cobro" as const
-  }
-
-  return null
-}
-
 function resolverModalidadEconomica(
   actividadSlug: ActivitySlug | string,
   honorarioModalidadRaw?: string | null,
@@ -148,11 +133,6 @@ function resolverModalidadEconomica(
 ): EconomyPaymentMode {
   if (honorarioActivo === false) {
     return "sin_configurar"
-  }
-
-  const especial = modalidadEspecialSinCobro(honorarioModalidadRaw)
-  if (especial) {
-    return "sin_cobro"
   }
 
   if (!String(honorarioModalidadRaw || "").trim()) {
@@ -183,7 +163,7 @@ export function resolverAccionEconomicaSiguiente(params: {
   const { estado, modalidad, requierePago, comprobantePendiente = false } = params
 
   if (!requierePago) return "sin_accion" as const
-  if (estado === "al_dia" || estado === "bonificado" || estado === "sin_cobro") {
+  if (estado === "al_dia") {
     return "sin_accion" as const
   }
   if (estado === "gracia") {
@@ -233,10 +213,6 @@ export function resolverDetalleEconomico(params:
         return "Pago al día."
       case "gracia":
         return "Acceso habilitado dentro del período de gracia."
-      case "bonificado":
-        return "Actividad bonificada. No requiere pago."
-      case "sin_cobro":
-        return "Actividad configurada sin cobro."
       case "sin_configurar":
         return `Falta configurar el encuadre económico de ${nombreActividad}.`
       case "no_aplica":
@@ -263,10 +239,6 @@ export function resolverDetalleEconomico(params:
   switch (resuelto.estado) {
     case "cancelado":
       return "Encuentro cancelado. No corresponde cobro."
-    case "bonificado":
-      return "Encuentro bonificado. No requiere pago."
-    case "sin_cobro":
-      return "Encuentro configurado sin cobro."
     case "al_dia":
       return "Pago confirmado. El requisito económico está cumplido."
     case "en_revision":
@@ -294,7 +266,6 @@ export function resolverEconomiaActividad(
     contexto.honorarioModalidadRaw,
     contexto.honorarioActivo
   )
-  const especial = modalidadEspecialSinCobro(contexto.honorarioModalidadRaw)
   const monto =
     normalizarMonto(contexto.pagoMensualMonto) ??
     normalizarMonto(contexto.honorarioMonto)
@@ -317,16 +288,6 @@ export function resolverEconomiaActividad(
     estado = "sin_configurar"
     requierePago = false
     origen = "honorario:faltante"
-  } else if (especial === "bonificado") {
-    estado = "bonificado"
-    requierePago = false
-    accesoEconomicoHabilitado = true
-    origen = `honorario:${String(contexto.honorarioModalidadRaw || "").trim().toLowerCase()}`
-  } else if (especial === "sin_cobro") {
-    estado = "sin_cobro"
-    requierePago = false
-    accesoEconomicoHabilitado = true
-    origen = "honorario:sin_cobro"
   } else if (modalidad === "sesion") {
     estado = "no_aplica"
     requierePago = false
@@ -338,7 +299,7 @@ export function resolverEconomiaActividad(
       if (
         actividadSlug !== "terapia" &&
         actividadSlug !== "membresia" &&
-        estaDentroDeGraciaMensual(actividadSlug as ActivitySlug, fechaActual)
+        estaDentroDeGraciaMensual(contexto.diasGraciaConfigurados, fechaActual)
       ) {
         estado = "gracia"
         accesoEconomicoHabilitado = true
@@ -360,7 +321,7 @@ export function resolverEconomiaActividad(
     } else if (
       actividadSlug !== "terapia" &&
       actividadSlug !== "membresia" &&
-      estaDentroDeGraciaMensual(actividadSlug as ActivitySlug, fechaActual)
+      estaDentroDeGraciaMensual(contexto.diasGraciaConfigurados, fechaActual)
     ) {
       estado = "gracia"
       accesoEconomicoHabilitado = true
@@ -409,7 +370,6 @@ export function resolverEconomiaEncuentro(
     .toLowerCase()
   const reservaEstado = String(contexto.reservaEstado || "").trim().toLowerCase()
   const mpStatus = String(contexto.mpStatus || "").trim().toLowerCase()
-  const modalidadEspecial = modalidadEspecialSinCobro(contexto.honorarioModalidadRaw)
   const monto =
     normalizarMonto(contexto.montoTransferencia) ??
     normalizarMonto(contexto.monto) ??
@@ -425,14 +385,6 @@ export function resolverEconomiaEncuentro(
   if (disponibilidadEstado === "cancelada") {
     estado = "cancelado"
     origen = "disponibilidad:cancelada"
-  } else if (modalidadEspecial === "bonificado") {
-    estado = "bonificado"
-    accesoEconomicoHabilitado = true
-    origen = `honorario:${String(contexto.honorarioModalidadRaw || "").trim().toLowerCase()}`
-  } else if (modalidadEspecial === "sin_cobro") {
-    estado = "sin_cobro"
-    accesoEconomicoHabilitado = true
-    origen = "honorario:sin_cobro"
   } else if (reservaEstado === "confirmada") {
     estado = "al_dia"
     requierePago = true
@@ -534,7 +486,7 @@ export async function obtenerEconomiaActividadActual(
 
   let pago: LoaderPagoRow | null = null
 
-  if (honorario?.id && modalidad !== "sin_cobro" && modalidad !== "sin_configurar" && modalidad !== "sesion") {
+  if (honorario?.id && modalidad !== "sin_configurar" && modalidad !== "sesion") {
     if (modalidad === "proceso") {
       const { data } = await supabase
         .from("pagos_mensuales")
@@ -562,6 +514,10 @@ export async function obtenerEconomiaActividadActual(
     }
   }
 
+  const diasGraciaConfigurados = await obtenerDiasGraciaPorActividadConfigurado(
+    actividadSlug
+  )
+
   return resolverEconomiaActividad({
     actividadSlug,
     actividadExiste: true,
@@ -577,5 +533,6 @@ export async function obtenerEconomiaActividadActual(
     pagoMensualMoneda: pago?.moneda || null,
     pagoMensualAnio: pago?.anio ?? null,
     pagoMensualMes: pago?.mes ?? null,
+    diasGraciaConfigurados,
   })
 }
