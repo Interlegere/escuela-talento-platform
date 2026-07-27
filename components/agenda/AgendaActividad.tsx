@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import ConsentimientoMeetButton from "@/components/consentimientos/ConsentimientoMeetButton"
-import EditarEncuentroModal from "@/components/agenda/EditarEncuentroModal"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
 import type { DocumentoNota } from "@/lib/documentos-notas"
 
@@ -76,28 +76,10 @@ function renderDocumentosNotas(item: ItemAgenda) {
   )
 }
 
-function etiquetaSync(syncStatus?: string | null, meetLink?: string | null) {
-  if (syncStatus === "sincronizado" && meetLink) {
-    return "Meet generado por Google Calendar"
-  }
-
-  if (syncStatus === "manual") {
-    return "Meet manual"
-  }
-
-  if (syncStatus === "sincronizando") {
-    return "Generando Meet..."
-  }
-
-  if (syncStatus === "error") {
-    return "Google Calendar no pudo generar el Meet"
-  }
-
-  if (meetLink) {
-    return "Meet disponible"
-  }
-
-  return "Meet aún no generado"
+function nombreActividad(actividadSlug: string) {
+  if (actividadSlug === "casatalentos") return "CasaTalentos"
+  if (actividadSlug === "conectando-sentidos") return "Conectando Sentidos"
+  return actividadSlug
 }
 
 export default function AgendaActividad({
@@ -113,9 +95,6 @@ export default function AgendaActividad({
   const [items, setItems] = useState<ItemAgenda[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState("")
-  const [mensaje, setMensaje] = useState("")
-  const [operandoId, setOperandoId] = useState<number | null>(null)
-  const [encuentroEditando, setEncuentroEditando] = useState<ItemAgenda | null>(null)
 
   const cargar = async () => {
     try {
@@ -149,108 +128,31 @@ export default function AgendaActividad({
     void cargar()
   }, [actividadSlug])
 
-  const ejecutarAccion = async (
-    item: ItemAgenda,
-    accion:
-      | "sync"
-      | "sync_serie"
-      | "editar"
-      | "meet_manual"
-      | "meet_manual_serie"
-      | "cancelar",
-    alcance: "solo_este" | "serie_futura" = "solo_este"
-  ) => {
-    if (!item.disponibilidadId) return
-
-    if (alcance === "serie_futura" && !item.serieId) {
-      setError(
-        "Esta programación no tiene identificador de serie. Sólo se puede modificar este encuentro."
-      )
-      return
-    }
-
-    try {
-      setOperandoId(item.disponibilidadId)
-      setError("")
-      setMensaje("")
-
-      let res: Response
-
-      if (accion === "sync") {
-        res = await fetch("/api/google/sync-disponibilidad", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ disponibilidadId: item.disponibilidadId }),
-        })
-      } else if (accion === "sync_serie") {
-        res = await fetch("/api/google/sync-serie", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ disponibilidadId: item.disponibilidadId }),
-        })
-      } else if (accion === "cancelar") {
-        const confirmar = window.confirm(
-          alcance === "serie_futura"
-            ? "Este encuentro y los próximos de la misma serie se cancelarán y dejarán de verse en las agendas activas. ¿Querés continuar?"
-            : "El encuentro se cancelará y dejará de verse en las agendas activas. ¿Querés continuar?"
-        )
-        if (!confirmar) return
-
-        res = await fetch("/api/agenda/admin/actualizar-disponibilidad", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            disponibilidadId: item.disponibilidadId,
-            modoActualizacion: "cancelar",
-            alcance,
-          }),
-        })
-      } else {
-        return
-      }
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        const mensaje = data.error || "No se pudo completar la acción."
-        setError(
-          data.necesitaConexionGoogle
-            ? `${mensaje} Podés hacerlo desde /google-calendar.`
-            : mensaje
-        )
-        return
-      }
-
-      setMensaje(
-        accion === "sync"
-          ? "Meet sincronizado correctamente."
-          : accion === "sync_serie"
-            ? `Serie sincronizada: ${data.sincronizados || 0} encuentros sincronizados${
-                data.errores
-                  ? `, ${data.errores} con error.`
-                  : "."
-              }`
-          : accion === "cancelar"
-              ? data.afectados && data.afectados > 1
-                ? `${data.afectados} encuentros cancelados correctamente.`
-                : "Encuentro cancelado correctamente."
-              : data.afectados && data.afectados > 1
-                ? `${data.afectados} encuentros actualizados correctamente.`
-                : "Encuentro actualizado correctamente."
-      )
-      await cargar()
-    } catch {
-      setError("No se pudo completar la acción.")
-    } finally {
-      setOperandoId(null)
-    }
-  }
-
   const itemsVisibles = mostrarSoloProximo ? items.slice(0, 1) : items
   const esAdmin = session?.user?.role === "admin"
 
   return (
     <section className="space-y-4">
+      {esAdmin && (
+        <div className="workspace-panel-soft space-y-3">
+          <p className="workspace-eyebrow">Programación centralizada</p>
+          <h2 className="text-xl font-semibold">
+            Los encuentros de {nombreActividad(actividadSlug)} se administran
+            desde la agenda unificada
+          </h2>
+          <p className="workspace-inline-note">
+            Para evitar duplicaciones, la agenda principal de la escuela es el
+            lugar desde donde se crean, editan, cancelan y generan los Meet de
+            esta actividad.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/agenda" className="workspace-button-secondary">
+              Abrir agenda unificada
+            </Link>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-2">
         <p className="workspace-eyebrow">Encuentros</p>
         <h2 className="workspace-title-sm">{tituloSeccion}</h2>
@@ -258,7 +160,6 @@ export default function AgendaActividad({
 
       {cargando && <p className="workspace-inline-note">Cargando...</p>}
       {error && <p className="text-red-600">{error}</p>}
-      {mensaje && <p className="text-green-700 text-sm font-medium">{mensaje}</p>}
 
       {!cargando && !error && itemsVisibles.length === 0 && (
         <p className="workspace-inline-note">No hay encuentros cargados todavía.</p>
@@ -276,11 +177,6 @@ export default function AgendaActividad({
               {formatearFecha(item.fecha)} · {item.hora}
             </p>
             <p className="workspace-inline-note">Duración: {item.duracion} min</p>
-            {esAdmin && (
-              <p className="workspace-inline-note">
-                Meet: {etiquetaSync(item.syncStatus, item.meetLink)}
-              </p>
-            )}
 
             {esAdmin && renderDocumentosNotas(item)}
 
@@ -302,83 +198,9 @@ export default function AgendaActividad({
                 {item.motivoBloqueo}
               </p>
             )}
-
-            {esAdmin && item.eliminablePorAdmin && item.disponibilidadId && (
-              <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => void ejecutarAccion(item, "sync")}
-                  disabled={operandoId === item.disponibilidadId}
-                  className="workspace-button-secondary disabled:opacity-60"
-                >
-                  {operandoId === item.disponibilidadId
-                    ? "Procesando..."
-                    : "Generar/Reintentar Meet"}
-                </button>
-                {item.serieId && (
-                  <button
-                    type="button"
-                    onClick={() => void ejecutarAccion(item, "sync_serie", "serie_futura")}
-                    disabled={operandoId === item.disponibilidadId}
-                    className="workspace-button-secondary disabled:opacity-60"
-                  >
-                    Generar/Reintentar Meet esta y próximas
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMensaje("")
-                    setError("")
-                    setEncuentroEditando(item)
-                  }}
-                  disabled={operandoId === item.disponibilidadId}
-                  className="workspace-button-secondary disabled:opacity-60"
-                >
-                  Editar encuentro
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void ejecutarAccion(item, "cancelar", "solo_este")}
-                  disabled={operandoId === item.disponibilidadId}
-                  className="workspace-button-secondary disabled:opacity-60"
-                >
-                  Cancelar este encuentro
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void ejecutarAccion(item, "cancelar", "serie_futura")}
-                  disabled={operandoId === item.disponibilidadId || !item.serieId}
-                  title={
-                    item.serieId
-                      ? "Cancelar este encuentro y los próximos de la misma serie"
-                      : "Esta programación no tiene identificador de serie. Sólo se puede modificar este encuentro."
-                  }
-                  className="workspace-button-secondary disabled:opacity-60"
-                >
-                  Cancelar esta y próximas
-                </button>
-                {!item.serieId && (
-                  <p className="w-full workspace-inline-note text-amber-700">
-                    Este encuentro no pertenece a una serie editable.
-                  </p>
-                )}
-              </div>
-            )}
           </div>
         ))}
       </div>
-
-      <EditarEncuentroModal
-        item={encuentroEditando}
-        open={Boolean(encuentroEditando)}
-        onClose={() => setEncuentroEditando(null)}
-        onSaved={async (message) => {
-          setMensaje(message)
-          setError("")
-          await cargar()
-        }}
-      />
     </section>
   )
 }
