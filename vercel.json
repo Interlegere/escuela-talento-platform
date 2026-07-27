@@ -3,6 +3,10 @@
     {
       "path": "/api/casatalentos/limpiar-antiguos",
       "schedule": "0 3 * * 0"
+    },
+    {
+      "path": "/api/pagos-mensuales/generar-cobros-mensuales",
+      "schedule": "0 3 1 * *"
     }
   ]
 }
