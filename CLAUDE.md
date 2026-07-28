@@ -166,4 +166,18 @@ De los 5 problemas diagnosticados en Comunicaciones (envío masivo sin límite, 
 ## 3. Pendiente
 - Envío masivo con pausas/límite de tiempo (hoy secuencial sin cap, riesgo de límites de Resend/timeout de Vercel en listas grandes — el volumen real actual es bajo, no urgente).
 - Tracking de apertura/rebote: requiere un webhook nuevo de Resend con verificación de firma (ojo con no repetir el mismo error sin validar que ya se marcó en los webhooks de MercadoPago) + columnas nuevas en `comunicacion_envios`.
-- UX general del compositor (`app/admin/comunicaciones/page.tsx`): contenido que queda pegado al cambiar de segmento, confirmación poco diferenciada entre prueba y envío real, historial sin registrar qué segmento se usó, opción "Pagos al día" muerta en el dropdown.
+- ~~UX general del compositor: contenido que queda pegado al cambiar de segmento, confirmación poco diferenciada entre prueba y envío real, historial sin registrar qué segmento se usó, opción "Pagos al día" muerta en el dropdown.~~ **RESUELTO, ver Fase 2 abajo.**
+
+## Fase 2 (mismo día): arreglos de UX en el compositor
+Los 6 puntos concretos de UX de `app/admin/comunicaciones/page.tsx`, todos resueltos en un solo archivo, sin cambios de backend/SQL (el historial ya traía `metadata` con el `segmento` sin necesitar nada nuevo de la API):
+- El efecto que precargaba asunto/contenido para "Usuarios con pago pendiente" reaccionaba a cada tecla y nunca limpiaba al salir del segmento — ahora reacciona solo al cambio de segmento, con un aviso visual, y limpia el contenido autocompletado (no editado a mano) al salir.
+- Aviso inline nuevo cuando se elige tipo "pago" con un segmento de contactos externos, antes de intentar enviar (antes solo se enteraban al fallar el envío).
+- El botón de envío ahora siempre muestra la cantidad real de destinatarios ("Enviar a N destinatarios") en vez de un label que variaba por segmento y podía sugerir un alcance más chico del real.
+- El historial ahora muestra el segmento usado (`metadata.segmento`) como chip, cuando está presente.
+- Se sacó la opción muerta "Usuarios con pago al día" ("Próximamente", nunca implementada) del desplegable de segmentos.
+- **Hallazgo durante la verificación**: el "preview desactualizado al cambiar el filtro" que se había diagnosticado **ya estaba resuelto por el código existente** (el efecto de carga inicial ya reacciona a cambios de segmento/filtro porque depende de `cargarPreview`, cuya identidad cambia con esos valores) — confirmado en vivo con logs de red, no hizo falta agregar nada.
+- Probado en vivo con Playwright: precarga/limpieza de contenido, aviso inline, label del botón con cantidad real ("Enviar a 18 destinatarios"), auto-actualización del preview, y que la opción muerta ya no aparece. El chip de segmento en historial se verificó por código/API — no había ningún envío de segmento real todavía en el historial para verlo con datos reales, y no se mandó un mail masivo real solo para probar esto.
+
+### Pendiente (sin cambios)
+- Envío masivo con pausas/límite de tiempo.
+- Tracking de apertura/rebote (webhook de Resend + columnas nuevas).

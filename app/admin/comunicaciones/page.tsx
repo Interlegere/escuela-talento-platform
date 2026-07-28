@@ -13,7 +13,6 @@ type Segmento =
   | "mentorias_activos"
   | "terapia_activos"
   | "pagos_pendientes"
-  | "pagos_al_dia"
   | "equipo_interno"
   | "contactos_externos_activos"
   | "contactos_externos_todos"
@@ -87,6 +86,7 @@ type HistorialEnvio = {
   error?: string | null
   created_at?: string | null
   sent_at?: string | null
+  metadata?: { segmento?: string | null; [key: string]: unknown } | null
 }
 
 const SEGMENTOS: Array<{
@@ -136,12 +136,6 @@ const SEGMENTOS: Array<{
     descripcion: "Recordatorios manuales para mensualidades, procesos y terapias pendientes.",
   },
   {
-    value: "pagos_al_dia",
-    label: "Usuarios con pago al día",
-    descripcion: "Próximamente.",
-    disabled: true,
-  },
-  {
     value: "equipo_interno",
     label: "Equipo interno",
     descripcion: "Admins y colaboradores activos.",
@@ -171,6 +165,13 @@ const SEGMENTOS: Array<{
     label: "Lista manual de emails",
     descripcion: "Emails pegados manualmente para este envío.",
   },
+]
+
+const SEGMENTOS_PROHIBIDOS_PARA_PAGO: Segmento[] = [
+  "contactos_externos_activos",
+  "contactos_externos_todos",
+  "usuarios_y_contactos_activos",
+  "lista_manual",
 ]
 
 const TIPOS: Array<{ value: TipoComunicacion; label: string }> = [
@@ -376,17 +377,45 @@ export default function AdminComunicacionesPage() {
       ? destinatariosPagoSeleccionados.length > 0
       : preview.length > 0 || tieneDestinatariosEspecificosPendientes
 
-  useEffect(() => {
-    if (segmento !== "pagos_pendientes") return
+  const cantidadDestinatariosSegmento = useMemo(() => {
+    if (segmento === "pagos_pendientes") {
+      return preview.filter((item) =>
+        destinatariosPagoSeleccionados.includes(item.email)
+      ).length
+    }
+    return preview.length
+  }, [segmento, preview, destinatariosPagoSeleccionados])
 
-    setTipo("pago")
-    if (!asunto.trim()) {
-      setAsunto(ASUNTO_RECORDATORIO_PAGO)
+  const [contenidoPagoAutocompletado, setContenidoPagoAutocompletado] =
+    useState(false)
+
+  useEffect(() => {
+    if (segmento === "pagos_pendientes") {
+      setTipo("pago")
+      setAsunto((valorActual) => {
+        if (valorActual.trim()) return valorActual
+        setContenidoPagoAutocompletado(true)
+        return ASUNTO_RECORDATORIO_PAGO
+      })
+      setContenido((valorActual) => {
+        if (valorActual.trim()) return valorActual
+        setContenidoPagoAutocompletado(true)
+        return CUERPO_RECORDATORIO_PAGO
+      })
+      return
     }
-    if (!contenido.trim()) {
-      setContenido(CUERPO_RECORDATORIO_PAGO)
+
+    if (contenidoPagoAutocompletado) {
+      setAsunto((valorActual) =>
+        valorActual === ASUNTO_RECORDATORIO_PAGO ? "" : valorActual
+      )
+      setContenido((valorActual) =>
+        valorActual === CUERPO_RECORDATORIO_PAGO ? "" : valorActual
+      )
+      setContenidoPagoAutocompletado(false)
     }
-  }, [asunto, contenido, segmento])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [segmento])
 
   const cargarPreview = useCallback(async () => {
     try {
@@ -547,12 +576,7 @@ export default function AdminComunicacionesPage() {
 
     if (
       tipo === "pago" &&
-      [
-        "contactos_externos_activos",
-        "contactos_externos_todos",
-        "usuarios_y_contactos_activos",
-        "lista_manual",
-      ].includes(segmento)
+      SEGMENTOS_PROHIBIDOS_PARA_PAGO.includes(segmento)
     ) {
       setMensaje(
         "Los contactos externos no deben usarse para comunicaciones transaccionales de pago."
@@ -804,6 +828,21 @@ export default function AdminComunicacionesPage() {
             <p className="workspace-eyebrow">Nuevo envío grupal</p>
             <h2 className="workspace-title-sm">Preparar comunicación</h2>
           </div>
+
+          {contenidoPagoAutocompletado && (
+            <p className="workspace-inline-note">
+              Asunto y contenido precargados automáticamente para el
+              recordatorio de pago — podés editarlos antes de enviar.
+            </p>
+          )}
+
+          {tipo === "pago" && SEGMENTOS_PROHIBIDOS_PARA_PAGO.includes(segmento) && (
+            <p className="workspace-inline-note text-amber-700">
+              Este segmento incluye contactos externos: no se puede enviar
+              como comunicación de pago. Cambiá el tipo o elegí otro segmento
+              antes de enviar.
+            </p>
+          )}
 
           <div className="grid gap-3 lg:grid-cols-2">
             <label className="space-y-2 lg:col-span-2">
@@ -1099,11 +1138,9 @@ export default function AdminComunicacionesPage() {
             >
               {enviando
                 ? "Enviando..."
-                : segmento === "pagos_pendientes"
-                  ? "Enviar recordatorios"
-                : segmento === "destinatarios_especificos"
-                  ? "Enviar a destinatarios"
-                  : "Enviar comunicación"}
+                : `Enviar a ${cantidadDestinatariosSegmento} destinatario${
+                    cantidadDestinatariosSegmento === 1 ? "" : "s"
+                  }`}
             </button>
             {segmento === "pagos_pendientes" && (
               <>
@@ -1456,6 +1493,11 @@ export default function AdminComunicacionesPage() {
                 {envio.actividad_slug && (
                   <span className="workspace-chip">
                     {nombreActividad(envio.actividad_slug)}
+                  </span>
+                )}
+                {envio.metadata?.segmento && (
+                  <span className="workspace-chip">
+                    {String(envio.metadata.segmento)}
                   </span>
                 )}
               </div>
