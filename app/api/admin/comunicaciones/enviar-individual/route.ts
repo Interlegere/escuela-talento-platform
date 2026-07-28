@@ -10,7 +10,6 @@ type Body = {
   texto?: string
   tipo?: string
   actividadSlug?: string
-  plantillaClave?: string
 }
 
 function normalizarEmail(email?: string | null) {
@@ -68,7 +67,6 @@ export async function POST(req: Request) {
       texto: body.texto || null,
       tipo: body.tipo || "individual",
       actividadSlug: body.actividadSlug || null,
-      plantillaClave: body.plantillaClave || null,
       variables: {
         nombre,
         apellido,

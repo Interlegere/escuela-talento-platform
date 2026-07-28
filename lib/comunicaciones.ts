@@ -29,7 +29,6 @@ export type EnviarComunicacionIndividualParams = {
   texto?: string | null
   tipo?: string | null
   actividadSlug?: string | null
-  plantillaClave?: string | null
   variables?: VariablesComunicacion
   metadata?: Record<string, unknown>
   attachments?: {
@@ -61,6 +60,18 @@ export type EnviarCancelacionSesionIndividualParams = {
   fecha: string
   hora: string
   duracion: string | number
+}
+
+export type EnviarResolucionPagoIndividualParams = {
+  destinatarioEmail: string
+  destinatarioNombre?: string | null
+  actividadSlug?: string | null
+  actividadNombre: string
+  accion: "aprobado" | "rechazado"
+  monto?: string | number | null
+  moneda?: string | null
+  periodo?: string | null
+  observacionesAdmin?: string | null
 }
 
 export type SegmentoComunicacion =
@@ -145,17 +156,6 @@ export type DestinatarioPagoPendiente = {
   comprobantePendienteAprobacion: boolean
   usuarioActivo: boolean
   recordatorioEnviadoHoy?: boolean
-}
-
-type PlantillaRow = {
-  id: number
-  clave: string
-  nombre: string
-  tipo: string
-  asunto: string
-  html?: string | null
-  texto?: string | null
-  activo?: boolean | null
 }
 
 type UsuarioRow = {
@@ -1533,25 +1533,6 @@ export async function listarDestinatariosSegmento(
   }
 }
 
-export async function obtenerPlantillaPorClave(clave?: string | null) {
-  const plantillaClave = String(clave || "").trim()
-  if (!plantillaClave) return null
-
-  const supabase = createAdminSupabaseClient()
-  const { data, error } = await supabase
-    .from("comunicacion_plantillas")
-    .select("*")
-    .eq("clave", plantillaClave)
-    .eq("activo", true)
-    .maybeSingle()
-
-  if (error) {
-    throw new Error(`No se pudo cargar la plantilla: ${error.message}`)
-  }
-
-  return (data || null) as PlantillaRow | null
-}
-
 export async function registrarEnvioComunicacion({
   plantillaId,
   destinatarioEmail,
@@ -1613,23 +1594,22 @@ export async function enviarComunicacionIndividual(
     throw new Error("Falta destinatarioEmail.")
   }
 
-  const plantilla = await obtenerPlantillaPorClave(params.plantillaClave)
   const variables: VariablesComunicacion = {
     ...params.variables,
     email: params.variables?.email || destinatarioEmail,
     link_login: params.variables?.link_login || `${appUrl()}/login`,
   }
 
-  const asuntoBase = params.asunto || plantilla?.asunto || ""
-  const textoBase = params.texto || plantilla?.texto || ""
-  const htmlBase = params.html || plantilla?.html || ""
+  const asuntoBase = params.asunto || ""
+  const textoBase = params.texto || ""
+  const htmlBase = params.html || ""
   const asunto = renderVariables(asuntoBase, variables).trim()
   const texto = renderVariables(textoBase, variables).trim()
   const html = renderVariables(
     htmlBase || textoAHtml(texto),
     variables
   ).trim()
-  const tipo = params.tipo || plantilla?.tipo || "individual"
+  const tipo = params.tipo || "individual"
 
   if (!asunto) {
     throw new Error("Falta asunto para enviar la comunicación.")
@@ -1648,7 +1628,7 @@ export async function enviarComunicacionIndividual(
   })
 
   const registro = await registrarEnvioComunicacion({
-    plantillaId: plantilla?.id || null,
+    plantillaId: null,
     destinatarioEmail,
     destinatarioNombre: params.destinatarioNombre || variables.nombre_completo || null,
     actividadSlug: params.actividadSlug || null,
@@ -1658,10 +1638,7 @@ export async function enviarComunicacionIndividual(
     proveedor: resultado.enviado ? resultado.proveedor : "resend",
     proveedorId: resultado.enviado ? resultado.proveedorId || null : null,
     error: resultado.enviado ? null : resultado.motivo,
-    metadata: {
-      ...(params.metadata || {}),
-      plantillaClave: params.plantillaClave || null,
-    },
+    metadata: params.metadata || {},
   })
 
   return {
@@ -1974,6 +1951,94 @@ export async function enviarCancelacionSesionIndividual(
     metadata: {
       disponibilidadId: params.disponibilidadId || null,
       origen: "agenda",
+    },
+  })
+}
+
+export async function enviarResolucionPagoIndividual(
+  params: EnviarResolucionPagoIndividualParams
+) {
+  const destinatarioEmail = normalizarEmail(params.destinatarioEmail)
+  if (!destinatarioEmail) {
+    throw new Error("Falta email del participante para enviar la resolución de pago.")
+  }
+
+  const nombre = String(params.destinatarioNombre || "").trim() || "hola"
+  const aprobado = params.accion === "aprobado"
+  const montoTexto =
+    params.monto != null ? `${params.moneda || "ARS"} ${params.monto}` : null
+  const periodoTexto = params.periodo ? ` (${params.periodo})` : ""
+
+  const texto = (
+    aprobado
+      ? [
+          `Hola ${nombre},`,
+          "",
+          `Tu pago de ${params.actividadNombre}${periodoTexto} fue aprobado.`,
+          montoTexto ? `Monto: ${montoTexto}` : null,
+          "",
+          "¡Gracias!",
+        ]
+      : [
+          `Hola ${nombre},`,
+          "",
+          `Tu pago de ${params.actividadNombre}${periodoTexto} fue rechazado.`,
+          params.observacionesAdmin ? `Motivo: ${params.observacionesAdmin}` : null,
+          "",
+          "Podés volver a intentarlo o subir un nuevo comprobante desde la plataforma.",
+        ]
+  )
+    .filter(Boolean)
+    .join("\n")
+
+  const html = `
+    <div style="margin: 0; padding: 32px 16px; background: #f6efe2; font-family: Arial, sans-serif; color: #1f2933;">
+      <div style="max-width: 640px; margin: 0 auto; background: #fffdf8; border: 1px solid #eadfc9; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(77, 54, 18, 0.08);">
+        <div style="padding: 30px 32px 20px; background: linear-gradient(135deg, rgba(250,244,229,1) 0%, rgba(255,250,240,1) 55%, rgba(248,237,210,1) 100%);">
+          <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: #8a6a2f; font-weight: 700;">ENTHEOS</p>
+          <h1 style="margin: 0 0 10px; font-size: 30px; line-height: 1.15; color: #18202a;">
+            ${aprobado ? "Tu pago fue aprobado" : "Tu pago fue rechazado"}
+          </h1>
+          <p style="margin: 0; color: #6b7280; font-size: 16px; line-height: 1.5;">${escapeHtml(
+            `${params.actividadNombre}${periodoTexto}`
+          )}</p>
+        </div>
+
+        <div style="padding: 28px 32px 32px; line-height: 1.7;">
+          <p style="margin: 0 0 14px;">Hola ${escapeHtml(nombre)},</p>
+          ${
+            montoTexto
+              ? `<p style="margin: 0 0 14px;"><strong>Monto:</strong> ${escapeHtml(montoTexto)}</p>`
+              : ""
+          }
+          ${
+            !aprobado && params.observacionesAdmin
+              ? `<p style="margin: 0 0 14px;"><strong>Motivo:</strong> ${escapeHtml(params.observacionesAdmin)}</p>`
+              : ""
+          }
+          <p style="margin: 0;">${
+            aprobado
+              ? "¡Gracias!"
+              : "Podés volver a intentarlo o subir un nuevo comprobante desde la plataforma."
+          }</p>
+        </div>
+      </div>
+    </div>
+  `
+
+  return enviarComunicacionIndividual({
+    destinatarioEmail,
+    destinatarioNombre: params.destinatarioNombre || null,
+    asunto: aprobado
+      ? `Tu pago de ${params.actividadNombre} fue aprobado`
+      : `Tu pago de ${params.actividadNombre} fue rechazado`,
+    html,
+    texto,
+    tipo: aprobado ? "pago_aprobado" : "pago_rechazado",
+    actividadSlug: params.actividadSlug || null,
+    metadata: {
+      accion: params.accion,
+      periodo: params.periodo || null,
     },
   })
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { requirePermission } from "@/lib/authz"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 import { crearEventoGoogleDesdeReserva } from "@/lib/google-calendar"
+import { enviarResolucionPagoIndividual } from "@/lib/comunicaciones"
 
 type Body = {
   reservaId?: number
@@ -76,10 +77,40 @@ export async function POST(req: Request) {
         )
       }
 
+      let advertenciaRechazo: string | null = null
+
+      if (reserva.participante_email) {
+        try {
+          const envio = await enviarResolucionPagoIndividual({
+            destinatarioEmail: reserva.participante_email,
+            destinatarioNombre: reserva.participante_nombre || null,
+            actividadSlug: "terapia",
+            actividadNombre: disponibilidad.titulo || "Terapia",
+            accion: "rechazado",
+            monto:
+              reserva.monto_transferencia ??
+              reserva.monto ??
+              reserva.monto_mercado_pago ??
+              null,
+            observacionesAdmin: observacionesAdmin || null,
+          })
+
+          if (!envio.resultado.enviado) {
+            advertenciaRechazo =
+              "La reserva fue rechazada, pero no se pudo enviar el mail de aviso al participante."
+          }
+        } catch (mailError) {
+          advertenciaRechazo =
+            "La reserva fue rechazada, pero no se pudo enviar el mail de aviso al participante."
+          console.error("Error enviando aviso de rechazo de pago", mailError)
+        }
+      }
+
       return NextResponse.json({
         ok: true,
         reservaId,
         accion,
+        advertencia: advertenciaRechazo,
       })
     }
 
@@ -131,6 +162,34 @@ export async function POST(req: Request) {
       advertencia =
         "La reserva fue aprobada, pero no se pudo crear el evento en Google Calendar automáticamente. Podés revisarlo o cargarlo manualmente."
       console.error("Error creando evento de Google Calendar", googleError)
+    }
+
+    if (reserva.participante_email) {
+      try {
+        const envio = await enviarResolucionPagoIndividual({
+          destinatarioEmail: reserva.participante_email,
+          destinatarioNombre: reserva.participante_nombre || null,
+          actividadSlug: "terapia",
+          actividadNombre: disponibilidad.titulo || "Terapia",
+          accion: "aprobado",
+          monto:
+            reserva.monto_transferencia ??
+            reserva.monto ??
+            reserva.monto_mercado_pago ??
+            null,
+        })
+
+        if (!envio.resultado.enviado) {
+          advertencia = advertencia
+            ? `${advertencia} Tampoco se pudo enviar el mail de aviso al participante.`
+            : "La reserva fue aprobada, pero no se pudo enviar el mail de aviso al participante."
+        }
+      } catch (mailError) {
+        advertencia = advertencia
+          ? `${advertencia} Tampoco se pudo enviar el mail de aviso al participante.`
+          : "La reserva fue aprobada, pero no se pudo enviar el mail de aviso al participante."
+        console.error("Error enviando aviso de aprobación de pago", mailError)
+      }
     }
 
     return NextResponse.json({

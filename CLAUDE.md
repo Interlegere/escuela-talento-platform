@@ -147,6 +147,23 @@ A partir del diagnóstico anterior, se agregó una herramienta de solo lectura p
 **Hallazgo real al probarlo en vivo** (no simulado): la conexión de Google Calendar apuntaba a la cuenta vieja `nicolasbusico.psi@gmail.com` (con el token vencido, `invalid_grant`) en vez de `nicolasbusico@entheosescuela.com`, que es la cuenta que Nicolás usa hoy de verdad para agendar. Se corrigió `GOOGLE_CALENDAR_OWNER_EMAIL` en `.env.local` (**pendiente sincronizar este valor también en las variables de entorno de Vercel**, igual que con `CRON_SECRET` — todavía no confirmado si ya se hizo). Una vez apuntando a la cuenta correcta, la comprobación mostró **19 eventos "solo en Google Calendar"** en las próximas ~3 semanas — no solo la reunión de Alex: la reunión semanal de CasaTalentos y varias mentorías individuales (Tato Fuentes, Alexis Alexandroff) aparecen ahí *todas las semanas*, lo que sugiere que buena parte de la agenda real se está cargando directo en Google y no en la plataforma. También aparecieron 2 eventos personales de Nicolás ("Natación") mezclados — esperable, la comprobación no filtra por tipo de evento a propósito.
 
 ## 4. Pendiente
-- **Confirmar en Vercel** que `GOOGLE_CALENDAR_OWNER_EMAIL` ya esté actualizado a `nicolasbusico@entheosescuela.com` en producción (se cambió solo en `.env.local` local).
+- ~~Confirmar en Vercel que `GOOGLE_CALENDAR_OWNER_EMAIL` ya esté actualizado~~ **RESUELTO**: ya sincronizado y redeployado en producción.
 - Revisar y migrar a la plataforma las series recurrentes que hoy solo existen en Google Calendar (CasaTalentos semanal, varias mentorías) — usar el botón nuevo de `/agenda` para ir chequeando.
 - Mismo pendiente de la sesión anterior: series de Mentorías que se quedaron sin ocurrencias futuras generadas (Ana Felicia Payares Galvis, Lucas Britos, Verónica Saracho, Agostina Rimoldi, y ahora confirmado también Alex Bohorquez).
+
+---
+
+# Sesión de trabajo 2026-07-28 — Comunicaciones, Fase 1
+
+## 1. Objetivo
+De los 5 problemas diagnosticados en Comunicaciones (envío masivo sin límite, sin emails automáticos de pago, tabla de plantillas fantasma, sin tracking de apertura/rebote, UX general confusa), Nicolás confirmó arrancar por los dos de menor riesgo y mayor valor concreto: emails automáticos de aprobación/rechazo de pago, y sacar el código muerto de plantillas. El resto (envío masivo con pausas, tracking de apertura/rebote vía webhook de Resend, UX general del compositor) queda para fases siguientes, ya diagnosticado y con plan claro cuando se retome.
+
+## 2. Qué se hizo
+- **Emails automáticos de pago**: `app/admin/pagos-mensuales/resolver/route.ts` (antes hacía un `update` ciego sin leer nada) y `app/api/terapia/admin/resolver-pago-reserva/route.ts` ahora envían un mail al participante al aprobar o rechazar, con monto/actividad/período (y el motivo si el admin cargó una observación al rechazar). Nueva función `enviarResolucionPagoIndividual` en `lib/comunicaciones.ts`, con `tipo: "pago_aprobado"`/`"pago_rechazado"` (nuevos, no pisan el `tipo: "pago"` de los recordatorios manuales — se pueden distinguir en el historial). El envío va en su propio `try/catch`: si Resend falla, el pago se resuelve igual, solo se agrega una `advertencia` a la respuesta.
+- **Plantillas muertas**: se confirmó que `comunicacion_plantillas` era 100% inalcanzable (sin CRUD, sin seed, ninguna fila podía existir nunca), así que el fallback en `enviarComunicacionIndividual` nunca se activaba. Se sacó `obtenerPlantillaPorClave`, el tipo `PlantillaRow`, y el parámetro `plantillaClave` de todos los call sites reales. La tabla en Supabase se dejó intacta (vacía, sin código que la consulte) — no valía la pena un `DROP TABLE` para esto.
+- Probado en vivo con usuario descartable: aprobar/rechazar generó los 2 registros esperados en `comunicacion_envios` con datos correctos; el único "error" fue Resend rechazando una dirección `@example.com` de prueba (esperado, no bug). Se confirmó además que `/admin/comunicaciones` sigue cargando sin errores tras sacar el código de plantillas.
+
+## 3. Pendiente
+- Envío masivo con pausas/límite de tiempo (hoy secuencial sin cap, riesgo de límites de Resend/timeout de Vercel en listas grandes — el volumen real actual es bajo, no urgente).
+- Tracking de apertura/rebote: requiere un webhook nuevo de Resend con verificación de firma (ojo con no repetir el mismo error sin validar que ya se marcó en los webhooks de MercadoPago) + columnas nuevas en `comunicacion_envios`.
+- UX general del compositor (`app/admin/comunicaciones/page.tsx`): contenido que queda pegado al cambiar de segmento, confirmación poco diferenciada entre prueba y envío real, historial sin registrar qué segmento se usó, opción "Pagos al día" muerta en el dropdown.
