@@ -2042,3 +2042,128 @@ export async function enviarResolucionPagoIndividual(
     },
   })
 }
+
+export type ResumenEnvioMasivo = {
+  enviados: number
+  errores: number
+  omitidos: number
+  total: number
+  detalles: Array<{
+    email: string
+    estado: "enviado" | "error" | "omitido"
+    error?: string | null
+  }>
+}
+
+export async function ejecutarEnvioMasivo(params: {
+  destinatarios: DestinatarioComunicacion[]
+  asunto: string
+  texto: string
+  html: string | null
+  tipo: string
+  actividadSlug?: string | null
+  segmento?: SegmentoComunicacion | null
+  enviadoPor?: string | null
+  esPrueba?: boolean
+  origenMetadata?: string
+}): Promise<ResumenEnvioMasivo> {
+  const {
+    destinatarios,
+    asunto,
+    texto,
+    html,
+    tipo,
+    actividadSlug,
+    segmento,
+    enviadoPor,
+    esPrueba = false,
+    origenMetadata,
+  } = params
+
+  const resumen: ResumenEnvioMasivo = {
+    enviados: 0,
+    errores: 0,
+    omitidos: 0,
+    total: destinatarios.length,
+    detalles: [],
+  }
+
+  for (const destinatario of destinatarios) {
+    try {
+      const envio = await enviarComunicacionIndividual({
+        destinatarioEmail: destinatario.email,
+        destinatarioNombre: destinatario.nombreCompleto,
+        asunto,
+        html:
+          !esPrueba && tipo === "pago"
+            ? crearHtmlRecordatorioPagoEntheos(texto || "")
+            : html,
+        texto,
+        tipo: esPrueba ? "prueba" : tipo,
+        actividadSlug: actividadSlug || destinatario.actividadSlug || null,
+        variables: {
+          nombre: destinatario.nombre,
+          apellido: destinatario.apellido,
+          nombre_completo: destinatario.nombreCompleto,
+          email: destinatario.email,
+          actividad:
+            actividadSlug ||
+            destinatario.actividadNombre ||
+            destinatario.actividadSlug ||
+            "",
+          detalle_pago: destinatario.detallePago || "",
+          monto:
+            destinatario.monto !== null && destinatario.monto !== undefined
+              ? `${destinatario.monto}${destinatario.moneda ? ` ${destinatario.moneda}` : ""}`
+              : "",
+          link_pagos: `${appUrl()}/pagos`,
+          fecha_sesion: destinatario.fechaSesion || "",
+          estado_pago: destinatario.estadoPago || "",
+        },
+        metadata: {
+          origen:
+            origenMetadata ||
+            (esPrueba
+              ? "admin_comunicaciones_prueba"
+              : "admin_comunicaciones_segmento"),
+          segmento,
+          razon: destinatario.razon,
+          fuente: destinatario.fuente,
+          contactoId: destinatario.contactoId,
+          usuarioId: destinatario.usuarioId,
+          enviadoPor: enviadoPor || null,
+          tipo_deuda: destinatario.tipoPago || null,
+          estado_pago: destinatario.estadoPago || null,
+          monto: destinatario.monto ?? null,
+          moneda: destinatario.moneda || null,
+          reserva_id: destinatario.reservaId || null,
+          pago_mensual_id: destinatario.pagoMensualId || null,
+        },
+      })
+
+      if (envio.resultado.enviado) {
+        resumen.enviados += 1
+        resumen.detalles.push({ email: destinatario.email, estado: "enviado" })
+      } else {
+        resumen.errores += 1
+        resumen.detalles.push({
+          email: destinatario.email,
+          estado: "error",
+          error: envio.resultado.motivo,
+        })
+      }
+    } catch (error) {
+      resumen.errores += 1
+      resumen.detalles.push({
+        email: destinatario.email,
+        estado: "error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "No se pudo enviar la comunicación.",
+      })
+    }
+  }
+
+  return resumen
+}

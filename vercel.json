@@ -7,6 +7,10 @@
     {
       "path": "/api/pagos-mensuales/generar-cobros-mensuales",
       "schedule": "0 3 1 * *"
+    },
+    {
+      "path": "/api/comunicaciones/procesar-programadas",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

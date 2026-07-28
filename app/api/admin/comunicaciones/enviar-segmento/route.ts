@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server"
 import { requirePermission } from "@/lib/authz"
 import {
-  crearHtmlRecordatorioPagoEntheos,
-  enviarComunicacionIndividual,
+  ejecutarEnvioMasivo,
   type FiltroPagoPendiente,
   listarDestinatariosSegmento,
   type DestinatarioComunicacion,
@@ -161,96 +160,17 @@ export async function POST(req: Request) {
       )
     }
 
-    const resumen = {
-      enviados: 0,
-      errores: 0,
-      omitidos: 0,
-      total: destinatarios.length,
-      detalles: [] as Array<{
-        email: string
-        estado: "enviado" | "error" | "omitido"
-        error?: string | null
-      }>,
-    }
-
-    for (const destinatario of destinatarios) {
-      try {
-        const envio = await enviarComunicacionIndividual({
-          destinatarioEmail: destinatario.email,
-          destinatarioNombre: destinatario.nombreCompleto,
-          asunto,
-          html:
-            !esPrueba && tipoValido(body.tipo) === "pago"
-              ? crearHtmlRecordatorioPagoEntheos(texto || "")
-              : html,
-          texto,
-          tipo: esPrueba ? "prueba" : tipoValido(body.tipo),
-          actividadSlug:
-            body.actividadSlug || destinatario.actividadSlug || null,
-          variables: {
-            nombre: destinatario.nombre,
-            apellido: destinatario.apellido,
-            nombre_completo: destinatario.nombreCompleto,
-            email: destinatario.email,
-            actividad:
-              body.actividadSlug ||
-              destinatario.actividadNombre ||
-              destinatario.actividadSlug ||
-              "",
-            detalle_pago: destinatario.detallePago || "",
-            monto:
-              destinatario.monto !== null && destinatario.monto !== undefined
-                ? `${destinatario.monto}${destinatario.moneda ? ` ${destinatario.moneda}` : ""}`
-                : "",
-            link_pagos: `${process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000"}/pagos`,
-            fecha_sesion: destinatario.fechaSesion || "",
-            estado_pago: destinatario.estadoPago || "",
-          },
-          metadata: {
-            origen: esPrueba
-              ? "admin_comunicaciones_prueba"
-              : "admin_comunicaciones_segmento",
-            segmento,
-            razon: destinatario.razon,
-            fuente: destinatario.fuente,
-            contactoId: destinatario.contactoId,
-            usuarioId: destinatario.usuarioId,
-            enviadoPor: auth.actor.email,
-            tipo_deuda: destinatario.tipoPago || null,
-            estado_pago: destinatario.estadoPago || null,
-            monto: destinatario.monto ?? null,
-            moneda: destinatario.moneda || null,
-            reserva_id: destinatario.reservaId || null,
-            pago_mensual_id: destinatario.pagoMensualId || null,
-          },
-        })
-
-        if (envio.resultado.enviado) {
-          resumen.enviados += 1
-          resumen.detalles.push({
-            email: destinatario.email,
-            estado: "enviado",
-          })
-        } else {
-          resumen.errores += 1
-          resumen.detalles.push({
-            email: destinatario.email,
-            estado: "error",
-            error: envio.resultado.motivo,
-          })
-        }
-      } catch (error) {
-        resumen.errores += 1
-        resumen.detalles.push({
-          email: destinatario.email,
-          estado: "error",
-          error:
-            error instanceof Error
-              ? error.message
-              : "No se pudo enviar la comunicación.",
-        })
-      }
-    }
+    const resumen = await ejecutarEnvioMasivo({
+      destinatarios,
+      asunto,
+      texto,
+      html,
+      tipo: tipoValido(body.tipo),
+      actividadSlug: body.actividadSlug || null,
+      segmento,
+      enviadoPor: auth.actor.email,
+      esPrueba,
+    })
 
     return NextResponse.json({
       ok: resumen.errores === 0,

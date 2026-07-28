@@ -89,6 +89,26 @@ type HistorialEnvio = {
   metadata?: { segmento?: string | null; [key: string]: unknown } | null
 }
 
+type Recurrencia = "una_vez" | "semanal" | "mensual" | "intervalo_dias"
+
+type ProgramacionResumen = {
+  id: number
+  nombre: string
+  tipo: string
+  asunto: string
+  segmento: Segmento
+  recurrencia: Recurrencia
+  dia_semana: number | null
+  dia_mes: number | null
+  intervalo_dias: number | null
+  hora: string
+  modo_disparo: "automatico" | "requiere_aprobacion"
+  activo: boolean
+  proxima_ejecucion: string
+  ultima_ejecucion_at: string | null
+  pendiente_aprobacion: boolean
+}
+
 const SEGMENTOS: Array<{
   value: Segmento
   label: string
@@ -299,6 +319,47 @@ function contactoNombre(contacto: ContactoExterno) {
   return [contacto.nombre, contacto.apellido].filter(Boolean).join(" ") || contacto.email
 }
 
+const DIAS_SEMANA = [
+  "Domingo",
+  "Lunes",
+  "Martes",
+  "Miércoles",
+  "Jueves",
+  "Viernes",
+  "Sábado",
+]
+
+const RECURRENCIAS: Array<{ value: Recurrencia; label: string }> = [
+  { value: "una_vez", label: "Una vez, en una fecha" },
+  { value: "semanal", label: "Todas las semanas, un día fijo" },
+  { value: "mensual", label: "Todos los meses, un día fijo" },
+  { value: "intervalo_dias", label: "Cada N días" },
+]
+
+function recurrenciaLabel(programada: ProgramacionResumen) {
+  if (programada.recurrencia === "una_vez") return "Una vez"
+  if (programada.recurrencia === "semanal") {
+    return `Semanal · ${DIAS_SEMANA[programada.dia_semana ?? 0]}`
+  }
+  if (programada.recurrencia === "mensual") {
+    return `Mensual · día ${programada.dia_mes}`
+  }
+  return `Cada ${programada.intervalo_dias} días`
+}
+
+function fechaHoraLegible(iso?: string | null) {
+  if (!iso) return "Sin fecha"
+  const fecha = new Date(iso)
+  if (Number.isNaN(fecha.getTime())) return iso
+  return fecha.toLocaleString("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
 const CONTACTO_DRAFT_INICIAL: ContactoDraft = {
   email: "",
   nombre: "",
@@ -350,6 +411,26 @@ export default function AdminComunicacionesPage() {
   const [contactosCargando, setContactosCargando] = useState(false)
   const [contactosGuardando, setContactosGuardando] = useState(false)
   const [contactosMensaje, setContactosMensaje] = useState("")
+
+  const [paso, setPaso] = useState<1 | 2 | 3>(1)
+  const [modoEnvio, setModoEnvio] = useState<"ahora" | "programar">("ahora")
+  const [nombreProgramacion, setNombreProgramacion] = useState("")
+  const [recurrencia, setRecurrencia] = useState<Recurrencia>("una_vez")
+  const [fechaUnaVez, setFechaUnaVez] = useState("")
+  const [diaSemana, setDiaSemana] = useState("1")
+  const [diaMes, setDiaMes] = useState("1")
+  const [intervaloDias, setIntervaloDias] = useState("7")
+  const [horaProgramada, setHoraProgramada] = useState("09:00")
+  const [modoDisparo, setModoDisparo] = useState<"automatico" | "requiere_aprobacion">(
+    "requiere_aprobacion"
+  )
+  const [guardandoProgramacion, setGuardandoProgramacion] = useState(false)
+  const [mensajeProgramacion, setMensajeProgramacion] = useState("")
+  const [programadas, setProgramadas] = useState<ProgramacionResumen[]>([])
+  const [programadasCargando, setProgramadasCargando] = useState(false)
+  const [accionandoProgramadaId, setAccionandoProgramadaId] = useState<
+    number | null
+  >(null)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -555,13 +636,46 @@ export default function AdminComunicacionesPage() {
     }
   }, [filtroEmail, filtroEstado, filtroTipo])
 
+  const cargarProgramadas = useCallback(async () => {
+    try {
+      setProgramadasCargando(true)
+
+      const res = await fetch("/api/admin/comunicaciones/programadas", {
+        cache: "no-store",
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "No se pudieron cargar las programaciones.")
+      }
+
+      setProgramadas((data.programadas || []) as ProgramacionResumen[])
+    } catch (error) {
+      setMensajeProgramacion(
+        error instanceof Error
+          ? error.message
+          : "No se pudieron cargar las programaciones."
+      )
+    } finally {
+      setProgramadasCargando(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (status === "authenticated" && esAdmin) {
       void cargarPreview()
       void cargarHistorial()
       void cargarContactos()
+      void cargarProgramadas()
     }
-  }, [cargarContactos, cargarHistorial, cargarPreview, esAdmin, status])
+  }, [
+    cargarContactos,
+    cargarHistorial,
+    cargarPreview,
+    cargarProgramadas,
+    esAdmin,
+    status,
+  ])
 
   const validarContenido = () => {
     if (!asunto.trim()) {
@@ -680,6 +794,126 @@ export default function AdminComunicacionesPage() {
       )
     } finally {
       setEnviando(false)
+    }
+  }
+
+  const crearProgramacion = async () => {
+    if (!validarContenido()) return
+
+    if (!nombreProgramacion.trim()) {
+      setMensajeProgramacion("Ponele un nombre a la programación.")
+      return
+    }
+
+    if (
+      (recurrencia === "una_vez" || recurrencia === "intervalo_dias") &&
+      !fechaUnaVez
+    ) {
+      setMensajeProgramacion("Elegí la fecha.")
+      return
+    }
+
+    if (!horaProgramada) {
+      setMensajeProgramacion("Elegí la hora.")
+      return
+    }
+
+    try {
+      setGuardandoProgramacion(true)
+      setMensajeProgramacion("")
+
+      const res = await fetch("/api/admin/comunicaciones/programadas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: nombreProgramacion,
+          tipo,
+          actividadSlug: actividadSlug || null,
+          asunto,
+          contenido,
+          segmento,
+          filtroPagoPendiente,
+          emailsManual,
+          destinatariosSeleccionados,
+          recurrencia,
+          fechaUnaVez:
+            recurrencia === "una_vez" || recurrencia === "intervalo_dias"
+              ? fechaUnaVez
+              : null,
+          diaSemana: recurrencia === "semanal" ? Number(diaSemana) : null,
+          diaMes: recurrencia === "mensual" ? Number(diaMes) : null,
+          intervaloDias:
+            recurrencia === "intervalo_dias" ? Number(intervaloDias) : null,
+          hora: horaProgramada,
+          modoDisparo,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "No se pudo crear la programación.")
+      }
+
+      setMensajeProgramacion("Programación creada correctamente.")
+      setNombreProgramacion("")
+      await cargarProgramadas()
+    } catch (error) {
+      setMensajeProgramacion(
+        error instanceof Error
+          ? error.message
+          : "No se pudo crear la programación."
+      )
+    } finally {
+      setGuardandoProgramacion(false)
+    }
+  }
+
+  const ejecutarAccionProgramada = async (
+    id: number,
+    accion: "pausar" | "reanudar" | "eliminar" | "aprobar_y_enviar"
+  ) => {
+    if (accion === "eliminar" && !window.confirm("¿Eliminar esta programación?")) {
+      return
+    }
+
+    if (
+      accion === "aprobar_y_enviar" &&
+      !window.confirm("¿Enviar esta comunicación ahora mismo?")
+    ) {
+      return
+    }
+
+    try {
+      setAccionandoProgramadaId(id)
+      setMensajeProgramacion("")
+
+      const res = await fetch("/api/admin/comunicaciones/programadas/accion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, accion }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "No se pudo ejecutar la acción.")
+      }
+
+      if (accion === "aprobar_y_enviar" && data.resumen) {
+        setMensajeProgramacion(
+          `Enviado. Enviados: ${data.resumen.enviados}. Errores: ${data.resumen.errores}.`
+        )
+        await cargarHistorial()
+      }
+
+      await cargarProgramadas()
+    } catch (error) {
+      setMensajeProgramacion(
+        error instanceof Error ? error.message : "No se pudo ejecutar la acción."
+      )
+    } finally {
+      setAccionandoProgramadaId(null)
     }
   }
 
@@ -822,124 +1056,42 @@ export default function AdminComunicacionesPage() {
 
       {mensaje && <section className="workspace-panel-soft">{mensaje}</section>}
 
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
-        <div className="workspace-panel space-y-5">
-          <div className="space-y-1">
-            <p className="workspace-eyebrow">Nuevo envío grupal</p>
-            <h2 className="workspace-title-sm">Preparar comunicación</h2>
-          </div>
-
-          {contenidoPagoAutocompletado && (
-            <p className="workspace-inline-note">
-              Asunto y contenido precargados automáticamente para el
-              recordatorio de pago — podés editarlos antes de enviar.
-            </p>
-          )}
-
-          {tipo === "pago" && SEGMENTOS_PROHIBIDOS_PARA_PAGO.includes(segmento) && (
-            <p className="workspace-inline-note text-amber-700">
-              Este segmento incluye contactos externos: no se puede enviar
-              como comunicación de pago. Cambiá el tipo o elegí otro segmento
-              antes de enviar.
-            </p>
-          )}
-
-          <div className="grid gap-3 lg:grid-cols-2">
-            <label className="space-y-2 lg:col-span-2">
-              <span className="text-sm font-medium text-gray-700">Asunto</span>
-              <input
-                className="workspace-field"
-                value={asunto}
-                onChange={(e) => setAsunto(e.target.value)}
-                placeholder="Asunto del email"
-              />
-            </label>
-
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-gray-700">Tipo</span>
-              <select
-                className="workspace-field"
-                value={tipo}
-                onChange={(e) => setTipo(e.target.value as TipoComunicacion)}
+      <section className="workspace-panel space-y-6">
+        <div className="flex flex-wrap items-center gap-2">
+          {(
+            [
+              { n: 1, label: "Destinatarios" },
+              { n: 2, label: "Mensaje" },
+              { n: 3, label: "Enviar o programar" },
+            ] as const
+          ).map((item) => (
+            <button
+              key={item.n}
+              type="button"
+              onClick={() => setPaso(item.n)}
+              className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${
+                paso === item.n
+                  ? "border-[var(--sea)] bg-[var(--sea)] text-white"
+                  : "border-[var(--line)] bg-white/70 text-gray-600 hover:border-[var(--sea)]"
+              }`}
+            >
+              <span
+                className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${
+                  paso === item.n ? "bg-white/25" : "bg-[rgba(45,107,122,0.12)]"
+                }`}
               >
-                {TIPOS.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-gray-700">
-                Actividad relacionada
+                {item.n}
               </span>
-              <select
-                className="workspace-field"
-                value={actividadSlug}
-                onChange={(e) => setActividadSlug(e.target.value)}
-              >
-                {ACTIVIDADES.map((item) => (
-                  <option key={item.value || "general"} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="space-y-2 lg:col-span-2">
-              <span className="text-sm font-medium text-gray-700">Contenido</span>
-              <textarea
-                className="workspace-field min-h-52"
-                value={contenido}
-                onChange={(e) => setContenido(e.target.value)}
-                placeholder="Podés usar variables como {{nombre}}, {{nombre_completo}}, {{email}}, {{actividad}}, {{detalle_pago}}, {{monto}}, {{link_pagos}}, {{fecha_sesion}} o {{estado_pago}}."
-              />
-            </label>
-          </div>
-
-          <div className="rounded-2xl border border-[var(--line)] bg-[rgba(255,250,242,0.7)] p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--sea)]">
-              Preview del contenido
-            </p>
-            <p className="mt-3 font-semibold text-gray-800">
-              {asunto || "Sin asunto"}
-            </p>
-            <pre className="mt-2 whitespace-pre-wrap text-sm text-gray-600">
-              {contenido || "Sin contenido"}
-            </pre>
-          </div>
-
-          <div className="rounded-2xl border border-[var(--line)] bg-white/70 p-4">
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-              <label className="space-y-2">
-                <span className="text-sm font-medium text-gray-700">
-                  Enviar prueba
-                </span>
-                <input
-                  type="email"
-                  className="workspace-field"
-                  value={pruebaEmail}
-                  onChange={(e) => setPruebaEmail(e.target.value)}
-                  placeholder="admin@email.com"
-                />
-              </label>
-              <button
-                type="button"
-                disabled={enviando}
-                onClick={() => void enviar("prueba")}
-                className="workspace-button-secondary"
-              >
-                {enviando ? "Enviando..." : "Enviar prueba"}
-              </button>
-            </div>
-          </div>
+              {item.label}
+            </button>
+          ))}
         </div>
 
-        <aside className="workspace-panel space-y-4">
+        {paso === 1 && (
+        <div className="space-y-4">
           <div className="space-y-1">
-            <p className="workspace-eyebrow">Segmento</p>
-            <h2 className="workspace-title-sm">Destinatarios</h2>
+            <p className="workspace-eyebrow">Paso 1</p>
+            <h2 className="workspace-title-sm">¿A quién le escribís?</h2>
           </div>
 
           <label className="space-y-2">
@@ -1130,18 +1282,6 @@ export default function AdminComunicacionesPage() {
             >
               {previewCargando ? "Cargando..." : "Actualizar preview"}
             </button>
-            <button
-              type="button"
-              disabled={enviando || !puedeEnviarSegmento}
-              onClick={() => void enviar("segmento")}
-              className="workspace-button !px-3 !py-1.5 text-xs"
-            >
-              {enviando
-                ? "Enviando..."
-                : `Enviar a ${cantidadDestinatariosSegmento} destinatario${
-                    cantidadDestinatariosSegmento === 1 ? "" : "s"
-                  }`}
-            </button>
             {segmento === "pagos_pendientes" && (
               <>
                 <button
@@ -1264,7 +1404,479 @@ export default function AdminComunicacionesPage() {
               </p>
             )}
           </div>
-        </aside>
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              className="workspace-button"
+              onClick={() => setPaso(2)}
+            >
+              Siguiente: Mensaje
+            </button>
+          </div>
+        </div>
+        )}
+
+        {paso === 2 && (
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <p className="workspace-eyebrow">Paso 2</p>
+            <h2 className="workspace-title-sm">¿Qué les querés decir?</h2>
+          </div>
+
+          {contenidoPagoAutocompletado && (
+            <p className="workspace-inline-note">
+              Asunto y contenido precargados automáticamente para el
+              recordatorio de pago — podés editarlos antes de enviar.
+            </p>
+          )}
+
+          {tipo === "pago" && SEGMENTOS_PROHIBIDOS_PARA_PAGO.includes(segmento) && (
+            <p className="workspace-inline-note text-amber-700">
+              Este segmento incluye contactos externos: no se puede enviar
+              como comunicación de pago. Cambiá el tipo o elegí otro segmento
+              antes de enviar.
+            </p>
+          )}
+
+          <div className="grid gap-3 lg:grid-cols-2">
+            <label className="space-y-2 lg:col-span-2">
+              <span className="text-sm font-medium text-gray-700">Asunto</span>
+              <input
+                className="workspace-field"
+                value={asunto}
+                onChange={(e) => setAsunto(e.target.value)}
+                placeholder="Asunto del email"
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-gray-700">Tipo</span>
+              <select
+                className="workspace-field"
+                value={tipo}
+                onChange={(e) => setTipo(e.target.value as TipoComunicacion)}
+              >
+                {TIPOS.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-gray-700">
+                Actividad relacionada
+              </span>
+              <select
+                className="workspace-field"
+                value={actividadSlug}
+                onChange={(e) => setActividadSlug(e.target.value)}
+              >
+                {ACTIVIDADES.map((item) => (
+                  <option key={item.value || "general"} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-2 lg:col-span-2">
+              <span className="text-sm font-medium text-gray-700">Contenido</span>
+              <textarea
+                className="workspace-field min-h-52"
+                value={contenido}
+                onChange={(e) => setContenido(e.target.value)}
+                placeholder="Podés usar variables como {{nombre}}, {{nombre_completo}}, {{email}}, {{actividad}}, {{detalle_pago}}, {{monto}}, {{link_pagos}}, {{fecha_sesion}} o {{estado_pago}}."
+              />
+            </label>
+          </div>
+
+          <div className="rounded-2xl border border-[var(--line)] bg-[rgba(255,250,242,0.7)] p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--sea)]">
+              Preview del contenido
+            </p>
+            <p className="mt-3 font-semibold text-gray-800">
+              {asunto || "Sin asunto"}
+            </p>
+            <pre className="mt-2 whitespace-pre-wrap text-sm text-gray-600">
+              {contenido || "Sin contenido"}
+            </pre>
+          </div>
+
+          <div className="flex flex-wrap justify-between gap-2">
+            <button
+              type="button"
+              className="workspace-button-secondary"
+              onClick={() => setPaso(1)}
+            >
+              Atrás
+            </button>
+            <button
+              type="button"
+              className="workspace-button"
+              onClick={() => {
+                if (!asunto.trim() || !contenido.trim()) {
+                  setMensaje("Completá asunto y contenido antes de continuar.")
+                  return
+                }
+                setMensaje("")
+                setPaso(3)
+              }}
+            >
+              Siguiente: Enviar o programar
+            </button>
+          </div>
+        </div>
+        )}
+
+        {paso === 3 && (
+        <div className="space-y-5">
+          <div className="space-y-1">
+            <p className="workspace-eyebrow">Paso 3</p>
+            <h2 className="workspace-title-sm">Enviar o programar</h2>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setModoEnvio("ahora")}
+              className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                modoEnvio === "ahora"
+                  ? "border-[var(--sea)] bg-[var(--sea)] text-white"
+                  : "border-[var(--line)] bg-white/70 text-gray-600"
+              }`}
+            >
+              Enviar ahora
+            </button>
+            <button
+              type="button"
+              onClick={() => setModoEnvio("programar")}
+              className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                modoEnvio === "programar"
+                  ? "border-[var(--sea)] bg-[var(--sea)] text-white"
+                  : "border-[var(--line)] bg-white/70 text-gray-600"
+              }`}
+            >
+              Programar
+            </button>
+          </div>
+
+          {modoEnvio === "ahora" && (
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-[var(--line)] bg-white/70 p-4">
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-gray-700">
+                      Enviar prueba
+                    </span>
+                    <input
+                      type="email"
+                      className="workspace-field"
+                      value={pruebaEmail}
+                      onChange={(e) => setPruebaEmail(e.target.value)}
+                      placeholder="admin@email.com"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    disabled={enviando}
+                    onClick={() => void enviar("prueba")}
+                    className="workspace-button-secondary"
+                  >
+                    {enviando ? "Enviando..." : "Enviar prueba"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-[var(--line)] bg-[rgba(255,250,242,0.7)] p-4">
+                <p className="text-sm text-gray-700">
+                  Vas a enviar a{" "}
+                  <strong>{cantidadDestinatariosSegmento}</strong> destinatario
+                  {cantidadDestinatariosSegmento === 1 ? "" : "s"} del segmento
+                  elegido en el Paso 1.
+                </p>
+                <button
+                  type="button"
+                  disabled={enviando || !puedeEnviarSegmento}
+                  onClick={() => void enviar("segmento")}
+                  className="workspace-button mt-3"
+                >
+                  {enviando
+                    ? "Enviando..."
+                    : `Enviar a ${cantidadDestinatariosSegmento} destinatario${
+                        cantidadDestinatariosSegmento === 1 ? "" : "s"
+                      }`}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {modoEnvio === "programar" && (
+            <div className="space-y-3 rounded-2xl border border-[var(--line)] bg-white/70 p-4">
+              <label className="space-y-2">
+                <span className="text-sm font-medium text-gray-700">
+                  Nombre de la programación
+                </span>
+                <input
+                  className="workspace-field"
+                  value={nombreProgramacion}
+                  onChange={(e) => setNombreProgramacion(e.target.value)}
+                  placeholder="Ej: Recordatorio mensual de pago"
+                />
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-sm font-medium text-gray-700">
+                  Recurrencia
+                </span>
+                <select
+                  className="workspace-field"
+                  value={recurrencia}
+                  onChange={(e) => setRecurrencia(e.target.value as Recurrencia)}
+                >
+                  {RECURRENCIAS.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(recurrencia === "una_vez" || recurrencia === "intervalo_dias") && (
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-gray-700">
+                      {recurrencia === "una_vez" ? "Fecha" : "Fecha de inicio"}
+                    </span>
+                    <input
+                      type="date"
+                      className="workspace-field"
+                      value={fechaUnaVez}
+                      onChange={(e) => setFechaUnaVez(e.target.value)}
+                    />
+                  </label>
+                )}
+
+                {recurrencia === "semanal" && (
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-gray-700">
+                      Día de la semana
+                    </span>
+                    <select
+                      className="workspace-field"
+                      value={diaSemana}
+                      onChange={(e) => setDiaSemana(e.target.value)}
+                    >
+                      {DIAS_SEMANA.map((label, index) => (
+                        <option key={label} value={index}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+
+                {recurrencia === "mensual" && (
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-gray-700">
+                      Día del mes
+                    </span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={31}
+                      className="workspace-field"
+                      value={diaMes}
+                      onChange={(e) => setDiaMes(e.target.value)}
+                    />
+                  </label>
+                )}
+
+                {recurrencia === "intervalo_dias" && (
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-gray-700">
+                      Cada cuántos días
+                    </span>
+                    <input
+                      type="number"
+                      min={1}
+                      className="workspace-field"
+                      value={intervaloDias}
+                      onChange={(e) => setIntervaloDias(e.target.value)}
+                    />
+                  </label>
+                )}
+
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-gray-700">
+                    Hora (Argentina)
+                  </span>
+                  <input
+                    type="time"
+                    className="workspace-field"
+                    value={horaProgramada}
+                    onChange={(e) => setHoraProgramada(e.target.value)}
+                  />
+                </label>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-sm font-medium text-gray-700">
+                  Cuando llegue el momento
+                </span>
+                <div className="flex flex-wrap gap-3 text-sm text-gray-700">
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="modoDisparo"
+                      checked={modoDisparo === "automatico"}
+                      onChange={() => setModoDisparo("automatico")}
+                    />
+                    Enviar automáticamente
+                  </label>
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="modoDisparo"
+                      checked={modoDisparo === "requiere_aprobacion"}
+                      onChange={() => setModoDisparo("requiere_aprobacion")}
+                    />
+                    Dejar pendiente de aprobación
+                  </label>
+                </div>
+              </div>
+
+              {mensajeProgramacion && (
+                <p className="rounded-xl border border-[var(--line)] bg-[rgba(255,250,242,0.7)] px-3 py-2 text-sm text-gray-700">
+                  {mensajeProgramacion}
+                </p>
+              )}
+
+              <button
+                type="button"
+                disabled={guardandoProgramacion}
+                onClick={() => void crearProgramacion()}
+                className="workspace-button"
+              >
+                {guardandoProgramacion ? "Guardando..." : "Guardar programación"}
+              </button>
+            </div>
+          )}
+
+          <div className="flex justify-start">
+            <button
+              type="button"
+              className="workspace-button-secondary"
+              onClick={() => setPaso(2)}
+            >
+              Atrás
+            </button>
+          </div>
+        </div>
+        )}
+      </section>
+
+      <section className="workspace-panel space-y-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-1">
+            <p className="workspace-eyebrow">Programados</p>
+            <h2 className="workspace-title-sm">Envíos programados y recurrentes</h2>
+          </div>
+          <button
+            type="button"
+            disabled={programadasCargando}
+            onClick={() => void cargarProgramadas()}
+            className="workspace-button-secondary"
+          >
+            {programadasCargando ? "Cargando..." : "Actualizar"}
+          </button>
+        </div>
+
+        <div className="grid gap-2">
+          {programadas.map((item) => (
+            <div
+              key={item.id}
+              className="rounded-xl border border-[var(--line)] bg-white/75 p-3 text-sm"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <strong>{item.nombre}</strong>
+                <span className="workspace-chip">{recurrenciaLabel(item)}</span>
+                <span className="workspace-chip">{item.hora}</span>
+                <span
+                  className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                    item.activo
+                      ? "border-green-200 bg-green-50 text-green-700"
+                      : "border-gray-200 bg-gray-50 text-gray-500"
+                  }`}
+                >
+                  {item.activo ? "Activa" : "Pausada"}
+                </span>
+                <span className="workspace-chip">
+                  {item.modo_disparo === "automatico"
+                    ? "Automático"
+                    : "Requiere aprobación"}
+                </span>
+                {item.pendiente_aprobacion && (
+                  <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+                    Pendiente de aprobación
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Asunto: {item.asunto} · Próxima ejecución:{" "}
+                {fechaHoraLegible(item.proxima_ejecucion)}
+                {item.ultima_ejecucion_at
+                  ? ` · Última vez: ${fechaHoraLegible(item.ultima_ejecucion_at)}`
+                  : ""}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {item.pendiente_aprobacion && (
+                  <button
+                    type="button"
+                    disabled={accionandoProgramadaId === item.id}
+                    onClick={() =>
+                      void ejecutarAccionProgramada(item.id, "aprobar_y_enviar")
+                    }
+                    className="workspace-button !px-3 !py-1.5 text-xs"
+                  >
+                    {accionandoProgramadaId === item.id
+                      ? "Enviando..."
+                      : "Aprobar y enviar ahora"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  disabled={accionandoProgramadaId === item.id}
+                  onClick={() =>
+                    void ejecutarAccionProgramada(
+                      item.id,
+                      item.activo ? "pausar" : "reanudar"
+                    )
+                  }
+                  className="workspace-button-secondary !px-3 !py-1.5 text-xs"
+                >
+                  {item.activo ? "Pausar" : "Reanudar"}
+                </button>
+                <button
+                  type="button"
+                  disabled={accionandoProgramadaId === item.id}
+                  onClick={() => void ejecutarAccionProgramada(item.id, "eliminar")}
+                  className="workspace-button-secondary !px-3 !py-1.5 text-xs"
+                >
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {programadas.length === 0 && (
+            <p className="text-sm text-gray-600">
+              Todavía no hay envíos programados.
+            </p>
+          )}
+        </div>
       </section>
 
       <section className="workspace-panel space-y-4">

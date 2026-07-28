@@ -181,3 +181,25 @@ Los 6 puntos concretos de UX de `app/admin/comunicaciones/page.tsx`, todos resue
 ### Pendiente (sin cambios)
 - Envío masivo con pausas/límite de tiempo.
 - Tracking de apertura/rebote (webhook de Resend + columnas nuevas).
+
+## Fase 3 (mismo día): rediseño wizard + envíos programados y recurrentes
+Pedido de Nicolás: que Comunicaciones sea "profesional pero simple" para cubrir newsletters, recordatorios de eventos y de pago, con la posibilidad de **programar envíos a futuro y recurrentes**. Confirmado con él: wizard de 3 pasos, recurrencia (una vez / semanal / mensual / cada N días), y el modo de disparo (automático vs. requiere aprobación) configurable por cada envío programado.
+
+**Modelo de datos**: tabla nueva `comunicaciones_programadas` (`sql/2026-07-28_comunicaciones_programadas.sql` — Nicolás la corrió a mano en el SQL Editor de Supabase, como el resto de los `.sql` del proyecto). Guarda los mismos parámetros de segmentación que ya usaba el compositor, más la regla de recurrencia (`recurrencia`, `fecha_una_vez`, `dia_semana`, `dia_mes`, `intervalo_dias`, `hora`), `modo_disparo`, `activo`, `proxima_ejecucion` (única fuente de verdad de "cuándo corresponde") y `pendiente_aprobacion`.
+
+**Cálculo de próxima ejecución**: `lib/comunicaciones-programadas.ts` → `calcularProximaEjecucion`, función pura en horario Argentina (mismo patrón que `lib/fechas.ts`). Probada en vivo para los 4 tipos de recurrencia, incluido el cálculo de "próximo día de la semana" (dio la fecha correcta).
+
+**Sin duplicar el envío**: se extrajo el loop que antes vivía inline en `enviar-segmento/route.ts` a una función compartida, `ejecutarEnvioMasivo` en `lib/comunicaciones.ts` — la usan tanto el envío interactivo como el cron nuevo y el endpoint de "aprobar y enviar".
+
+**Cron nuevo**: `app/api/comunicaciones/procesar-programadas/route.ts`, cada 15 minutos (`vercel.json`, confirmado que el plan Pro de Vercel lo soporta). Por cada programación vencida: si es automática, envía y recalcula/desactiva; si requiere aprobación, solo marca `pendiente_aprobacion` sin enviar nada — queda esperando que Nicolás la confirme desde la UI ("Aprobar y enviar ahora").
+
+**Endpoints nuevos**: `app/api/admin/comunicaciones/programadas/route.ts` (listar/crear) y `.../programadas/accion/route.ts` (pausar/reanudar/eliminar/aprobar_y_enviar).
+
+**UI**: `app/admin/comunicaciones/page.tsx` reorganizado en un wizard de 3 pasos (Destinatarios → Mensaje → Enviar o programar) reutilizando todo el estado y los handlers que ya existían — no se reescribió lógica de negocio, solo se reorganizó la presentación y se agregó la vista de programación. El botón real de "Enviar a N destinatarios" se movió del paso 1 al paso 3 (donde ahora también vive "Enviar prueba" y el formulario de programar). Nueva sección "Programados" (pausar/reanudar/eliminar/aprobar) al mismo nivel que "Base externa" e "Historial", que siguen sin cambios.
+
+Probado en vivo con datos descartables: los 3 casos (automática ya vencida, requiere-aprobación ya vencida, semanal) se comportaron exactamente como se diseñó; recorrido completo del wizard por Playwright (captura de pantalla revisada); confirmado que un envío inmediato real sigue funcionando idéntico a antes del refactor (llamada directa a `enviar-segmento` con éxito). Todo el ruido de prueba se limpió de `comunicaciones_programadas` y `comunicacion_envios`.
+
+### Pendiente
+- Envío masivo con pausas/límite de tiempo (sigue igual, no se tocó en esta fase).
+- Tracking de apertura/rebote (webhook de Resend + columnas nuevas).
+- Nada pendiente de infraestructura para esta fase — Vercel Pro ya soporta la frecuencia del cron.
