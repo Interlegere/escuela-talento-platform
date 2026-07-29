@@ -191,7 +191,7 @@ Pedido de Nicolás: que Comunicaciones sea "profesional pero simple" para cubrir
 
 **Sin duplicar el envío**: se extrajo el loop que antes vivía inline en `enviar-segmento/route.ts` a una función compartida, `ejecutarEnvioMasivo` en `lib/comunicaciones.ts` — la usan tanto el envío interactivo como el cron nuevo y el endpoint de "aprobar y enviar".
 
-**Cron nuevo**: `app/api/comunicaciones/procesar-programadas/route.ts`, cada 15 minutos (`vercel.json`, confirmado que el plan Pro de Vercel lo soporta). Por cada programación vencida: si es automática, envía y recalcula/desactiva; si requiere aprobación, solo marca `pendiente_aprobacion` sin enviar nada — queda esperando que Nicolás la confirme desde la UI ("Aprobar y enviar ahora").
+**Cron nuevo**: `app/api/comunicaciones/procesar-programadas/route.ts`. Por cada programación vencida: si es automática, envía y recalcula/desactiva; si requiere aprobación, solo marca `pendiente_aprobacion` sin enviar nada — queda esperando que Nicolás la confirme desde la UI ("Aprobar y enviar ahora"). **Ver incidente e integración del cron en la sección siguiente** — este endpoint terminó sin cron propio en `vercel.json`, se lo llama desde el cron diario unificado.
 
 **Endpoints nuevos**: `app/api/admin/comunicaciones/programadas/route.ts` (listar/crear) y `.../programadas/accion/route.ts` (pausar/reanudar/eliminar/aprobar_y_enviar).
 
@@ -202,4 +202,25 @@ Probado en vivo con datos descartables: los 3 casos (automática ya vencida, req
 ### Pendiente
 - Envío masivo con pausas/límite de tiempo (sigue igual, no se tocó en esta fase).
 - Tracking de apertura/rebote (webhook de Resend + columnas nuevas).
-- Nada pendiente de infraestructura para esta fase — Vercel Pro ya soporta la frecuencia del cron.
+
+## Incidente: deploy silencioso roto + límite de crons de Vercel Hobby
+Después de pushear el commit de esta fase, Nicolás avisó que el deploy en Vercel no se había disparado. Investigando: el commit sí estaba en `main` de GitHub (confirmado con `git ls-remote`), pero **no aparecía ningún intento de deploy en Vercel, ni siquiera fallido** — a diferencia de los commits anteriores, que sí generaban un deploy (aunque cada uno con un curioso segundo deploy en estado "Error" en paralelo, aparentemente un ambiente duplicado preexistente, no relacionado con este incidente).
+
+**Causa real**: el proyecto de Vercel (`escuela-talento-platform`, team "interlegere's projects") está en **plan Hobby**, no Pro (el Pro que tiene Nicolás es de Supabase, no de Vercel — confusión aclarada en la charla). El plan Hobby limita a **2 cron jobs como máximo, y cada uno solo puede correr 1 vez por día**. El commit de esta fase agregó un tercer cron (`procesar-programadas`, cada 15 minutos), superando ambos límites a la vez — lo más probable es que Vercel rechazara el deploy en la validación de `vercel.json`, antes de generar ningún registro de intento.
+
+**Decisión de Nicolás**: en vez de upgradear el proyecto a Vercel Pro, unificar los 3 crons en uno solo.
+
+**Solución implementada**: `app/api/cron/diario/route.ts`, un único cron (`vercel.json`: `0 3 * * *`, 3am UTC = medianoche Argentina, todos los días) que decide internamente qué corresponde ese día y llama por HTTP a los endpoints ya existentes (sin duplicar lógica, mismo patrón de autenticación con `CRON_SECRET`):
+- Comunicaciones programadas (`/api/comunicaciones/procesar-programadas`): se llama todos los días.
+- Limpieza de CasaTalentos (`/api/casatalentos/limpiar-antiguos`): solo si es domingo.
+- Cobros mensuales (`/api/pagos-mensuales/generar-cobros-mensuales`): solo si es el día 1 del mes.
+
+Los 3 endpoints originales no se tocaron (siguen funcionando igual si se llaman directo) — `vercel.json` quedó con una sola entrada apuntando al cron nuevo.
+
+**Trade-off aceptado explícitamente por Nicolás**: las comunicaciones programadas ya no se procesan cada 15 minutos sino una vez por día. Si alguien programa un envío para "hoy a las 09:00" y ya pasaron las 09:00 cuando corre el cron diario (medianoche), se manda recién en la corrida del día siguiente — la hora elegida al programar deja de respetarse al minuto, se respeta "una vez por día calendario".
+
+Probado en vivo (local): el cron diario nuevo detectó correctamente el día de la semana/mes real y solo ejecutó la rama de comunicaciones programadas (no era domingo ni día 1), devolviendo el resultado esperado.
+
+### Pendiente
+- Confirmar que el deploy en Vercel funciona una vez subido este fix (Nicolás iba a revisar el filtro de estados en Deployments y probar de nuevo).
+- Si en el futuro se necesita más precisión horaria en las comunicaciones programadas, la opción real es upgradear este proyecto de Vercel a Pro — ya evaluado y descartado por ahora.
