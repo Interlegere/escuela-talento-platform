@@ -222,5 +222,29 @@ Los 3 endpoints originales no se tocaron (siguen funcionando igual si se llaman 
 Probado en vivo (local): el cron diario nuevo detectó correctamente el día de la semana/mes real y solo ejecutó la rama de comunicaciones programadas (no era domingo ni día 1), devolviendo el resultado esperado.
 
 ### Pendiente
-- Confirmar que el deploy en Vercel funciona una vez subido este fix (Nicolás iba a revisar el filtro de estados en Deployments y probar de nuevo).
+- ~~Confirmar que el deploy en Vercel funciona una vez subido este fix~~ **RESUELTO**: el problema real era otro — el campo "Root Directory" del proyecto en Vercel tenía cargado `./` (no vacío), y para el detector de Next.js de Vercel eso no es equivalente a dejarlo en blanco. Nicolás lo vació y el deploy funcionó. Documentado para no perder tiempo la próxima vez que un deploy de este proyecto falle con "No Next.js version detected".
 - Si en el futuro se necesita más precisión horaria en las comunicaciones programadas, la opción real es upgradear este proyecto de Vercel a Pro — ya evaluado y descartado por ahora.
+
+## Fase 4 (mismo día, sesión 2026-07-29/30): Bandeja de entrada (Resend Inbound)
+
+### Objetivo
+Nicolás quería ver y responder desde ENTHEOS las respuestas que la gente manda a sus mails — hoy caen en su Gmail personal (invisibles para el sistema) y, al responder desde ahí, pierden el formato de marca de ENTHEOS (Gmail no sabe que existe esa plantilla HTML). Antes de construir nada se investigó el costo: **Resend Inbound** (mismo proveedor que ya se usa para enviar) incluye recepción de mail por webhook en todos sus planes, **incluido el gratuito** — sin costo adicional mientras el volumen total (envío + recepción) siga dentro del plan actual. Se descartaron alternativas con costo (Postmark, Mailgun) y Cloudflare Email Routing (gratis pero suma un proveedor nuevo sin necesidad).
+
+### Qué se hizo
+- **Tabla nueva** `comunicacion_recibidos` (`sql/2026-07-29_comunicacion_recibidos.sql`, Nicolás la corre a mano como el resto de los `.sql` del proyecto).
+- **`lib/webhooks.ts`** (nuevo): `verificarFirmaSvix`, verificación manual de firma HMAC-SHA256 al estilo Svix (que es lo que usa Resend para firmar sus webhooks) — **sin agregar los paquetes `resend` ni `svix` como dependencia nueva**, coherente con que todo el resto de las integraciones del proyecto (Mercado Pago, el propio Resend de salida) se hacen a mano sin SDK oficial. Probado con 5 casos (firma válida, payload alterado, secret incorrecto, timestamp vencido, múltiples firmas en el header) — los 5 dieron el resultado esperado.
+- **`app/api/webhooks/resend-inbound/route.ts`** (nuevo): primer webhook de todo el proyecto que **sí verifica firma** (el de Mercado Pago, ya documentado como riesgo, no lo hace — acá no se repite ese error). Lee el body crudo, verifica firma, si es válida busca el cuerpo completo del mail en la API de Resend (el webhook solo manda metadata), matchea el remitente contra `usuarios_plataforma`/`comunicacion_contactos`, e inserta con `upsert` por `resend_email_id` (idempotente — evita duplicar si Resend reintenta la entrega del webhook, otra cosa que Mercado Pago no hace bien).
+- **`enviarRespuestaEntheos`/`crearHtmlRespuestaEntheos`** en `lib/comunicaciones.ts`: mismo patrón que `enviarResolucionPagoIndividual`, reutilizando exactamente el mismo layout visual de ENTHEOS (header, tarjeta, botón) que ya usan todos los demás mails transaccionales del sistema.
+- **Endpoints**: `app/api/admin/comunicaciones/recibidos/route.ts` (listar) y `.../recibidos/accion/route.ts` (marcar leído / responder).
+- **UI**: nueva sección "Bandeja de entrada" en `/admin/comunicaciones` (entre "Programados" y "Base externa") — lista de recibidos con nombre (si matchea a alguien conocido) o email, asunto, chip "No leído"/"Respondido", y al expandir un textarea para responder con el formato de ENTHEOS.
+- **A propósito, sin threading complejo**: no se intenta enlazar cada respuesta con el mail exacto que la originó (headers `In-Reply-To`/`References`) — la bandeja es una lista simple "quién escribió, qué asunto, cuándo", más simple y confiable que armar un hilo de conversación.
+
+### Configuración manual pendiente (la hace Nicolás, no se puede hacer desde acá)
+- En Resend: dar de alta un **subdominio** de recepción (nunca el dominio raíz `entheosescuela.com` — cortaría la casilla real de Google Workspace) y cargar los MX que Resend indique.
+- En Resend: crear el endpoint de webhook apuntando a `https://<dominio>/api/webhooks/resend-inbound`, copiar el secreto `whsec_...`.
+- Variables de entorno nuevas en Vercel: `RESEND_WEBHOOK_SECRET` (el `whsec_...`) y opcionalmente `MAIL_INBOUND_DOMAIN`.
+- Sin esta configuración el webhook devuelve 500 controladamente ("RESEND_WEBHOOK_SECRET no configurado") — confirmado en vivo, no falla en silencio ni acepta payloads sin verificar.
+
+### Pendiente
+- Probar el flujo real de punta a punta (mandar un mail de verdad a la dirección de recepción) recién cuando el subdominio y el secret estén configurados en Resend/Vercel.
+- Verificar contra la documentación real de Resend el endpoint exacto de "traer el cuerpo completo del email" (`GET /emails/receiving/{id}`) la primera vez que llegue un mail real — se implementó según la documentación pública disponible, pero no se pudo probar en vivo por no tener todavía el dominio conectado.
