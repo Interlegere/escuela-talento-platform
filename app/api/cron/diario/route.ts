@@ -41,6 +41,16 @@ export async function GET(req: Request) {
       cronSecret
     )
 
+    // Reintento de encuentros que quedaron sin sincronizar con Google
+    // Calendar (pendiente/error/sincronizando trabado): la sincronización
+    // normal solo se dispara al tocar un botón en /agenda, así que sin este
+    // reintento diario un fallo puntual queda así para siempre en silencio.
+    resultados.reintentoSyncGoogle = await llamarInterno(
+      origin,
+      "/api/agenda/admin/reintentar-sync-pendientes",
+      cronSecret
+    )
+
     // Limpieza de videos antiguos de CasaTalentos: solo los domingos
     // (antes corría con su propio cron semanal).
     if (diaSemana === 0) {

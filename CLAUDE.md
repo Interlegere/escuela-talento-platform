@@ -274,3 +274,22 @@ Se le presentaron 4 caminos: pagar Resend Pro, migrar a Cloudflare Email Routing
 ## 4. Pendiente
 - Si en algún momento cambia el presupuesto o la prioridad, la opción de Cloudflare Email Routing sigue disponible como camino gratuito hacia la bandeja automática real — implica delegar el subdominio de recepción a Cloudflare (vía NS en Namecheap, sin tocar el resto del DNS del dominio raíz) y armar la captura con un Email Worker en vez del webhook de Resend.
 - Confirmar si `comunicacion_recibidos` llegó a crearse en Supabase (Nicolás nunca confirmó explícitamente haber corrido ese SQL) — si existe, se puede dejar vacía sin problema, ningún código la usa.
+
+---
+
+# Sesión de trabajo 2026-08-04 (continuación) — Encuentros sin sincronizar a Google Calendar + reintento automático
+
+## 1. Diagnóstico: "no se me sincronizaron los eventos generados desde Entheos"
+Relevamiento en vivo contra la base real: de 36 encuentros futuros en `disponibilidades`, **6 nunca habían llegado a Google Calendar** — 3 sesiones de Terapia de Cecilia Reynoso (`sync_status: "pendiente"`), la Mentoría de Lucas Britos (quedó en `"error"` de un intento previo), la Mentoría de Ale Alexandroff (quedó trabada a mitad de camino en `"sincronizando"`, nunca terminó) y la sesión de Terapia de Maru Arrieta de ese mismo día (tenía el evento creado en Google pero la plataforma nunca guardó `sync_status: "sincronizado"`).
+
+**Causa de fondo**: la sincronización a Google (`sincronizarDisponibilidadConGoogle` en `lib/google-calendar.ts`) solo se dispara manualmente, al tocar el botón correspondiente en `/agenda` — no hay ningún cron ni reintento automático. Si esa sincronización falla (o el proceso se corta a mitad de camino, dejando `sync_status` en `"sincronizando"` para siempre), queda así en silencio hasta que alguien lo note y reintente a mano.
+
+Se sincronizaron los 6 manualmente (mismo endpoint que usa el botón de la UI, `/api/google/sync-disponibilidad`) y se confirmó con la herramienta de comprobación de `/agenda` (agregada en la sesión del 27/7) que no quedó nada del lado de la plataforma sin sincronizar. Quedan otros 12 registros en `"pendiente"` que son reuniones semanales de CasaTalentos/Conectando Sentidos **ya canceladas** — está bien que no tengan evento en Google, no son parte del problema.
+
+## 2. Reintento automático (lo pedido: "que esto no vuelva a pasar en silencio")
+- **`app/api/agenda/admin/reintentar-sync-pendientes/route.ts`** (nuevo): mismo patrón de auth que el resto de endpoints llamados por cron (`CRON_SECRET` en el header `Authorization`, no sesión de usuario). Busca `disponibilidades` con fecha futura y `sync_status` en `"pendiente"` / `"error"` / `"sincronizando"`, **excluyendo `estado: "cancelada"`** (a propósito — sincronizar un encuentro cancelado recrearía un evento que no debería existir), y llama a `sincronizarDisponibilidadConGoogle` por cada uno. Reintentar es seguro/idempotente: si ya existe `google_event_id`, la función actualiza ese evento en vez de crear uno duplicado (confirmado en vivo forzando un registro real a `"pendiente"` y viendo que el `google_event_id` no cambió después del reintento).
+- **`app/api/cron/diario/route.ts`**: se agregó una llamada más, todos los días (mismo cron único de las 3am ARG que ya corre comunicaciones programadas / limpieza semanal / cobros mensuales — límite de 2 crons/1 vez por día del plan Hobby de Vercel, ver incidente documentado más arriba).
+- Probado en vivo: la ejecución real no encontró nada pendiente (ya se habían arreglado los 6 a mano); una prueba forzada (marcar un registro real como `"pendiente"` temporalmente) confirmó que el reintento lo vuelve a dejar `"sincronizado"` sin duplicar el evento en Google. También se confirmó que el endpoint rechaza pedidos sin el `CRON_SECRET` correcto (401).
+
+## 3. Pendiente
+- Mismo hallazgo de la sesión del 27/7 sigue sin resolver: hay reuniones que existen **solo en Google Calendar** y no en la plataforma (CasaTalentos semanal, Mentoría Tato Fuentes, entre otras) — el reintento nuevo no las toca, porque no son un problema de sincronización fallida sino de que nunca se cargaron desde la plataforma. Sigue pendiente migrarlas.
