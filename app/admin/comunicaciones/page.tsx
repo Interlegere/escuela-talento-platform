@@ -109,19 +109,6 @@ type ProgramacionResumen = {
   pendiente_aprobacion: boolean
 }
 
-type RecibidoResumen = {
-  id: number
-  remitente_email: string
-  remitente_nombre?: string | null
-  destinatario_email?: string | null
-  asunto?: string | null
-  texto?: string | null
-  html?: string | null
-  leido: boolean
-  respondido: boolean
-  recibido_at: string
-}
-
 const SEGMENTOS: Array<{
   value: Segmento
   label: string
@@ -445,16 +432,15 @@ export default function AdminComunicacionesPage() {
     number | null
   >(null)
 
-  const [recibidos, setRecibidos] = useState<RecibidoResumen[]>([])
-  const [recibidosCargando, setRecibidosCargando] = useState(false)
-  const [recibidoExpandidoId, setRecibidoExpandidoId] = useState<number | null>(
-    null
-  )
-  const [cuerposRespuesta, setCuerposRespuesta] = useState<
-    Record<number, string>
-  >({})
-  const [respondiendoId, setRespondiendoId] = useState<number | null>(null)
-  const [mensajeRecibidos, setMensajeRecibidos] = useState("")
+  const [respuestaDestinatarioEmail, setRespuestaDestinatarioEmail] =
+    useState("")
+  const [respuestaDestinatarioNombre, setRespuestaDestinatarioNombre] =
+    useState("")
+  const [respuestaAsunto, setRespuestaAsunto] = useState("")
+  const [respuestaCuerpo, setRespuestaCuerpo] = useState("")
+  const [enviandoRespuestaEntheos, setEnviandoRespuestaEntheos] =
+    useState(false)
+  const [mensajeRespuestaEntheos, setMensajeRespuestaEntheos] = useState("")
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -685,45 +671,18 @@ export default function AdminComunicacionesPage() {
     }
   }, [])
 
-  const cargarRecibidos = useCallback(async () => {
-    try {
-      setRecibidosCargando(true)
-
-      const res = await fetch("/api/admin/comunicaciones/recibidos", {
-        cache: "no-store",
-      })
-      const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.error || "No se pudieron cargar los emails recibidos.")
-      }
-
-      setRecibidos((data.recibidos || []) as RecibidoResumen[])
-    } catch (error) {
-      setMensajeRecibidos(
-        error instanceof Error
-          ? error.message
-          : "No se pudieron cargar los emails recibidos."
-      )
-    } finally {
-      setRecibidosCargando(false)
-    }
-  }, [])
-
   useEffect(() => {
     if (status === "authenticated" && esAdmin) {
       void cargarPreview()
       void cargarHistorial()
       void cargarContactos()
       void cargarProgramadas()
-      void cargarRecibidos()
     }
   }, [
     cargarContactos,
     cargarHistorial,
     cargarPreview,
     cargarProgramadas,
-    cargarRecibidos,
     esAdmin,
     status,
   ])
@@ -968,43 +927,31 @@ export default function AdminComunicacionesPage() {
     }
   }
 
-  const marcarLeidoRecibido = async (id: number) => {
-    try {
-      const res = await fetch("/api/admin/comunicaciones/recibidos/accion", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, accion: "marcar_leido" }),
-      })
-      const data = await res.json()
+  const enviarRespuestaEntheosManual = async () => {
+    const destinatarioEmail = respuestaDestinatarioEmail.trim()
+    const asunto = respuestaAsunto.trim()
+    const cuerpo = respuestaCuerpo.trim()
 
-      if (!res.ok) {
-        throw new Error(data.error || "No se pudo marcar como leído.")
-      }
-
-      await cargarRecibidos()
-    } catch (error) {
-      setMensajeRecibidos(
-        error instanceof Error ? error.message : "No se pudo marcar como leído."
+    if (!destinatarioEmail || !asunto || !cuerpo) {
+      setMensajeRespuestaEntheos(
+        "Completá el email, el asunto y el mensaje antes de enviar."
       )
-    }
-  }
-
-  const responderRecibido = async (id: number) => {
-    const cuerpo = (cuerposRespuesta[id] || "").trim()
-
-    if (!cuerpo) {
-      setMensajeRecibidos("Escribí una respuesta antes de enviar.")
       return
     }
 
     try {
-      setRespondiendoId(id)
-      setMensajeRecibidos("")
+      setEnviandoRespuestaEntheos(true)
+      setMensajeRespuestaEntheos("")
 
-      const res = await fetch("/api/admin/comunicaciones/recibidos/accion", {
+      const res = await fetch("/api/admin/comunicaciones/responder-entheos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, accion: "responder", cuerpo }),
+        body: JSON.stringify({
+          destinatarioEmail,
+          destinatarioNombre: respuestaDestinatarioNombre.trim(),
+          asunto,
+          cuerpo,
+        }),
       })
       const data = await res.json()
 
@@ -1012,19 +959,17 @@ export default function AdminComunicacionesPage() {
         throw new Error(data.error || "No se pudo enviar la respuesta.")
       }
 
-      setMensajeRecibidos("Respuesta enviada.")
-      setCuerposRespuesta((prev) => {
-        const siguiente = { ...prev }
-        delete siguiente[id]
-        return siguiente
-      })
-      await cargarRecibidos()
+      setMensajeRespuestaEntheos("Respuesta enviada con el formato de Entheos.")
+      setRespuestaDestinatarioEmail("")
+      setRespuestaDestinatarioNombre("")
+      setRespuestaAsunto("")
+      setRespuestaCuerpo("")
     } catch (error) {
-      setMensajeRecibidos(
+      setMensajeRespuestaEntheos(
         error instanceof Error ? error.message : "No se pudo enviar la respuesta."
       )
     } finally {
-      setRespondiendoId(null)
+      setEnviandoRespuestaEntheos(false)
     }
   }
 
@@ -1991,117 +1936,79 @@ export default function AdminComunicacionesPage() {
       </section>
 
       <section className="workspace-panel space-y-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-1">
-            <p className="workspace-eyebrow">Bandeja de entrada</p>
-            <h2 className="workspace-title-sm">Respuestas recibidas</h2>
-            <p className="workspace-inline-note">
-              Emails que te respondieron a algo enviado desde Entheos. Al
-              responder acá, sale con el mismo formato de Entheos — no como en
-              Gmail.
-            </p>
-          </div>
-          <button
-            type="button"
-            disabled={recibidosCargando}
-            onClick={() => void cargarRecibidos()}
-            className="workspace-button-secondary"
-          >
-            {recibidosCargando ? "Cargando..." : "Actualizar"}
-          </button>
+        <div className="space-y-1">
+          <p className="workspace-eyebrow">Responder con formato Entheos</p>
+          <h2 className="workspace-title-sm">Redactar una respuesta</h2>
+          <p className="workspace-inline-note">
+            Las respuestas que te manda la gente siguen llegando a tu Gmail
+            personal (todavía no hay bandeja automática acá dentro). Usá este
+            formulario para contestarlas con el mismo formato visual de
+            Entheos en vez de responder directo desde Gmail en texto plano.
+          </p>
         </div>
 
-        {mensajeRecibidos && (
+        {mensajeRespuestaEntheos && (
           <p className="rounded-xl border border-[var(--line)] bg-[rgba(255,250,242,0.7)] px-3 py-2 text-sm text-gray-700">
-            {mensajeRecibidos}
+            {mensajeRespuestaEntheos}
           </p>
         )}
 
-        <div className="grid gap-2">
-          {recibidos.map((item) => {
-            const expandido = recibidoExpandidoId === item.id
-
-            return (
-              <div
-                key={item.id}
-                className="rounded-xl border border-[var(--line)] bg-white/75 p-3 text-sm"
-              >
-                <button
-                  type="button"
-                  className="w-full text-left"
-                  onClick={() => {
-                    setRecibidoExpandidoId(expandido ? null : item.id)
-                    if (!item.leido) {
-                      void marcarLeidoRecibido(item.id)
-                    }
-                  }}
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <strong>
-                      {item.remitente_nombre || item.remitente_email}
-                    </strong>
-                    {!item.leido && (
-                      <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
-                        No leído
-                      </span>
-                    )}
-                    {item.respondido && (
-                      <span className="workspace-chip">Respondido</span>
-                    )}
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500">
-                    {item.remitente_email} ·{" "}
-                    {new Date(item.recibido_at).toLocaleString("es-AR")}
-                  </p>
-                  <p className="mt-1 text-sm text-gray-700">
-                    {item.asunto || "(Sin asunto)"}
-                  </p>
-                </button>
-
-                {expandido && (
-                  <div className="mt-3 space-y-3 border-t border-[var(--line)] pt-3">
-                    <pre className="whitespace-pre-wrap text-sm text-gray-700">
-                      {item.texto || "(Sin contenido de texto)"}
-                    </pre>
-
-                    <label className="space-y-2">
-                      <span className="text-sm font-medium text-gray-700">
-                        Responder
-                      </span>
-                      <textarea
-                        className="workspace-field min-h-28"
-                        value={cuerposRespuesta[item.id] || ""}
-                        onChange={(e) =>
-                          setCuerposRespuesta((prev) => ({
-                            ...prev,
-                            [item.id]: e.target.value,
-                          }))
-                        }
-                        placeholder="Escribí tu respuesta..."
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      disabled={respondiendoId === item.id}
-                      onClick={() => void responderRecibido(item.id)}
-                      className="workspace-button !px-3 !py-1.5 text-xs"
-                    >
-                      {respondiendoId === item.id
-                        ? "Enviando..."
-                        : "Enviar respuesta"}
-                    </button>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-
-          {recibidos.length === 0 && (
-            <p className="text-sm text-gray-600">
-              Todavía no llegó ninguna respuesta.
-            </p>
-          )}
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-gray-700">
+              Email del destinatario
+            </span>
+            <input
+              type="email"
+              className="workspace-field"
+              value={respuestaDestinatarioEmail}
+              onChange={(e) => setRespuestaDestinatarioEmail(e.target.value)}
+              placeholder="persona@ejemplo.com"
+            />
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-gray-700">
+              Nombre (opcional)
+            </span>
+            <input
+              type="text"
+              className="workspace-field"
+              value={respuestaDestinatarioNombre}
+              onChange={(e) => setRespuestaDestinatarioNombre(e.target.value)}
+              placeholder="Nombre de la persona"
+            />
+          </label>
         </div>
+
+        <label className="space-y-2 block">
+          <span className="text-sm font-medium text-gray-700">Asunto</span>
+          <input
+            type="text"
+            className="workspace-field"
+            value={respuestaAsunto}
+            onChange={(e) => setRespuestaAsunto(e.target.value)}
+            placeholder="Re: tu consulta"
+          />
+        </label>
+
+        <label className="space-y-2 block">
+          <span className="text-sm font-medium text-gray-700">Mensaje</span>
+          <textarea
+            className="workspace-field min-h-32"
+            value={respuestaCuerpo}
+            onChange={(e) => setRespuestaCuerpo(e.target.value)}
+            placeholder="Escribí tu respuesta..."
+          />
+        </label>
+
+        <button
+          type="button"
+          disabled={enviandoRespuestaEntheos}
+          onClick={() => void enviarRespuestaEntheosManual()}
+          className="workspace-button"
+        >
+          {enviandoRespuestaEntheos ? "Enviando..." : "Enviar con formato Entheos"}
+        </button>
       </section>
 
       <section className="workspace-panel space-y-4">

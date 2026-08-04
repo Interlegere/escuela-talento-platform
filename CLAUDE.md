@@ -225,9 +225,11 @@ Probado en vivo (local): el cron diario nuevo detectó correctamente el día de 
 - ~~Confirmar que el deploy en Vercel funciona una vez subido este fix~~ **RESUELTO**: el problema real era otro — el campo "Root Directory" del proyecto en Vercel tenía cargado `./` (no vacío), y para el detector de Next.js de Vercel eso no es equivalente a dejarlo en blanco. Nicolás lo vació y el deploy funcionó. Documentado para no perder tiempo la próxima vez que un deploy de este proyecto falle con "No Next.js version detected".
 - Si en el futuro se necesita más precisión horaria en las comunicaciones programadas, la opción real es upgradear este proyecto de Vercel a Pro — ya evaluado y descartado por ahora.
 
-## Fase 4 (mismo día, sesión 2026-07-29/30): Bandeja de entrada (Resend Inbound)
+## Fase 4 (mismo día, sesión 2026-07-29/30): Bandeja de entrada (Resend Inbound) — REVERTIDA, ver sesión 2026-08-04 más abajo
 
-### Objetivo
+~~Todo lo de esta sección (tabla `comunicacion_recibidos`, `lib/webhooks.ts`, el webhook `app/api/webhooks/resend-inbound/route.ts`, los endpoints de recibidos, la sección "Bandeja de entrada" en la UI) se sacó del código el 2026-08-04.~~ **Motivo**: al intentar configurarlo en vivo, se descubrió que la cuenta de Resend de Nicolás ya tiene su único dominio del plan gratuito ocupado por `entheosescuela.com` (usado para envío) — agregar el subdominio de recepción como un segundo dominio pide upgrade a Resend Pro, **$20/mes**, algo que Nicolás no había aceptado pagar y explícitamente no quería. El supuesto "$0 costo adicional" de esta sección no contemplaba el límite de *cantidad de dominios* del plan (solo contemplaba que la función de recibir mail en sí no tuviera costo, que es cierto, pero no alcanza). Se mantiene el resto de esta sección tal cual se escribió en su momento, como registro de lo investigado y por qué se había elegido este camino — la funcionalidad real que se dejó funcionando es otra, más simple, documentada en la sesión de abajo.
+
+### Objetivo (histórico, ver nota de arriba)
 Nicolás quería ver y responder desde ENTHEOS las respuestas que la gente manda a sus mails — hoy caen en su Gmail personal (invisibles para el sistema) y, al responder desde ahí, pierden el formato de marca de ENTHEOS (Gmail no sabe que existe esa plantilla HTML). Antes de construir nada se investigó el costo: **Resend Inbound** (mismo proveedor que ya se usa para enviar) incluye recepción de mail por webhook en todos sus planes, **incluido el gratuito** — sin costo adicional mientras el volumen total (envío + recepción) siga dentro del plan actual. Se descartaron alternativas con costo (Postmark, Mailgun) y Cloudflare Email Routing (gratis pero suma un proveedor nuevo sin necesidad).
 
 ### Qué se hizo
@@ -245,6 +247,30 @@ Nicolás quería ver y responder desde ENTHEOS las respuestas que la gente manda
 - Variables de entorno nuevas en Vercel: `RESEND_WEBHOOK_SECRET` (el `whsec_...`) y opcionalmente `MAIL_INBOUND_DOMAIN`.
 - Sin esta configuración el webhook devuelve 500 controladamente ("RESEND_WEBHOOK_SECRET no configurado") — confirmado en vivo, no falla en silencio ni acepta payloads sin verificar.
 
-### Pendiente
-- Probar el flujo real de punta a punta (mandar un mail de verdad a la dirección de recepción) recién cuando el subdominio y el secret estén configurados en Resend/Vercel.
-- Verificar contra la documentación real de Resend el endpoint exacto de "traer el cuerpo completo del email" (`GET /emails/receiving/{id}`) la primera vez que llegue un mail real — se implementó según la documentación pública disponible, pero no se pudo probar en vivo por no tener todavía el dominio conectado.
+### Pendiente (histórico, superado por la reversión de abajo)
+~~- Probar el flujo real de punta a punta (mandar un mail de verdad a la dirección de recepción) recién cuando el subdominio y el secret estén configurados en Resend/Vercel.~~
+~~- Verificar contra la documentación real de Resend el endpoint exacto de "traer el cuerpo completo del email" (`GET /emails/receiving/{id}`) la primera vez que llegue un mail real — se implementó según la documentación pública disponible, pero no se pudo probar en vivo por no tener todavía el dominio conectado.~~
+
+---
+
+# Sesión de trabajo 2026-08-04 — Reversión de la Bandeja de entrada automática y reemplazo por composer manual
+
+## 1. Qué pasó
+Al guiar a Nicolás paso a paso para configurar el subdominio de recepción en Resend (`respuestas.entheosescuela.com`), la pantalla real de su cuenta mostró dos cosas nuevas que no se habían podido ver antes de tener acceso en vivo:
+1. Su dominio ya cargado en Resend (`entheosescuela.com`, usado hoy para *enviar*) tenía un intento de "Enable Receiving" con el MX apuntando al host `@` (la raíz) en estado "Failed" — no llegó a tocar el DNS real (el registro nunca se cargó), así que el Google Workspace real de Nicolás nunca estuvo en riesgo, pero confirmó en la práctica el motivo por el que este proyecto siempre evitó tocar el dominio raíz.
+2. Al intentar agregar `respuestas.entheosescuela.com` como dominio nuevo (necesario para recibir sin tocar la raíz), Resend mostró un paywall: el plan actual de Nicolás permite **1 solo dominio**, y agregar un segundo pide upgrade a **Resend Pro, $20/mes**.
+
+Esto contradice la premisa con la que se había diseñado toda la Fase 4 ("$0 costo adicional") — esa premisa era cierta para la *función* de recibir mail (Resend Inbound no tiene costo por sí sola en ningún plan), pero no contempló el límite de *cantidad de dominios* del plan gratuito, algo que solo se pudo confirmar mirando la cuenta real de Nicolás, no la documentación pública de precios. Nicolás, con la condición explícita de no sumar costos por el momento, eligió no pagar el upgrade.
+
+## 2. Decisión (elegida por Nicolás entre 4 opciones presentadas)
+Se le presentaron 4 caminos: pagar Resend Pro, migrar a Cloudflare Email Routing (gratis pero suma un proveedor nuevo + requiere delegar el subdominio vía NS + reescribir la captura como Email Worker, bastante más trabajo), una versión simple sin captura automática, o pausar todo. Eligió la **versión simple sin captura automática**.
+
+## 3. Qué se hizo
+- **Se sacó todo el código de la Fase 4** que dependía de recibir mail automáticamente: tabla `sql/2026-07-29_comunicacion_recibidos.sql` (el archivo se borró del repo; la tabla puede seguir existiendo vacía en Supabase si Nicolás llegó a correr ese SQL — no confirmado, no vale la pena un `DROP TABLE` para esto, mismo criterio ya usado antes con `comunicacion_plantillas`), `lib/webhooks.ts` (`verificarFirmaSvix`, sin otros usos en el código), `app/api/webhooks/resend-inbound/route.ts`, `app/api/admin/comunicaciones/recibidos/route.ts` y `.../recibidos/accion/route.ts`.
+- **Se reemplazó la sección "Bandeja de entrada" de `/admin/comunicaciones`** por una sección más simple, "Responder con formato Entheos": un formulario (email destinatario, nombre opcional, asunto, mensaje) que arma y manda la respuesta con el mismo layout visual de ENTHEOS de siempre. Nicolás sigue viendo las respuestas de la gente solo en su Gmail personal (eso no cambió), pero ahora puede contestarlas desde el portal con el formato de marca en vez de hacerlo en texto plano desde Gmail — resuelve la mitad original del pedido (responder con marca) sin necesitar recibir mail automáticamente.
+- **Se conservó** `enviarRespuestaEntheos`/`crearHtmlRespuestaEntheos` en `lib/comunicaciones.ts` (no dependen de la tabla de recibidos, se les cambiaron los call sites) y el endpoint nuevo que los usa, `app/api/admin/comunicaciones/responder-entheos/route.ts` (toma `{destinatarioEmail, destinatarioNombre?, asunto, cuerpo}` directo del formulario, sin buscar nada en base).
+- `typecheck` y `lint` verificados limpios (el único error de lint del proyecto, en `hooks/useSessionDraft.ts`, es preexistente y no relacionado).
+
+## 4. Pendiente
+- Si en algún momento cambia el presupuesto o la prioridad, la opción de Cloudflare Email Routing sigue disponible como camino gratuito hacia la bandeja automática real — implica delegar el subdominio de recepción a Cloudflare (vía NS en Namecheap, sin tocar el resto del DNS del dominio raíz) y armar la captura con un Email Worker en vez del webhook de Resend.
+- Confirmar si `comunicacion_recibidos` llegó a crearse en Supabase (Nicolás nunca confirmó explícitamente haber corrido ese SQL) — si existe, se puede dejar vacía sin problema, ningún código la usa.
