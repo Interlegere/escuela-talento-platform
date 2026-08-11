@@ -13,12 +13,16 @@ type AporteRow = {
   autor_nombre: string | null
   autor_email: string | null
   contenido: string
+  campo: string | null
+  fragmento: string | null
   created_at: string
 }
 
 type Body = {
   participanteEmail?: string
   contenido?: string
+  campo?: string
+  fragmento?: string
 }
 
 export async function GET(req: Request) {
@@ -143,6 +147,8 @@ export async function POST(req: Request) {
         autor_email: auth.actor.email,
         autor_nombre: auth.actor.name || auth.actor.email,
         contenido,
+        campo: body.campo?.trim() || null,
+        fragmento: body.fragmento?.trim() || null,
       })
       .select("*")
       .single()

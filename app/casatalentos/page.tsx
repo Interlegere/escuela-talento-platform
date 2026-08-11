@@ -184,6 +184,8 @@ type AporteItem = {
   autor_nombre: string | null
   autor_email: string | null
   contenido: string
+  campo: string | null
+  fragmento: string | null
   created_at: string
 }
 
@@ -231,12 +233,30 @@ const CAMPOS_COORDENADAS: Array<keyof CoordenadasForm> = [
   "que",
   "paraQue",
   "problemaSolucion",
-  "resultadoSemanal",
   "resultadoMensual",
   "resultadoTrimestral",
   "resultadoAnual",
   "habilidadADesarrollar",
   "queTeEntusiasma",
+]
+const CAMPOS_COORDENADAS_PRINCIPALES: Array<{
+  campo: keyof CoordenadasForm
+  etiqueta: string
+  colSpan?: boolean
+}> = [
+  { campo: "que", etiqueta: "Proyecto sobre el que querés trabajar (qué)" },
+  { campo: "paraQue", etiqueta: "Objetivo concreto que querés alcanzar (para qué)" },
+  { campo: "problemaSolucion", etiqueta: "Problema y solución", colSpan: true },
+  { campo: "habilidadADesarrollar", etiqueta: "Una habilidad que quieras desarrollar" },
+  { campo: "queTeEntusiasma", etiqueta: "Algo que te entusiasme mucho en la vida" },
+]
+const CAMPOS_COORDENADAS_RESULTADOS: Array<{
+  campo: keyof CoordenadasForm
+  etiqueta: string
+}> = [
+  { campo: "resultadoMensual", etiqueta: "Mensual" },
+  { campo: "resultadoTrimestral", etiqueta: "Trimestral" },
+  { campo: "resultadoAnual", etiqueta: "Anual" },
 ]
 const RECURSOS_PRUEBA_CASATALENTOS: Recurso[] = [
   {
@@ -554,11 +574,15 @@ export default function CasaTalentosPage() {
   ).length
   const [proximoEncuentro, setProximoEncuentro] = useState<ProximoEncuentro | null>(null)
   const [aportesRecibidos, setAportesRecibidos] = useState<AporteItem[]>([])
-  const [aporteDestinatario, setAporteDestinatario] = useState("")
-  const [aporteContenido, setAporteContenido] = useState("")
-  const [enviandoAporte, setEnviandoAporte] = useState(false)
   const [mensajeAporte, setMensajeAporte] = useState("")
   const [valoracionesAbiertas, setValoracionesAbiertas] = useState(false)
+  const [viendoEmail, setViendoEmail] = useState<string | null>(null)
+  const [campoConSeleccion, setCampoConSeleccion] = useState<string | null>(null)
+  const [textoSeleccionado, setTextoSeleccionado] = useState("")
+  const [comentandoCampo, setComentandoCampo] = useState<string | null>(null)
+  const [contenidoNotaAncla, setContenidoNotaAncla] = useState("")
+  const [guardandoNotaAncla, setGuardandoNotaAncla] = useState(false)
+  const [aporteAbiertoId, setAporteAbiertoId] = useState<number | null>(null)
   const [producciones, setProducciones] = useState<ProduccionItem[]>([])
   const [tituloProduccion, setTituloProduccion] = useState("")
   const [textoProduccion, setTextoProduccion] = useState("")
@@ -778,7 +802,8 @@ export default function CasaTalentosPage() {
   const cargarProyecto = async () => {
     try {
       setCargandoProyecto(true)
-      const res = await fetch("/api/entusiasmo/proyecto")
+      const query = viendoEmail ? `?email=${encodeURIComponent(viendoEmail)}` : ""
+      const res = await fetch(`/api/entusiasmo/proyecto${query}`)
       const data = await leerRespuestaJson<{
         proyecto?: ProyectoEntusiasmo | null
         pitchSignedUrl?: string | null
@@ -816,11 +841,12 @@ export default function CasaTalentosPage() {
     if (mounted) {
       void cargarProyecto()
     }
-  }, [mounted])
+  }, [mounted, viendoEmail])
 
   const cargarAportesRecibidos = async () => {
     try {
-      const res = await fetch("/api/entusiasmo/aportes")
+      const query = viendoEmail ? `?email=${encodeURIComponent(viendoEmail)}` : ""
+      const res = await fetch(`/api/entusiasmo/aportes${query}`)
       const data = await leerRespuestaJson<{ aportes?: AporteItem[] }>(res)
       setAportesRecibidos(data.aportes || [])
     } catch {
@@ -832,11 +858,12 @@ export default function CasaTalentosPage() {
     if (mounted) {
       void cargarAportesRecibidos()
     }
-  }, [mounted])
+  }, [mounted, viendoEmail])
 
   const cargarProducciones = async () => {
     try {
-      const res = await fetch("/api/entusiasmo/producciones")
+      const query = viendoEmail ? `?email=${encodeURIComponent(viendoEmail)}` : ""
+      const res = await fetch(`/api/entusiasmo/producciones${query}`)
       const data = await leerRespuestaJson<{ producciones?: ProduccionItem[] }>(res)
       setProducciones(data.producciones || [])
     } catch {
@@ -848,7 +875,7 @@ export default function CasaTalentosPage() {
     if (mounted) {
       void cargarProducciones()
     }
-  }, [mounted])
+  }, [mounted, viendoEmail])
 
   const handleArchivoProduccion = (e: React.ChangeEvent<HTMLInputElement>) => {
     setArchivoProduccion(e.target.files?.[0] || null)
@@ -976,7 +1003,8 @@ export default function CasaTalentosPage() {
 
   const cargarTareas = async () => {
     try {
-      const res = await fetch("/api/entusiasmo/tareas")
+      const query = viendoEmail ? `?email=${encodeURIComponent(viendoEmail)}` : ""
+      const res = await fetch(`/api/entusiasmo/tareas${query}`)
       const data = await leerRespuestaJson<{ tareas?: TareaItem[] }>(res)
       setTareas(data.tareas || [])
     } catch {
@@ -988,7 +1016,7 @@ export default function CasaTalentosPage() {
     if (mounted) {
       void cargarTareas()
     }
-  }, [mounted])
+  }, [mounted, viendoEmail])
 
   const agregarTarea = async () => {
     if (!nuevaTarea.trim()) {
@@ -1034,38 +1062,236 @@ export default function CasaTalentosPage() {
     }
   }
 
-  const enviarAporte = async () => {
-    const destinatario = aporteDestinatario.trim().toLowerCase()
-    const contenido = aporteContenido.trim()
+  const cambiarViendoEmail = (email: string | null) => {
+    setViendoEmail(email)
+    setCampoConSeleccion(null)
+    setTextoSeleccionado("")
+    setComentandoCampo(null)
+    setContenidoNotaAncla("")
+    setAporteAbiertoId(null)
+    setMensajeAporte("")
+  }
 
-    if (!destinatario || !contenido) {
-      setMensajeAporte("Completá el email y el contenido del aporte.")
+  const manejarSeleccionTexto = (campo: string) => {
+    const seleccion = window.getSelection()
+    const texto = seleccion ? seleccion.toString().trim() : ""
+
+    if (texto) {
+      setCampoConSeleccion(campo)
+      setTextoSeleccionado(texto)
+    }
+  }
+
+  const guardarNotaAncla = async () => {
+    if (!viendoEmail || !comentandoCampo || !contenidoNotaAncla.trim()) {
       return
     }
 
     try {
-      setEnviandoAporte(true)
+      setGuardandoNotaAncla(true)
       setMensajeAporte("")
 
       const res = await fetch("/api/entusiasmo/aportes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ participanteEmail: destinatario, contenido }),
+        body: JSON.stringify({
+          participanteEmail: viendoEmail,
+          contenido: contenidoNotaAncla.trim(),
+          campo: comentandoCampo,
+          fragmento: textoSeleccionado,
+        }),
       })
       const data = await leerRespuestaJson<{ error?: string }>(res)
 
       if (!res.ok) {
-        setMensajeAporte(data.error || "No se pudo enviar el aporte.")
+        setMensajeAporte(data.error || "No se pudo guardar el comentario.")
         return
       }
 
-      setMensajeAporte(`Aporte enviado a ${destinatario}.`)
-      setAporteContenido("")
+      setContenidoNotaAncla("")
+      setComentandoCampo(null)
+      setCampoConSeleccion(null)
+      setTextoSeleccionado("")
+      await cargarAportesRecibidos()
     } catch {
-      setMensajeAporte("Error enviando el aporte.")
+      setMensajeAporte("Error guardando el comentario.")
     } finally {
-      setEnviandoAporte(false)
+      setGuardandoNotaAncla(false)
     }
+  }
+
+  type SegmentoCoordenada = { texto: string; nota?: AporteItem }
+
+  const construirSegmentosResaltados = (
+    texto: string,
+    notas: AporteItem[]
+  ): SegmentoCoordenada[] => {
+    const posiciones: Array<{ nota: AporteItem; inicio: number; fin: number }> = []
+
+    for (const nota of notas) {
+      if (!nota.fragmento) continue
+      const inicio = texto.indexOf(nota.fragmento)
+      if (inicio === -1) continue
+      const fin = inicio + nota.fragmento.length
+      const solapa = posiciones.some((p) => inicio < p.fin && fin > p.inicio)
+      if (solapa) continue
+      posiciones.push({ nota, inicio, fin })
+    }
+
+    posiciones.sort((a, b) => a.inicio - b.inicio)
+
+    const segmentos: SegmentoCoordenada[] = []
+    let cursor = 0
+
+    for (const p of posiciones) {
+      if (p.inicio > cursor) {
+        segmentos.push({ texto: texto.slice(cursor, p.inicio) })
+      }
+      segmentos.push({ texto: texto.slice(p.inicio, p.fin), nota: p.nota })
+      cursor = p.fin
+    }
+
+    if (cursor < texto.length) {
+      segmentos.push({ texto: texto.slice(cursor) })
+    }
+
+    return segmentos
+  }
+
+  const renderizarNotasCampo = (campo: keyof CoordenadasForm) => {
+    const notas = aportesRecibidos.filter((a) => a.campo === campo)
+
+    if (notas.length === 0) return null
+
+    return (
+      <div className="space-y-1 pt-1">
+        {notas.map((n) => (
+          <div
+            key={n.id}
+            className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-gray-700"
+          >
+            {n.fragmento && (
+              <p className="italic text-gray-500">sobre: &ldquo;{n.fragmento}&rdquo;</p>
+            )}
+            <p>💬 {n.contenido}</p>
+            <p className="text-gray-500">— {n.autor_nombre || n.autor_email}</p>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  const renderizarCampoLectura = (
+    campo: keyof CoordenadasForm,
+    etiqueta: string,
+    valor: string
+  ) => {
+    const notasDelCampo = aportesRecibidos.filter((a) => a.campo === campo && a.fragmento)
+    const segmentos = construirSegmentosResaltados(valor, notasDelCampo)
+    const hayTextoSeleccionadoAca = campoConSeleccion === campo && textoSeleccionado
+
+    return (
+      <div className="space-y-2">
+        <span className="text-sm font-medium text-gray-700">{etiqueta}</span>
+        <p
+          className="workspace-field min-h-24 cursor-text whitespace-pre-wrap"
+          onMouseUp={() => manejarSeleccionTexto(campo)}
+        >
+          {valor ? (
+            segmentos.map((seg, i) =>
+              seg.nota ? (
+                <span key={i} className="group relative inline">
+                  <span
+                    className={`rounded px-0.5 transition-colors group-hover:bg-amber-200 ${
+                      aporteAbiertoId === seg.nota!.id ? "bg-amber-200" : ""
+                    }`}
+                  >
+                    {seg.texto}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Ver comentario"
+                    onClick={() =>
+                      setAporteAbiertoId((prev) => (prev === seg.nota!.id ? null : seg.nota!.id))
+                    }
+                    className="mx-0.5 cursor-pointer align-middle text-amber-600"
+                  >
+                    💬
+                  </button>
+                  <span
+                    className={`absolute bottom-full left-0 z-10 mb-1 hidden w-64 max-w-[80vw] rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2 text-sm normal-case shadow-lg group-hover:block ${
+                      aporteAbiertoId === seg.nota!.id ? "!block" : ""
+                    }`}
+                  >
+                    <span className="block text-gray-800">{seg.nota!.contenido}</span>
+                    <span className="mt-1 block text-xs text-gray-500">
+                      {seg.nota!.autor_nombre || seg.nota!.autor_email} ·{" "}
+                      {new Date(seg.nota!.created_at).toLocaleDateString("es-AR")}
+                    </span>
+                  </span>
+                </span>
+              ) : (
+                <span key={i}>{seg.texto}</span>
+              )
+            )
+          ) : (
+            <span className="italic text-gray-400">Sin definir todavía.</span>
+          )}
+        </p>
+
+        {hayTextoSeleccionadoAca && comentandoCampo !== campo && (
+          <button
+            type="button"
+            onClick={() => {
+              setComentandoCampo(campo)
+              setContenidoNotaAncla("")
+              setMensajeAporte("")
+            }}
+            className="workspace-button-secondary text-xs"
+          >
+            💬 Comentar selección: &ldquo;
+            {textoSeleccionado.length > 40
+              ? `${textoSeleccionado.slice(0, 40)}…`
+              : textoSeleccionado}
+            &rdquo;
+          </button>
+        )}
+
+        {comentandoCampo === campo && (
+          <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50/60 p-3">
+            <p className="text-xs text-gray-600">Sobre: &ldquo;{textoSeleccionado}&rdquo;</p>
+            {mensajeAporte && <p className="text-xs text-red-600">{mensajeAporte}</p>}
+            <textarea
+              className="workspace-field min-h-16"
+              placeholder="Tu comentario..."
+              value={contenidoNotaAncla}
+              onChange={(e) => setContenidoNotaAncla(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={guardandoNotaAncla || !contenidoNotaAncla.trim()}
+                onClick={() => void guardarNotaAncla()}
+                className="workspace-button-secondary disabled:opacity-60"
+              >
+                {guardandoNotaAncla ? "Guardando..." : "Guardar comentario"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setComentandoCampo(null)
+                  setCampoConSeleccion(null)
+                  setTextoSeleccionado("")
+                }}
+                className="text-xs text-gray-500 underline"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    )
   }
 
   const guardarCoordenadas = async () => {
@@ -2696,6 +2922,38 @@ export default function CasaTalentosPage() {
                   </button>
                 </div>
 
+                {esAdmin && (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => cambiarViendoEmail(null)}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                        !viendoEmail
+                          ? "border-[var(--accent)] bg-[rgba(207,145,48,0.12)] text-[var(--accent-strong)]"
+                          : "border-[var(--line)] bg-white/70 text-gray-600"
+                      }`}
+                    >
+                      Yo
+                    </button>
+                    {participantesActivosCasaTalentos
+                      .filter((p) => p.email !== storageEmail)
+                      .map((p) => (
+                        <button
+                          key={p.email}
+                          type="button"
+                          onClick={() => cambiarViendoEmail(p.email)}
+                          className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                            viendoEmail === p.email
+                              ? "border-[var(--accent)] bg-[rgba(207,145,48,0.12)] text-[var(--accent-strong)]"
+                              : "border-[var(--line)] bg-white/70 text-gray-600"
+                          }`}
+                        >
+                          {p.nombre || p.email}
+                        </button>
+                      ))}
+                  </div>
+                )}
+
                 {mensajeCoordenadas && (
                   <p className="rounded-xl border border-[var(--line)] bg-[rgba(255,250,242,0.7)] px-3 py-2 text-sm text-gray-700">
                     {mensajeCoordenadas}
@@ -2711,7 +2969,9 @@ export default function CasaTalentosPage() {
                     <div className="space-y-3 rounded-[2rem] border-[3px] border-[var(--accent)] bg-gradient-to-br from-white to-[rgba(207,145,48,0.06)] p-5 shadow-[0_8px_0_0_rgba(207,145,48,0.18)]">
                       <div className="space-y-1">
                         <p className="workspace-eyebrow">✦ Siempre visible</p>
-                        <h3 className="text-2xl font-bold tracking-tight">Tu pitch</h3>
+                        <h3 className="text-2xl font-bold tracking-tight">
+                          {viendoEmail ? "Su pitch" : "Tu pitch"}
+                        </h3>
                         <p className="workspace-inline-note">
                           Así te ven en la mesa
                         </p>
@@ -2723,45 +2983,51 @@ export default function CasaTalentosPage() {
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={pitchSignedUrl}
-                              alt="Tu pitch"
+                              alt="Pitch"
                               className="w-full rounded-xl border border-[var(--line)]"
                             />
                           ) : (
-                            <VideoEmbed src={pitchSignedUrl} title="Tu pitch" />
+                            <VideoEmbed src={pitchSignedUrl} title="Pitch" />
                           )}
                         </div>
                       )}
 
-                      <GrabadorVideo
-                        onVideoListo={handleArchivoPitch}
-                        disabled={subiendoPitch}
-                        maxSegundos={90}
-                      />
+                      {!viendoEmail && (
+                        <>
+                          <GrabadorVideo
+                            onVideoListo={handleArchivoPitch}
+                            disabled={subiendoPitch}
+                            maxSegundos={90}
+                          />
 
-                      {mensajePitch && (
-                        <p className="text-sm text-gray-700">{mensajePitch}</p>
-                      )}
+                          {mensajePitch && (
+                            <p className="text-sm text-gray-700">{mensajePitch}</p>
+                          )}
 
-                      {archivoPitch && (
-                        <button
-                          type="button"
-                          disabled={subiendoPitch}
-                          onClick={() => void handleSubirPitch()}
-                          className="workspace-button"
-                        >
-                          {subiendoPitch
-                            ? estadoSubidaPitch || "Subiendo..."
-                            : proyecto?.pitch_storage_path
-                              ? "Volver a grabarlo"
-                              : "Guardar pitch"}
-                        </button>
+                          {archivoPitch && (
+                            <button
+                              type="button"
+                              disabled={subiendoPitch}
+                              onClick={() => void handleSubirPitch()}
+                              className="workspace-button"
+                            >
+                              {subiendoPitch
+                                ? estadoSubidaPitch || "Subiendo..."
+                                : proyecto?.pitch_storage_path
+                                  ? "Volver a grabarlo"
+                                  : "Guardar pitch"}
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
 
-                    {aportesRecibidos.length > 0 && (
+                    {aportesRecibidos.filter((a) => !a.campo).length > 0 && (
                       <div className="space-y-2">
-                        <p className="workspace-eyebrow">Te dejaron un aporte</p>
-                        {aportesRecibidos.map((aporte, indice) => {
+                        <p className="workspace-eyebrow">
+                          {viendoEmail ? "Aportes generales" : "Te dejaron un aporte"}
+                        </p>
+                        {aportesRecibidos.filter((a) => !a.campo).map((aporte, indice) => {
                           const colores = [
                             "border-amber-300 bg-amber-50",
                             "border-sky-300 bg-sky-50",
@@ -2821,152 +3087,87 @@ export default function CasaTalentosPage() {
 
                       {coordenadasAbiertas && (
                         <div className="mt-4 space-y-4">
-                          <div className="grid gap-4 md:grid-cols-2">
-                            <label className="space-y-2">
-                              <span className="text-sm font-medium text-gray-700">
-                                Proyecto sobre el que querés trabajar (qué)
-                              </span>
-                              <textarea
-                                className="workspace-field min-h-24"
-                                value={coordenadas.que}
-                                onChange={(e) =>
-                                  setCoordenadas((prev) => ({ ...prev, que: e.target.value }))
-                                }
-                              />
-                            </label>
-                            <label className="space-y-2">
-                              <span className="text-sm font-medium text-gray-700">
-                                Objetivo concreto que querés alcanzar (para qué)
-                              </span>
-                              <textarea
-                                className="workspace-field min-h-24"
-                                value={coordenadas.paraQue}
-                                onChange={(e) =>
-                                  setCoordenadas((prev) => ({ ...prev, paraQue: e.target.value }))
-                                }
-                              />
-                            </label>
-                            <label className="space-y-2 md:col-span-2">
-                              <span className="text-sm font-medium text-gray-700">
-                                Problema y solución
-                              </span>
-                              <textarea
-                                className="workspace-field min-h-24"
-                                value={coordenadas.problemaSolucion}
-                                onChange={(e) =>
-                                  setCoordenadas((prev) => ({
-                                    ...prev,
-                                    problemaSolucion: e.target.value,
-                                  }))
-                                }
-                              />
-                            </label>
-                            <label className="space-y-2">
-                              <span className="text-sm font-medium text-gray-700">
-                                Una habilidad que quieras desarrollar
-                              </span>
-                              <textarea
-                                className="workspace-field min-h-24"
-                                value={coordenadas.habilidadADesarrollar}
-                                onChange={(e) =>
-                                  setCoordenadas((prev) => ({
-                                    ...prev,
-                                    habilidadADesarrollar: e.target.value,
-                                  }))
-                                }
-                              />
-                            </label>
-                            <label className="space-y-2">
-                              <span className="text-sm font-medium text-gray-700">
-                                Algo que te entusiasme mucho en la vida
-                              </span>
-                              <textarea
-                                className="workspace-field min-h-24"
-                                value={coordenadas.queTeEntusiasma}
-                                onChange={(e) =>
-                                  setCoordenadas((prev) => ({
-                                    ...prev,
-                                    queTeEntusiasma: e.target.value,
-                                  }))
-                                }
-                              />
-                            </label>
-                          </div>
+                          {viendoEmail ? (
+                            <>
+                              <div className="grid gap-4 md:grid-cols-2">
+                                {CAMPOS_COORDENADAS_PRINCIPALES.map(({ campo, etiqueta, colSpan }) => (
+                                  <div key={campo} className={colSpan ? "md:col-span-2" : ""}>
+                                    {renderizarCampoLectura(campo, etiqueta, coordenadas[campo])}
+                                  </div>
+                                ))}
+                              </div>
 
-                          <div className="workspace-panel-soft space-y-3">
-                            <h3 className="text-lg font-semibold">Resultados</h3>
-                            <div className="grid gap-4 md:grid-cols-2">
-                              <label className="space-y-2">
-                                <span className="text-sm font-medium text-gray-700">
-                                  Semanal
-                                </span>
-                                <textarea
-                                  className="workspace-field min-h-20"
-                                  value={coordenadas.resultadoSemanal}
-                                  onChange={(e) =>
-                                    setCoordenadas((prev) => ({
-                                      ...prev,
-                                      resultadoSemanal: e.target.value,
-                                    }))
-                                  }
-                                />
-                              </label>
-                              <label className="space-y-2">
-                                <span className="text-sm font-medium text-gray-700">
-                                  Mensual
-                                </span>
-                                <textarea
-                                  className="workspace-field min-h-20"
-                                  value={coordenadas.resultadoMensual}
-                                  onChange={(e) =>
-                                    setCoordenadas((prev) => ({
-                                      ...prev,
-                                      resultadoMensual: e.target.value,
-                                    }))
-                                  }
-                                />
-                              </label>
-                              <label className="space-y-2">
-                                <span className="text-sm font-medium text-gray-700">
-                                  Trimestral
-                                </span>
-                                <textarea
-                                  className="workspace-field min-h-20"
-                                  value={coordenadas.resultadoTrimestral}
-                                  onChange={(e) =>
-                                    setCoordenadas((prev) => ({
-                                      ...prev,
-                                      resultadoTrimestral: e.target.value,
-                                    }))
-                                  }
-                                />
-                              </label>
-                              <label className="space-y-2">
-                                <span className="text-sm font-medium text-gray-700">
-                                  Anual
-                                </span>
-                                <textarea
-                                  className="workspace-field min-h-20"
-                                  value={coordenadas.resultadoAnual}
-                                  onChange={(e) =>
-                                    setCoordenadas((prev) => ({
-                                      ...prev,
-                                      resultadoAnual: e.target.value,
-                                    }))
-                                  }
-                                />
-                              </label>
-                            </div>
-                          </div>
+                              <div className="workspace-panel-soft space-y-3">
+                                <h3 className="text-lg font-semibold">Resultados</h3>
+                                <div className="grid gap-4 md:grid-cols-2">
+                                  {CAMPOS_COORDENADAS_RESULTADOS.map(({ campo, etiqueta }) => (
+                                    <div key={campo}>
+                                      {renderizarCampoLectura(campo, etiqueta, coordenadas[campo])}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="grid gap-4 md:grid-cols-2">
+                                {CAMPOS_COORDENADAS_PRINCIPALES.map(({ campo, etiqueta, colSpan }) => (
+                                  <label
+                                    key={campo}
+                                    className={`space-y-2 ${colSpan ? "md:col-span-2" : ""}`}
+                                  >
+                                    <span className="text-sm font-medium text-gray-700">
+                                      {etiqueta}
+                                    </span>
+                                    <textarea
+                                      className="workspace-field min-h-24"
+                                      value={coordenadas[campo]}
+                                      onChange={(e) =>
+                                        setCoordenadas((prev) => ({
+                                          ...prev,
+                                          [campo]: e.target.value,
+                                        }))
+                                      }
+                                    />
+                                    {renderizarNotasCampo(campo)}
+                                  </label>
+                                ))}
+                              </div>
 
-                          <button
-                            type="button"
-                            disabled={guardandoCoordenadas}
-                            onClick={() => void guardarCoordenadas()}
-                            className="workspace-button"
-                          >
-                            {guardandoCoordenadas ? "Guardando..." : "Guardar coordenadas"}
-                          </button>
+                              <div className="workspace-panel-soft space-y-3">
+                                <h3 className="text-lg font-semibold">Resultados</h3>
+                                <div className="grid gap-4 md:grid-cols-2">
+                                  {CAMPOS_COORDENADAS_RESULTADOS.map(({ campo, etiqueta }) => (
+                                    <label key={campo} className="space-y-2">
+                                      <span className="text-sm font-medium text-gray-700">
+                                        {etiqueta}
+                                      </span>
+                                      <textarea
+                                        className="workspace-field min-h-20"
+                                        value={coordenadas[campo]}
+                                        onChange={(e) =>
+                                          setCoordenadas((prev) => ({
+                                            ...prev,
+                                            [campo]: e.target.value,
+                                          }))
+                                        }
+                                      />
+                                      {renderizarNotasCampo(campo)}
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                disabled={guardandoCoordenadas}
+                                onClick={() => void guardarCoordenadas()}
+                                className="workspace-button"
+                              >
+                                {guardandoCoordenadas ? "Guardando..." : "Guardar coordenadas"}
+                              </button>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
@@ -3052,64 +3253,66 @@ export default function CasaTalentosPage() {
                         )}
                       </div>
 
-                      <div className="space-y-2 rounded-xl border border-dashed border-violet-300 bg-white/60 p-3">
-                        <div className="flex flex-wrap gap-2">
-                          {(["texto", "imagen", "audio"] as const).map((t) => (
-                            <button
-                              key={t}
-                              type="button"
-                              onClick={() => setTipoNuevaProduccion(t)}
-                              className={`rounded-full border px-3 py-1 text-xs font-semibold ${
-                                tipoNuevaProduccion === t
-                                  ? "border-violet-500 bg-violet-100 text-violet-800"
-                                  : "border-violet-200 bg-white text-violet-500"
-                              }`}
-                            >
-                              {t === "texto" ? "📝 Texto" : t === "imagen" ? "🖼️ Imagen" : "🎵 Audio"}
-                            </button>
-                          ))}
-                        </div>
-
-                        <input
-                          className="workspace-field"
-                          placeholder="Título (opcional)"
-                          value={tituloProduccion}
-                          onChange={(e) => setTituloProduccion(e.target.value)}
-                        />
-
-                        {tipoNuevaProduccion === "texto" ? (
-                          <textarea
-                            className="workspace-field min-h-20"
-                            placeholder="Escribí tu producción..."
-                            value={textoProduccion}
-                            onChange={(e) => setTextoProduccion(e.target.value)}
-                          />
-                        ) : tipoNuevaProduccion === "audio" ? (
-                          <div className="space-y-2">
-                            <GrabadorAudio
-                              onAudioListo={setArchivoProduccion}
-                              maxSegundos={300}
-                            />
-                            <p className="text-xs text-gray-500">o subí un archivo ya grabado:</p>
-                            <input type="file" accept="audio/*" onChange={handleArchivoProduccion} />
+                      {!viendoEmail && (
+                        <div className="space-y-2 rounded-xl border border-dashed border-violet-300 bg-white/60 p-3">
+                          <div className="flex flex-wrap gap-2">
+                            {(["texto", "imagen", "audio"] as const).map((t) => (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => setTipoNuevaProduccion(t)}
+                                className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                                  tipoNuevaProduccion === t
+                                    ? "border-violet-500 bg-violet-100 text-violet-800"
+                                    : "border-violet-200 bg-white text-violet-500"
+                                }`}
+                              >
+                                {t === "texto" ? "📝 Texto" : t === "imagen" ? "🖼️ Imagen" : "🎵 Audio"}
+                              </button>
+                            ))}
                           </div>
-                        ) : (
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleArchivoProduccion}
-                          />
-                        )}
 
-                        <button
-                          type="button"
-                          disabled={guardandoProduccion}
-                          onClick={() => void crearProduccion()}
-                          className="workspace-button-secondary"
-                        >
-                          {guardandoProduccion ? "Guardando..." : "Agregar producción"}
-                        </button>
-                      </div>
+                          <input
+                            className="workspace-field"
+                            placeholder="Título (opcional)"
+                            value={tituloProduccion}
+                            onChange={(e) => setTituloProduccion(e.target.value)}
+                          />
+
+                          {tipoNuevaProduccion === "texto" ? (
+                            <textarea
+                              className="workspace-field min-h-20"
+                              placeholder="Escribí tu producción..."
+                              value={textoProduccion}
+                              onChange={(e) => setTextoProduccion(e.target.value)}
+                            />
+                          ) : tipoNuevaProduccion === "audio" ? (
+                            <div className="space-y-2">
+                              <GrabadorAudio
+                                onAudioListo={setArchivoProduccion}
+                                maxSegundos={300}
+                              />
+                              <p className="text-xs text-gray-500">o subí un archivo ya grabado:</p>
+                              <input type="file" accept="audio/*" onChange={handleArchivoProduccion} />
+                            </div>
+                          ) : (
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleArchivoProduccion}
+                            />
+                          )}
+
+                          <button
+                            type="button"
+                            disabled={guardandoProduccion}
+                            onClick={() => void crearProduccion()}
+                            className="workspace-button-secondary"
+                          >
+                            {guardandoProduccion ? "Guardando..." : "Agregar producción"}
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-3 rounded-[1.75rem] border-2 border-amber-200 bg-amber-50/50 p-4">
@@ -3151,63 +3354,25 @@ export default function CasaTalentosPage() {
                         )}
                       </div>
 
-                      <div className="flex gap-2">
-                        <input
-                          className="workspace-field"
-                          placeholder="Nueva tarea de la semana..."
-                          value={nuevaTarea}
-                          onChange={(e) => setNuevaTarea(e.target.value)}
-                        />
-                        <button
-                          type="button"
-                          disabled={guardandoTarea}
-                          onClick={() => void agregarTarea()}
-                          className="workspace-button-secondary shrink-0"
-                        >
-                          {guardandoTarea ? "..." : "Agregar"}
-                        </button>
-                      </div>
-                    </div>
-
-                    {esAdmin && (
-                      <div className="space-y-3 rounded-2xl border-2 border-dashed border-[var(--accent-strong)] bg-[rgba(154,98,24,0.05)] p-4">
-                        <div className="space-y-1">
-                          <p className="workspace-eyebrow">Solo admin</p>
-                          <h3 className="text-lg font-semibold">
-                            Dejar un aporte
-                          </h3>
-                          <p className="workspace-inline-note">
-                            Se muestra como una nota de color en el espacio de
-                            esa persona.
-                          </p>
+                      {!viendoEmail && (
+                        <div className="flex gap-2">
+                          <input
+                            className="workspace-field"
+                            placeholder="Nueva tarea de la semana..."
+                            value={nuevaTarea}
+                            onChange={(e) => setNuevaTarea(e.target.value)}
+                          />
+                          <button
+                            type="button"
+                            disabled={guardandoTarea}
+                            onClick={() => void agregarTarea()}
+                            className="workspace-button-secondary shrink-0"
+                          >
+                            {guardandoTarea ? "..." : "Agregar"}
+                          </button>
                         </div>
-
-                        {mensajeAporte && (
-                          <p className="text-sm text-gray-700">{mensajeAporte}</p>
-                        )}
-
-                        <input
-                          className="workspace-field"
-                          placeholder="Email del participante"
-                          value={aporteDestinatario}
-                          onChange={(e) => setAporteDestinatario(e.target.value)}
-                        />
-                        <textarea
-                          className="workspace-field min-h-20"
-                          placeholder="Tu aporte..."
-                          value={aporteContenido}
-                          onChange={(e) => setAporteContenido(e.target.value)}
-                        />
-                        <button
-                          type="button"
-                          disabled={enviandoAporte}
-                          onClick={() => void enviarAporte()}
-                          className="workspace-button-secondary"
-                        >
-                          {enviandoAporte ? "Enviando..." : "Enviar aporte"}
-                        </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
 
                     {esAdmin && (
                       <div className="space-y-3 rounded-2xl border-2 border-dashed border-[var(--accent-strong)] bg-[rgba(154,98,24,0.05)] p-4">

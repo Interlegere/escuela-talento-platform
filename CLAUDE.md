@@ -557,3 +557,29 @@ Alcance del gate: cubre específicamente Coordenadas/Pitch/Producciones/Tareas s
 
 ## 5. Excepción agregada: Cuchulain Mago puede ver Entusiasmento como participante
 Nicolás pidió que Cuchulain Mago (el participante que reportó el bug de micrófono) pueda seguir probando Entusiasmento como participante real, aunque el resto siga viendo el cartel de "en construcción". Se agregó `ENTUSIASMENTO_BETA_EMAILS` (array de emails, hoy solo `consultasbpe@gmail.com` — confirmado por email real en `usuarios_plataforma`, no un supuesto) — el gate ahora es `esAdmin || ENTUSIASMENTO_ABIERTO_A_PARTICIPANTES || ENTUSIASMENTO_BETA_EMAILS.includes(storageEmail)`. Confirmado que Cuchulain tiene inscripción activa a `casatalentos` (y a mentorías/terapia/conectando-sentidos), así que va a llegar hasta esta pantalla sin problema. **No se pudo probar el login real como Cuchulain** (no tengo su contraseña) — la verificación quedó a nivel de lógica (booleano simple, chequeado por TypeScript) y de datos (inscripción activa confirmada en la base). Sacar `consultasbpe@gmail.com` de esa lista cuando ya no haga falta la excepción puntual.
+
+---
+
+# Sesión de trabajo 2026-08-11 (continuación 6) — Fase A3b: comentarios de admin anclados a texto en Coordenadas
+
+## 1. Objetivo
+Reemplazar el formulario suelto de "Dejar un aporte" (email + texto libre, sin ver el contenido de la persona, de la Fase A2) por un flujo estilo Google Docs: el admin puede entrar al espacio de un participante puntual, seleccionar un fragmento de texto dentro de sus Coordenadas, y dejar ahí una nota anclada — visible como un ícono que se abre al pasar el mouse, no como texto permanentemente remarcado. Plan aprobado antes de escribir código (`golden-sparking-pebble.md`).
+
+## 2. Qué se hizo
+- **`sql/2026-08-13_entusiasmo_aportes_ancla.sql`** (corrido por Nicolás en Supabase): agrega `campo`/`fragmento` (ambas nullable) a `entusiasmo_aportes`. Los aportes generales viejos (sin campo/fragmento) siguen funcionando igual, sin romper nada.
+- **`app/api/entusiasmo/aportes/route.ts`**: el POST ahora acepta `campo`/`fragmento` opcionales y los persiste.
+- **Selector de participante (solo admin, solapas)**: nueva fila arriba de "Mi espacio"/"CoFruto" — "Yo" + una solapa por cada participante activo de Entusiasmento (reutiliza el fetch que ya existía, `cargarParticipantesActivos`, sin endpoint nuevo). Nuevo estado `viendoEmail`; al cambiar de solapa se re-consultan proyecto/aportes/producciones/tareas de esa persona (`?email=` en los GET, que ya lo soportaban desde que se escribieron).
+- **Coordenadas en modo lectura** (admin viendo a otro): texto seleccionable con el mouse; al seleccionar aparece "💬 Comentar selección", que abre un cuadro para escribir la nota y guardarla anclada a ese fragmento exacto.
+- **Comentarios ya guardados**: no quedan remarcados de forma permanente — aparece un ícono 💬 chiquito junto al fragmento comentado, y la nota (contenido, autor, fecha) se abre pasando el mouse por encima del ícono (o tocándolo, para que funcione en celular). Decisión tomada con Nicolás vía pregunta directa después de ver el primer diseño (remarcado amarillo permanente) — no le gustó, prefirió hover-sobre-ícono.
+- **Coordenadas propias** (participante, o admin en "Yo"): cada campo sigue siendo editable como siempre, y ahora muestra debajo los comentarios que le dejaron ahí (con el fragmento citado).
+- **Se sacó "Resultado semanal"** de Coordenadas (campo y conteo de "sin definir") — a pedido de Nicolás: sin fecha asociada ahí, lo semanal se termina resolviendo con Tareas semanales, que sí tiene ese propósito.
+- **Se sacó el formulario viejo** "Dejar un aporte" (email + textarea suelto).
+- **Se ocultaron las acciones de escritura al ver a otro participante** (grabar/guardar pitch, agregar producción, agregar tarea) — esos POST no llevan `participanteEmail` desde el cliente, así que si quedaban visibles se habrían guardado por error a nombre del admin en vez de la persona que se está mirando. Las acciones de moderación que ya eran admin-only en el backend (ocultar/eliminar producciones de otros) se dejaron como estaban.
+- **Bug encontrado y corregido durante la prueba de Nicolás**: al cambiar de solapa de participante, el borrador de comentario (selección de texto, cuadro abierto, mensaje de error) no se reseteaba — quedaba pegado del participante anterior. Se armó `cambiarViendoEmail()` que limpia todo ese estado al cambiar de solapa.
+
+## 3. Verificado en vivo
+Nicolás probó él mismo contra producción: seleccionó texto en la cuenta de Cuchulain Mago, dejó un comentario, confirmó que el guardado funciona (después de correr el SQL — el primer intento falló porque todavía no había corrido la migración, confirmado por mí contra la base antes de avisarle) y que el hover sobre el ícono abre la nota como se pidió. El comentario de prueba se borró de la base al terminar (`entusiasmo_aportes` quedó vacía) — había quedado en la cuenta real de Cuchulain, no en un usuario descartable, así que se confirmó con Nicolás antes de borrarlo. `typecheck`/`lint` limpios, sin warnings nuevos (mismos ~45 preexistentes documentados en sesiones anteriores).
+
+## 4. Pendiente
+- **No se hizo commit todavía** — mismo criterio de toda la iniciativa de Entusiasmento, a la espera de confirmación final de Nicolás.
+- Resto de lo pendiente de rondas anteriores sin cambios: Pitch estilo Instagram, "Tu ritmo" real con metáfora musical, Tareas semanales con fecha/hora + recordatorios + dashboard (Fase D, agente de IA), Fase C (CoFruto mostrando producciones visibles reales), limpieza de código muerto del Dispositivo viejo (~45 warnings), privacidad de `espacios-archivos`.
