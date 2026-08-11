@@ -554,4 +554,6 @@ Alcance del gate: cubre específicamente Coordenadas/Pitch/Producciones/Tareas s
 ## 4. Pendiente
 - Cuando Entusiasmento esté listo para todos: cambiar `ENTUSIASMENTO_ABIERTO_A_PARTICIPANTES` a `true` en `app/casatalentos/page.tsx`.
 - Resto de lo pendiente de rondas anteriores, sin cambios.
-- **No se hizo commit de este último cambio (el gate) todavía** — falta commitear y pushear junto con lo demás.
+
+## 5. Excepción agregada: Cuchulain Mago puede ver Entusiasmento como participante
+Nicolás pidió que Cuchulain Mago (el participante que reportó el bug de micrófono) pueda seguir probando Entusiasmento como participante real, aunque el resto siga viendo el cartel de "en construcción". Se agregó `ENTUSIASMENTO_BETA_EMAILS` (array de emails, hoy solo `consultasbpe@gmail.com` — confirmado por email real en `usuarios_plataforma`, no un supuesto) — el gate ahora es `esAdmin || ENTUSIASMENTO_ABIERTO_A_PARTICIPANTES || ENTUSIASMENTO_BETA_EMAILS.includes(storageEmail)`. Confirmado que Cuchulain tiene inscripción activa a `casatalentos` (y a mentorías/terapia/conectando-sentidos), así que va a llegar hasta esta pantalla sin problema. **No se pudo probar el login real como Cuchulain** (no tengo su contraseña) — la verificación quedó a nivel de lógica (booleano simple, chequeado por TypeScript) y de datos (inscripción activa confirmada en la base). Sacar `consultasbpe@gmail.com` de esa lista cuando ya no haga falta la excepción puntual.

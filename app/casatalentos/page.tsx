@@ -222,6 +222,10 @@ const MODO_PRUEBA = isDevelopmentPreviewEnabled()
 // terminando de armar. Cambiar a `true` cuando esté listo para que lo
 // usen los participantes — hasta entonces solo admin lo ve completo.
 const ENTUSIASMENTO_ABIERTO_A_PARTICIPANTES = false
+// Excepción puntual mientras el flag de arriba sigue en false: emails que
+// igual pueden entrar a probarlo como participante (ej. para probar un
+// bug reportado). Sacar de acá cuando ya no haga falta.
+const ENTUSIASMENTO_BETA_EMAILS = ["consultasbpe@gmail.com"]
 const STORAGE_MENSAJES_LEIDOS_CASATALENTOS = "casatalentos_mensajes_leidos"
 const CAMPOS_COORDENADAS: Array<keyof CoordenadasForm> = [
   "que",
@@ -2659,7 +2663,9 @@ export default function CasaTalentosPage() {
         {!cargandoAcceso && (acceso || MODO_PRUEBA) && (
           <div className="space-y-4">
 
-            {esAdmin || ENTUSIASMENTO_ABIERTO_A_PARTICIPANTES ? (
+            {esAdmin ||
+            ENTUSIASMENTO_ABIERTO_A_PARTICIPANTES ||
+            ENTUSIASMENTO_BETA_EMAILS.includes(storageEmail) ? (
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-3">
                   <button
