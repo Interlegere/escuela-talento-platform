@@ -208,6 +208,22 @@ type TareaItem = {
   created_at: string
 }
 
+type ProduccionCofruto = {
+  id: number
+  tipo: string
+  titulo: string | null
+  contenido: string | null
+  signedUrl: string | null
+}
+
+type PuestoCofruto = {
+  email: string
+  nombre: string
+  pitchSignedUrl: string | null
+  pitchMimeType: string | null
+  producciones: ProduccionCofruto[]
+}
+
 type PrepararUploadProduccionResponse = {
   ok?: boolean
   error?: string
@@ -596,6 +612,9 @@ export default function CasaTalentosPage() {
   const [nuevaTarea, setNuevaTarea] = useState("")
   const [guardandoTarea, setGuardandoTarea] = useState(false)
   const [mensajeTarea, setMensajeTarea] = useState("")
+  const [puestosCofruto, setPuestosCofruto] = useState<PuestoCofruto[]>([])
+  const [cargandoCofruto, setCargandoCofruto] = useState(false)
+  const [puestoAbiertoEmail, setPuestoAbiertoEmail] = useState<string | null>(null)
 
   const [mensajeExito, setMensajeExito] = useState("")
   const [mensajeError, setMensajeError] = useState("")
@@ -1017,6 +1036,25 @@ export default function CasaTalentosPage() {
       void cargarTareas()
     }
   }, [mounted, viendoEmail])
+
+  const cargarCofruto = async () => {
+    try {
+      setCargandoCofruto(true)
+      const res = await fetch("/api/entusiasmo/cofruto")
+      const data = await leerRespuestaJson<{ puestos?: PuestoCofruto[] }>(res)
+      setPuestosCofruto(data.puestos || [])
+    } catch {
+      setPuestosCofruto([])
+    } finally {
+      setCargandoCofruto(false)
+    }
+  }
+
+  useEffect(() => {
+    if (mounted && destinoEntusiasmo === "cofruto") {
+      void cargarCofruto()
+    }
+  }, [mounted, destinoEntusiasmo])
 
   const agregarTarea = async () => {
     if (!nuevaTarea.trim()) {
@@ -3397,10 +3435,132 @@ export default function CasaTalentosPage() {
                     <div className="workspace-panel-soft space-y-2 py-6 text-center">
                       <p className="text-lg font-semibold">🧺 CoFruto</p>
                       <p className="text-sm text-gray-600">
-                        Acá vas a poder visitar proyectos de otros participantes
-                        muy pronto. Mientras tanto, acá abajo están los Recursos.
+                        La mesa común — lo que cada uno eligió mostrar.
                       </p>
                     </div>
+
+                    {cargandoCofruto && (
+                      <p className="text-sm text-gray-600">Cargando la mesa común...</p>
+                    )}
+
+                    {!cargandoCofruto && puestosCofruto.length === 0 && (
+                      <p className="workspace-inline-note text-center">
+                        Todavía nadie mostró nada en la mesa común.
+                      </p>
+                    )}
+
+                    <div className="space-y-3">
+                      {puestosCofruto.map((puesto) => {
+                        const abierto = puestoAbiertoEmail === puesto.email
+
+                        return (
+                          <div
+                            key={puesto.email}
+                            className="rounded-2xl border-2 border-emerald-200 bg-white/70 p-4"
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPuestoAbiertoEmail((prev) =>
+                                  prev === puesto.email ? null : puesto.email
+                                )
+                              }
+                              className="flex w-full items-center justify-between gap-3 text-left"
+                            >
+                              <span className="flex items-center gap-3">
+                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-300 bg-emerald-50 text-base">
+                                  🌿
+                                </span>
+                                <span>
+                                  <span className="block text-base font-bold tracking-tight text-emerald-900">
+                                    {puesto.nombre}
+                                  </span>
+                                  <span className="text-xs text-emerald-700">
+                                    {puesto.producciones.length > 0
+                                      ? `${puesto.producciones.length} producción${
+                                          puesto.producciones.length === 1 ? "" : "es"
+                                        }`
+                                      : "Pitch"}
+                                  </span>
+                                </span>
+                              </span>
+                              <span aria-hidden className="text-emerald-500">
+                                {abierto ? "▲" : "▼"}
+                              </span>
+                            </button>
+
+                            {abierto && (
+                              <div className="mt-4 space-y-4">
+                                {puesto.pitchSignedUrl && (
+                                  <div className="mx-auto max-w-[220px]">
+                                    {puesto.pitchMimeType?.startsWith("image/") ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img
+                                        src={puesto.pitchSignedUrl}
+                                        alt={`Pitch de ${puesto.nombre}`}
+                                        className="w-full rounded-xl border border-[var(--line)]"
+                                      />
+                                    ) : (
+                                      <VideoEmbed
+                                        src={puesto.pitchSignedUrl}
+                                        title={`Pitch de ${puesto.nombre}`}
+                                      />
+                                    )}
+                                  </div>
+                                )}
+
+                                {puesto.producciones.length > 0 && (
+                                  <div className="space-y-2">
+                                    {puesto.producciones.map((item) => (
+                                      <div
+                                        key={item.id}
+                                        className="space-y-2 rounded-xl border border-emerald-100 bg-emerald-50/40 p-3"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span aria-hidden>
+                                            {item.tipo === "imagen"
+                                              ? "🖼️"
+                                              : item.tipo === "audio"
+                                                ? "🎵"
+                                                : "📝"}
+                                          </span>
+                                          <span className="text-sm font-medium">
+                                            {item.titulo ||
+                                              (item.tipo === "texto" ? "" : item.tipo)}
+                                          </span>
+                                        </div>
+
+                                        {item.tipo === "imagen" && item.signedUrl && (
+                                          // eslint-disable-next-line @next/next/no-img-element
+                                          <img
+                                            src={item.signedUrl}
+                                            alt={item.titulo || "Producción"}
+                                            className="max-h-48 rounded-lg border border-emerald-100 object-contain"
+                                          />
+                                        )}
+
+                                        {item.tipo === "audio" && item.signedUrl && (
+                                          <audio controls src={item.signedUrl} className="w-full">
+                                            Tu navegador no soporta audio.
+                                          </audio>
+                                        )}
+
+                                        {item.tipo === "texto" && item.contenido && (
+                                          <p className="whitespace-pre-wrap text-sm text-gray-700">
+                                            {item.contenido}
+                                          </p>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+
             {esAdmin && (esAdmin || recursosSolapa.length > 0) && (
               <SeccionDesplegable
                 titulo="Recursos"

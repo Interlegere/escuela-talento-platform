@@ -581,5 +581,27 @@ Reemplazar el formulario suelto de "Dejar un aporte" (email + texto libre, sin v
 Nicolás probó él mismo contra producción: seleccionó texto en la cuenta de Cuchulain Mago, dejó un comentario, confirmó que el guardado funciona (después de correr el SQL — el primer intento falló porque todavía no había corrido la migración, confirmado por mí contra la base antes de avisarle) y que el hover sobre el ícono abre la nota como se pidió. El comentario de prueba se borró de la base al terminar (`entusiasmo_aportes` quedó vacía) — había quedado en la cuenta real de Cuchulain, no en un usuario descartable, así que se confirmó con Nicolás antes de borrarlo. `typecheck`/`lint` limpios, sin warnings nuevos (mismos ~45 preexistentes documentados en sesiones anteriores).
 
 ## 4. Pendiente
-- **No se hizo commit todavía** — mismo criterio de toda la iniciativa de Entusiasmento, a la espera de confirmación final de Nicolás.
-- Resto de lo pendiente de rondas anteriores sin cambios: Pitch estilo Instagram, "Tu ritmo" real con metáfora musical, Tareas semanales con fecha/hora + recordatorios + dashboard (Fase D, agente de IA), Fase C (CoFruto mostrando producciones visibles reales), limpieza de código muerto del Dispositivo viejo (~45 warnings), privacidad de `espacios-archivos`.
+- Resto de lo pendiente de rondas anteriores sin cambios: Pitch estilo Instagram, "Tu ritmo" real con metáfora musical, Tareas semanales con fecha/hora + recordatorios + dashboard (Fase D, agente de IA), limpieza de código muerto del Dispositivo viejo (~45 warnings), privacidad de `espacios-archivos`.
+
+Commiteado y pusheado (`302a9fe`).
+
+---
+
+# Sesión de trabajo 2026-08-11 (continuación 7) — Fase C: CoFruto real
+
+## 1. Objetivo
+Reemplazar el cartel vacío de CoFruto ("acá vas a poder visitar proyectos... muy pronto") por la mesa común real: mostrar, por cada participante de Entusiasmento, su pitch y las producciones que haya marcado como visibles — sin exponer nada que la persona no haya elegido mostrar.
+
+## 2. Qué se hizo
+- **`app/api/entusiasmo/cofruto/route.ts`** (nuevo, GET): junta `entusiasmo_proyectos` (pitch) + `entusiasmo_producciones` con `visible = true`, genera signed URLs en batch (mismo patrón que el resto de Entusiasmento, 1 hora de validez), y arma un "puesto" por participante — solo si tiene pitch o al menos una producción visible. No requiere admin: cualquiera con acceso a `casatalentos` puede pegarle (a diferencia de `/api/espacios/participantes`, que es admin-only y por eso no se reutilizó para esto; en cambio se reutilizó la función de más bajo nivel `listarParticipantesActividad` de `lib/espacios.ts`, que no tiene esa restricción). Excluye al propio usuario de la lista (no te ves a vos mismo en la mesa, ya te ves en "Mi espacio").
+- **UI**: dentro del destino "CoFruto", lista vertical de "puestos" — una tarjeta plegable por participante (🌿, borde verde esmeralda) con su nombre y cantidad de producciones; al abrir muestra el pitch (si tiene) y cada producción visible con su contenido real (imagen/audio/texto), mismo criterio visual que ya usa "Mi espacio" para sus propias producciones. Se saca el texto placeholder "muy pronto vas a poder visitar...".
+- Los Recursos (que ya vivían dentro de CoFruto desde la Fase A3a) quedan debajo de los puestos, sin cambios.
+
+## 3. Verificado en vivo
+Se creó una producción de texto visible de prueba en la cuenta de Cuchulain Mago (el participante beta), se confirmó por API que el endpoint la trae correcta, y por Playwright que aparece como puesto en CoFruto, se abre al tocarlo y muestra título + contenido reales. Se confirmó que participantes sin pitch ni producciones visibles no aparecen como puesto (no generan "habitaciones vacías"). Producción de prueba borrada al final — la cuenta de Cuchulain quedó como estaba. `typecheck`/`lint` limpios, sin warnings nuevos.
+
+Nota al pasar: quedó una producción vieja de Cuchulain (`id=5`, imagen, `visible: false`) de una sesión anterior — no la tocamos, no es de esta fase y al estar no-visible no aparece en CoFruto igual.
+
+## 4. Pendiente
+- **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
+- Resto sin cambios: Pitch estilo Instagram, "Tu ritmo" real, Tareas semanales con fecha/hora + agente de IA (Fase D), limpieza de código muerto del Dispositivo viejo, privacidad de `espacios-archivos`.
