@@ -533,4 +533,25 @@ Hero sin logo viejo; emoji sin corazón (✉️ presente, 💌 ausente); grabaci
 ## 3. Pendiente
 - Nicolás va a subir un logo nuevo para Entusiasmento — cuando lo tenga, agregarlo a `logoSrc` en el hero.
 - Resto de lo anotado en la ronda de feedback anterior (Pitch estilo Instagram, Tu ritmo con metáfora musical, Fase A3b con selector de participante para admin, Tareas semanales con fecha/hora + recordatorios + dashboard).
-- **No se hizo commit todavía.**
+
+---
+
+# Sesión de trabajo 2026-08-11 (continuación 5) — Commit + gate de apertura a participantes antes del push
+
+## 1. Commit hecho
+Se commiteó todo lo de Entusiasmento (Fase 0 a la ronda de feedback 2) en un solo commit (`4a6bbcf`) — separado a propósito del fix de Google Calendar (invitados a eventos), que Nicolás pidió dejar afuera porque todavía tiene que terminar de configurar cosas del lado de Google Workspace. `AGENTS.md` (una corrección de reglas de CasaTalentos de una sesión bien anterior, sin relación) y todo lo de la landing page (trabajo propio de Nicolás, no tocado) también quedaron fuera del commit.
+
+## 2. IMPORTANTE — gate agregado antes de pushear: Entusiasmento vuelve a estar oculto para participantes
+Antes de preguntar si hacía push, Nicolás aclaró algo clave: aunque en la Fase A2 se había decidido abrir Entusiasmento a todos los participantes (porque el Dispositivo viejo ya no existía y no quedaba nada más que mostrarles), **no quiere que los participantes lo usen todavía** — recién cuando esté terminado. Como pushear a `main` dispara el deploy a producción automáticamente (sin ambiente intermedio), esto había que resolverlo antes de pushear, no después.
+
+**Solución**: nuevo flag `ENTUSIASMENTO_ABIERTO_A_PARTICIPANTES` (constante booleana, `app/casatalentos/page.tsx`, arriba del todo, `false` por defecto) — mismo patrón que ya se usó antes en el proyecto para este tipo de apagador (`RESERVA_NUEVA_SESION_TERAPIA_HABILITADA`, `BIBLIOTECA_GRABACIONES_HABILITADA`). Con el flag en `false`: admin sigue viendo todo el contenido de "Mi espacio"/"CoFruto" para seguir probando y cargando cosas; cualquier no-admin ve en cambio un cartel simple ("🌱 Entusiasmento se está terminando de armar... te avisamos apenas esté listo") en el mismo lugar. **Cuando esté listo para abrir, cambiar ese único `false` a `true`.**
+
+Alcance del gate: cubre específicamente Coordenadas/Pitch/Producciones/Tareas semanales/CoFruto (lo genuinamente nuevo e incompleto). El botón de "Reunión semanal" y el cuadrito de "Valoraciones y agradecimientos" (que ya usaban los participantes antes, solo renombrados/reubicados) siguen visibles para todos — no tenía sentido esconder algo que ya conocían y usaban.
+
+## 3. Verificado en vivo
+`admin@escuela.com`: sigue viendo "Mi espacio" completo, sin el cartel de "en construcción". `colaborador@escuela.com` (rol no-admin): no ve "Mi espacio" — aunque en este caso puntual la prueba no llegó a mostrar el cartel nuevo porque esa cuenta de prueba no tiene inscripción activa a CasaTalentos y quedó atajada antes, por el mensaje de "Acceso no habilitado" que ya existía (nada que ver con este cambio). La lógica en sí (`esAdmin || ENTUSIASMENTO_ABIERTO_A_PARTICIPANTES`) es un simple booleano verificado por TypeScript — no se armó un participante de prueba con inscripción/pago reales solo para confirmar el cartel exacto, para no tocar datos de facturación de producción por una verificación de bajo riesgo. Si Nicolás quiere ver el cartel real, puede probarlo con cualquier participante activo real (va a ver el cartel de "en construcción" en vez de Mi espacio, dado que el flag sigue en `false`).
+
+## 4. Pendiente
+- Cuando Entusiasmento esté listo para todos: cambiar `ENTUSIASMENTO_ABIERTO_A_PARTICIPANTES` a `true` en `app/casatalentos/page.tsx`.
+- Resto de lo pendiente de rondas anteriores, sin cambios.
+- **No se hizo commit de este último cambio (el gate) todavía** — falta commitear y pushear junto con lo demás.

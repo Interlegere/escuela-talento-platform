@@ -218,6 +218,10 @@ type PrepararUploadProduccionResponse = {
 }
 
 const MODO_PRUEBA = isDevelopmentPreviewEnabled()
+// Flag temporal: Entusiasmento (Mi espacio/CoFruto) todavía se está
+// terminando de armar. Cambiar a `true` cuando esté listo para que lo
+// usen los participantes — hasta entonces solo admin lo ve completo.
+const ENTUSIASMENTO_ABIERTO_A_PARTICIPANTES = false
 const STORAGE_MENSAJES_LEIDOS_CASATALENTOS = "casatalentos_mensajes_leidos"
 const CAMPOS_COORDENADAS: Array<keyof CoordenadasForm> = [
   "que",
@@ -2655,6 +2659,7 @@ export default function CasaTalentosPage() {
         {!cargandoAcceso && (acceso || MODO_PRUEBA) && (
           <div className="space-y-4">
 
+            {esAdmin || ENTUSIASMENTO_ABIERTO_A_PARTICIPANTES ? (
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-3">
                   <button
@@ -3465,6 +3470,14 @@ export default function CasaTalentosPage() {
                   </div>
                 )}
               </div>
+            ) : (
+              <div className="workspace-panel-soft space-y-2 py-10 text-center">
+                <p className="text-lg font-semibold">🌱 Entusiasmento se está terminando de armar</p>
+                <p className="text-sm text-gray-600">
+                  Muy pronto vas a poder entrar a tu espacio. Te avisamos apenas esté listo.
+                </p>
+              </div>
+            )}
 
 
 
