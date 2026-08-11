@@ -603,5 +603,29 @@ Se creó una producción de texto visible de prueba en la cuenta de Cuchulain Ma
 Nota al pasar: quedó una producción vieja de Cuchulain (`id=5`, imagen, `visible: false`) de una sesión anterior — no la tocamos, no es de esta fase y al estar no-visible no aparece en CoFruto igual.
 
 ## 4. Pendiente
+- Resto sin cambios: Pitch estilo Instagram, Tareas semanales con fecha/hora + agente de IA (Fase D), limpieza de código muerto del Dispositivo viejo, privacidad de `espacios-archivos`.
+
+Commiteado y pusheado (`eec3b1d`).
+
+---
+
+# Sesión de trabajo 2026-08-11 (continuación 8) — "Tu ritmo" real
+
+## 1. Objetivo
+Reemplazar el placeholder punteado de "Tu ritmo" (reservado desde la Fase A) por una señal real de actividad, ahora que Tareas semanales tiene datos de verdad.
+
+## 2. Primer diseño (barras semanales por cantidad) — descartado antes de commitear
+La primera versión agrupaba producciones + tareas en 6 barras semanales por cantidad de ítems creados por semana (con metáfora musical, nota 🎵). Nicolás la probó y aclaró que no era lo que pedía: quería que la barra representara específicamente el **avance de las tareas semanales** (tareas totales = 100%, se llena a medida que se tildan como hechas), no un conteo histórico de actividad. Como esta versión nunca se había commiteado, se reemplazó directamente en vez de dejar el diseño descartado documentado como si hubiera sido real.
+
+## 3. Diseño final (implementado)
+Una sola barra de progreso, **dentro de la propia tarjeta de "Tareas semanales"** (no en una sección aparte, por pedido explícito de Nicolás de que quedara "en estrecha relación" con esa sección) — visible solo si hay al menos una tarea cargada:
+- **Porcentaje** = tareas completadas / tareas totales de la persona (todas las que tiene cargadas, no filtradas por semana — las tareas nunca se borran automáticamente de una semana a otra, se acumulan, así que el total crece con el tiempo).
+- **"Renovable" por diseño, sin lógica especial**: como el porcentaje se recalcula en cada render a partir del estado real (`tareasCompletadas / tareas.length`), automáticamente baja si se agrega una tarea nueva sin completar, y sube cuando se tilda una — exactamente el comportamiento "infinita y finita a la vez" que pidió Nicolás, sin necesidad de ningún mecanismo de reseteo.
+- Se sacaron los helpers de agrupación semanal (`inicioSemanaISO`, `construirSemanasRitmo`, `SEMANAS_RITMO`) del primer diseño, sin uso ya.
+
+## 4. Verificado en vivo
+Se cargaron 3 tareas de prueba en la cuenta de Cuchulain Mago (2 completadas, 1 pendiente) → la barra mostró "2 de 3 tareas realizadas (67%)" correctamente. Se destildó una tarea real desde la UI (Playwright) y se confirmó que el porcentaje se recalculó solo, en vivo, a "1 de 3 tareas realizadas (33%)", sin recargar la página — confirma el comportamiento "renovable" pedido. Datos de prueba borrados al final. `typecheck`/`lint` limpios, sin warnings nuevos.
+
+## 5. Pendiente
 - **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
-- Resto sin cambios: Pitch estilo Instagram, "Tu ritmo" real, Tareas semanales con fecha/hora + agente de IA (Fase D), limpieza de código muerto del Dispositivo viejo, privacidad de `espacios-archivos`.
+- Resto sin cambios: Pitch estilo Instagram, Tareas semanales con fecha/hora + agente de IA (Fase D), limpieza de código muerto del Dispositivo viejo, privacidad de `espacios-archivos`.

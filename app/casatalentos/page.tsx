@@ -616,6 +616,10 @@ export default function CasaTalentosPage() {
   const [cargandoCofruto, setCargandoCofruto] = useState(false)
   const [puestoAbiertoEmail, setPuestoAbiertoEmail] = useState<string | null>(null)
 
+  const tareasCompletadas = tareas.filter((t) => t.completada).length
+  const porcentajeRitmo =
+    tareas.length > 0 ? Math.round((tareasCompletadas / tareas.length) * 100) : 0
+
   const [mensajeExito, setMensajeExito] = useState("")
   const [mensajeError, setMensajeError] = useState("")
   const [subiendoVideo, setSubiendoVideo] = useState(false)
@@ -3089,16 +3093,6 @@ export default function CasaTalentosPage() {
                       </div>
                     )}
 
-                    {/* Reservado para Fase B: barras de actividad reales
-                        una vez que Producciones exista y dé señal. */}
-                    <div className="space-y-1 rounded-full border-2 border-dashed border-[var(--line-strong)] bg-white/50 px-6 py-4">
-                      <p className="workspace-eyebrow">♪ Tu ritmo</p>
-                      <p className="text-sm italic text-gray-500">
-                        Acá vas a ver tu actividad de las últimas semanas
-                        apenas empieces a cargar producciones.
-                      </p>
-                    </div>
-
                     <div className="rounded-2xl border border-sky-200 bg-sky-50/60 p-4">
                       <button
                         type="button"
@@ -3360,6 +3354,22 @@ export default function CasaTalentosPage() {
                           Lo que te proponés esta semana
                         </h3>
                       </div>
+
+                      {tareas.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="workspace-eyebrow">♪ Tu ritmo</p>
+                          <div className="h-3 w-full overflow-hidden rounded-full bg-white/80">
+                            <div
+                              className="h-full rounded-full bg-[var(--accent)] transition-all"
+                              style={{ width: `${porcentajeRitmo}%` }}
+                            />
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            {tareasCompletadas} de {tareas.length} tareas realizadas (
+                            {porcentajeRitmo}%)
+                          </p>
+                        </div>
+                      )}
 
                       {mensajeTarea && (
                         <p className="text-sm text-gray-700">{mensajeTarea}</p>
