@@ -11,18 +11,24 @@ type TareaRow = {
   proyecto_id: number
   contenido: string
   completada: boolean
+  fecha: string | null
+  hora: string | null
   created_at: string
   updated_at: string
 }
 
 type PostBody = {
   contenido?: string
+  fecha?: string
+  hora?: string
 }
 
 type PatchBody = {
   id?: number
   contenido?: string
   completada?: boolean
+  fecha?: string | null
+  hora?: string | null
 }
 
 async function resolverProyectoId(
@@ -130,7 +136,12 @@ export async function POST(req: Request) {
 
     const { data, error } = await supabase
       .from("entusiasmo_tareas")
-      .insert({ proyecto_id: proyectoId, contenido })
+      .insert({
+        proyecto_id: proyectoId,
+        contenido,
+        fecha: body.fecha?.trim() || null,
+        hora: body.hora?.trim() || null,
+      })
       .select("*")
       .single()
 
@@ -198,6 +209,8 @@ export async function PATCH(req: Request) {
 
     if (body.contenido !== undefined) cambios.contenido = body.contenido.trim()
     if (body.completada !== undefined) cambios.completada = Boolean(body.completada)
+    if (body.fecha !== undefined) cambios.fecha = body.fecha?.trim() || null
+    if (body.hora !== undefined) cambios.hora = body.hora?.trim() || null
 
     const { data, error } = await supabase
       .from("entusiasmo_tareas")

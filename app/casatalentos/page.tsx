@@ -205,6 +205,8 @@ type TareaItem = {
   id: number
   contenido: string
   completada: boolean
+  fecha: string | null
+  hora: string | null
   created_at: string
 }
 
@@ -274,6 +276,20 @@ const CAMPOS_COORDENADAS_RESULTADOS: Array<{
   { campo: "resultadoTrimestral", etiqueta: "Trimestral" },
   { campo: "resultadoAnual", etiqueta: "Anual" },
 ]
+
+const DIAS_SEMANA_CORTO = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
+
+const formatearFechaHoraTarea = (fecha: string | null, hora: string | null) => {
+  if (!fecha) return hora ? hora.slice(0, 5) : ""
+
+  const [anio, mes, dia] = fecha.split("-").map(Number)
+  const fechaUTC = new Date(Date.UTC(anio, mes - 1, dia))
+  const diaSemana = DIAS_SEMANA_CORTO[fechaUTC.getUTCDay()]
+  const fechaTexto = `${diaSemana} ${String(dia).padStart(2, "0")}/${String(mes).padStart(2, "0")}`
+
+  return hora ? `${fechaTexto} · ${hora.slice(0, 5)}` : fechaTexto
+}
+
 const RECURSOS_PRUEBA_CASATALENTOS: Recurso[] = [
   {
     id: 999001,
@@ -610,6 +626,8 @@ export default function CasaTalentosPage() {
   const [mensajeProduccion, setMensajeProduccion] = useState("")
   const [tareas, setTareas] = useState<TareaItem[]>([])
   const [nuevaTarea, setNuevaTarea] = useState("")
+  const [nuevaTareaFecha, setNuevaTareaFecha] = useState("")
+  const [nuevaTareaHora, setNuevaTareaHora] = useState("")
   const [guardandoTarea, setGuardandoTarea] = useState(false)
   const [mensajeTarea, setMensajeTarea] = useState("")
   const [puestosCofruto, setPuestosCofruto] = useState<PuestoCofruto[]>([])
@@ -1073,7 +1091,11 @@ export default function CasaTalentosPage() {
       const res = await fetch("/api/entusiasmo/tareas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contenido: nuevaTarea }),
+        body: JSON.stringify({
+          contenido: nuevaTarea,
+          fecha: nuevaTareaFecha,
+          hora: nuevaTareaHora,
+        }),
       })
       const data = await leerRespuestaJson<{ error?: string }>(res)
 
@@ -1083,6 +1105,8 @@ export default function CasaTalentosPage() {
       }
 
       setNuevaTarea("")
+      setNuevaTareaFecha("")
+      setNuevaTareaHora("")
       await cargarTareas()
     } catch {
       setMensajeTarea("Error agregando la tarea.")
@@ -3376,25 +3400,41 @@ export default function CasaTalentosPage() {
                       )}
 
                       <div className="space-y-2">
-                        {tareas.map((tarea) => (
-                          <label
-                            key={tarea.id}
-                            className="flex items-center gap-3 rounded-xl border border-amber-200 bg-white/80 px-3 py-2"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={tarea.completada}
-                              onChange={() => void alternarTareaCompletada(tarea.id, tarea.completada)}
-                            />
-                            <span
-                              className={`text-sm ${
-                                tarea.completada ? "text-gray-400 line-through" : "text-gray-800"
-                              }`}
+                        {tareas.map((tarea) => {
+                          const fechaHoraTexto = formatearFechaHoraTarea(
+                            tarea.fecha,
+                            tarea.hora
+                          )
+
+                          return (
+                            <label
+                              key={tarea.id}
+                              className="flex items-center gap-3 rounded-xl border border-amber-200 bg-white/80 px-3 py-2"
                             >
-                              {tarea.contenido}
-                            </span>
-                          </label>
-                        ))}
+                              <input
+                                type="checkbox"
+                                checked={tarea.completada}
+                                onChange={() =>
+                                  void alternarTareaCompletada(tarea.id, tarea.completada)
+                                }
+                              />
+                              <span
+                                className={`flex-1 text-sm ${
+                                  tarea.completada
+                                    ? "text-gray-400 line-through"
+                                    : "text-gray-800"
+                                }`}
+                              >
+                                {tarea.contenido}
+                              </span>
+                              {fechaHoraTexto && (
+                                <span className="shrink-0 text-xs text-amber-700">
+                                  {fechaHoraTexto}
+                                </span>
+                              )}
+                            </label>
+                          )
+                        })}
                         {tareas.length === 0 && (
                           <p className="text-sm text-gray-600">
                             Todavía no cargaste tareas para esta semana.
@@ -3403,21 +3443,38 @@ export default function CasaTalentosPage() {
                       </div>
 
                       {!viendoEmail && (
-                        <div className="flex gap-2">
+                        <div className="space-y-2">
                           <input
                             className="workspace-field"
                             placeholder="Nueva tarea de la semana..."
                             value={nuevaTarea}
                             onChange={(e) => setNuevaTarea(e.target.value)}
                           />
-                          <button
-                            type="button"
-                            disabled={guardandoTarea}
-                            onClick={() => void agregarTarea()}
-                            className="workspace-button-secondary shrink-0"
-                          >
-                            {guardandoTarea ? "..." : "Agregar"}
-                          </button>
+                          <div className="flex flex-wrap gap-2">
+                            <input
+                              type="date"
+                              className="workspace-field flex-1"
+                              value={nuevaTareaFecha}
+                              onChange={(e) => setNuevaTareaFecha(e.target.value)}
+                            />
+                            <input
+                              type="time"
+                              className="workspace-field flex-1"
+                              value={nuevaTareaHora}
+                              onChange={(e) => setNuevaTareaHora(e.target.value)}
+                            />
+                            <button
+                              type="button"
+                              disabled={guardandoTarea}
+                              onClick={() => void agregarTarea()}
+                              className="workspace-button-secondary shrink-0"
+                            >
+                              {guardandoTarea ? "..." : "Agregar"}
+                            </button>
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            Fecha y hora son opcionales.
+                          </p>
                         </div>
                       )}
                     </div>

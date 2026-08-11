@@ -627,5 +627,26 @@ Una sola barra de progreso, **dentro de la propia tarjeta de "Tareas semanales"*
 Se cargaron 3 tareas de prueba en la cuenta de Cuchulain Mago (2 completadas, 1 pendiente) → la barra mostró "2 de 3 tareas realizadas (67%)" correctamente. Se destildó una tarea real desde la UI (Playwright) y se confirmó que el porcentaje se recalculó solo, en vivo, a "1 de 3 tareas realizadas (33%)", sin recargar la página — confirma el comportamiento "renovable" pedido. Datos de prueba borrados al final. `typecheck`/`lint` limpios, sin warnings nuevos.
 
 ## 5. Pendiente
-- **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
 - Resto sin cambios: Pitch estilo Instagram, Tareas semanales con fecha/hora + agente de IA (Fase D), limpieza de código muerto del Dispositivo viejo, privacidad de `espacios-archivos`.
+
+Commiteado y pusheado (`03a1995`).
+
+---
+
+# Sesión de trabajo 2026-08-11 (continuación 9) — Tareas semanales con fecha y hora
+
+## 1. Objetivo
+Agregar fecha y hora opcional a cada tarea semanal — precursor necesario para cuando se construya el agente de IA (Fase D), que va a necesitar esa configuración puntual por tarea para armar recordatorios. En esta fase solo se agregó el dato y su visualización, sin tocar el agente todavía.
+
+## 2. Qué se hizo
+- **`sql/2026-08-13_entusiasmo_tareas_fecha_hora.sql`** (corrido por Nicolás en Supabase): agrega `fecha` (date) y `hora` (time), ambas nullable, a `entusiasmo_tareas`.
+- **`app/api/entusiasmo/tareas/route.ts`**: POST y PATCH aceptan `fecha`/`hora` opcionales; GET ya las devuelve al traer `select("*")`.
+- **`app/casatalentos/page.tsx`**: el formulario de "Nueva tarea de la semana" ganó dos inputs opcionales (`type="date"`/`type="time"`) junto al de texto. Cada tarea de la lista muestra, si tiene algo cargado, un texto tipo "Vie 14/08 · 18:30" (o solo fecha, o solo hora) al lado del check — nuevo helper puro `formatearFechaHoraTarea`. Edición de fecha/hora de una tarea ya existente queda fuera de esta entrega (solo se carga al crearla) — no se pidió, se puede sumar después si hace falta.
+
+## 3. Verificado en vivo
+Se agregó una tarea real de prueba vía la UI (con la cuenta de test `admin@escuela.com`, que generó su propio proyecto aislado, sin tocar la cuenta real de Nicolás ni la de Cuchulain) con fecha 14/08/2026 y hora 18:30 → se confirmó en la base que quedó guardada (`fecha: "2026-08-14"`, `hora: "18:30:00"`) y que la UI la mostró como "Vie 14/08 · 18:30" (día de la semana calculado correcto). Tarea y proyecto de prueba borrados al final. `typecheck`/`lint` limpios, sin warnings nuevos.
+
+## 4. Pendiente
+- **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
+- Edición de fecha/hora de una tarea ya cargada (hoy solo se define al crearla).
+- Resto sin cambios: Pitch estilo Instagram, agente de IA (Fase D, va a usar esta fecha/hora para los recordatorios), limpieza de código muerto del Dispositivo viejo, privacidad de `espacios-archivos`.
