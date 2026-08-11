@@ -4,13 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import PagoMensualCard from "@/components/pagos/PagoMensualCard"
 import SeccionDesplegable from "@/components/SeccionDesplegable"
 import VideoEmbed from "@/components/VideoEmbed"
-import AgendaActividad from "@/components/agenda/AgendaActividad"
 import GrabadorVideo from "@/components/casatalentos/GrabadorVideo"
-import HDRActividad from "@/components/hdr/HDRActividad"
+import GrabadorAudio from "@/components/casatalentos/GrabadorAudio"
+import ConsentimientoMeetButton from "@/components/consentimientos/ConsentimientoMeetButton"
 import { useActivityAccess } from "@/components/auth/useActivityAccess"
-import CasaTalentosAdminPanel, {
-  CasaTalentosAdminResumenBlock,
-} from "@/components/casatalentos/CasaTalentosAdminPanel"
+import CasaTalentosAdminPanel from "@/components/casatalentos/CasaTalentosAdminPanel"
 import EditorMensajeAdmin from "@/components/espacios/EditorMensajeAdmin"
 import type { EditorMensajeAdminHandle } from "@/components/espacios/EditorMensajeAdmin"
 import { isDevelopmentPreviewEnabled } from "@/lib/dev-flags"
@@ -116,8 +114,122 @@ type PrepararUploadResponse = {
   maxBytes?: number
 }
 
+type ProyectoEntusiasmo = {
+  id: number
+  participante_email: string
+  participante_nombre: string | null
+  que: string | null
+  para_que: string | null
+  problema_solucion: string | null
+  resultado_semanal: string | null
+  resultado_mensual: string | null
+  resultado_trimestral: string | null
+  resultado_anual: string | null
+  habilidad_a_desarrollar: string | null
+  que_te_entusiasma: string | null
+  pitch_contenido: string | null
+  pitch_storage_path: string | null
+  pitch_mime_type: string | null
+  pitch_actualizado_at: string | null
+}
+
+type CoordenadasForm = {
+  que: string
+  paraQue: string
+  problemaSolucion: string
+  resultadoSemanal: string
+  resultadoMensual: string
+  resultadoTrimestral: string
+  resultadoAnual: string
+  habilidadADesarrollar: string
+  queTeEntusiasma: string
+  pitchContenido: string
+}
+
+const COORDENADAS_VACIAS: CoordenadasForm = {
+  que: "",
+  paraQue: "",
+  problemaSolucion: "",
+  resultadoSemanal: "",
+  resultadoMensual: "",
+  resultadoTrimestral: "",
+  resultadoAnual: "",
+  habilidadADesarrollar: "",
+  queTeEntusiasma: "",
+  pitchContenido: "",
+}
+
+type PrepararUploadPitchResponse = {
+  ok?: boolean
+  error?: string
+  bucket?: string
+  storagePath?: string
+  signedToken?: string
+  signedUrl?: string
+  mimeType?: string
+  maxBytes?: number
+}
+
+type ProximoEncuentro = {
+  id: string
+  disponibilidadId?: number | null
+  fecha: string
+  hora: string
+  meetLink?: string | null
+  puedeIngresar: boolean
+}
+
+type AporteItem = {
+  id: number
+  autor_nombre: string | null
+  autor_email: string | null
+  contenido: string
+  created_at: string
+}
+
+type ProduccionItem = {
+  id: number
+  tipo: string
+  titulo: string | null
+  contenido: string | null
+  storage_path: string | null
+  mime_type: string | null
+  visible: boolean
+  created_at: string
+  signedUrl?: string | null
+}
+
+type TareaItem = {
+  id: number
+  contenido: string
+  completada: boolean
+  created_at: string
+}
+
+type PrepararUploadProduccionResponse = {
+  ok?: boolean
+  error?: string
+  bucket?: string
+  storagePath?: string
+  signedToken?: string
+  signedUrl?: string
+  mimeType?: string
+  maxBytes?: number
+}
+
 const MODO_PRUEBA = isDevelopmentPreviewEnabled()
 const STORAGE_MENSAJES_LEIDOS_CASATALENTOS = "casatalentos_mensajes_leidos"
+const CAMPOS_COORDENADAS: Array<keyof CoordenadasForm> = [
+  "que",
+  "paraQue",
+  "problemaSolucion",
+  "resultadoSemanal",
+  "resultadoMensual",
+  "resultadoTrimestral",
+  "resultadoAnual",
+  "habilidadADesarrollar",
+  "queTeEntusiasma",
+]
 const RECURSOS_PRUEBA_CASATALENTOS: Recurso[] = [
   {
     id: 999001,
@@ -413,6 +525,46 @@ export default function CasaTalentosPage() {
     obtenerAhoraArgentinaCliente()
   )
 
+  const [proyecto, setProyecto] = useState<ProyectoEntusiasmo | null>(null)
+  const [pitchSignedUrl, setPitchSignedUrl] = useState<string | null>(null)
+  const [cargandoProyecto, setCargandoProyecto] = useState(false)
+  const [coordenadas, setCoordenadas] = useState<CoordenadasForm>(COORDENADAS_VACIAS)
+  const [coordenadasAbiertas, setCoordenadasAbiertas] = useState(false)
+  const [guardandoCoordenadas, setGuardandoCoordenadas] = useState(false)
+  const [mensajeCoordenadas, setMensajeCoordenadas] = useState("")
+  const [archivoPitch, setArchivoPitch] = useState<File | null>(null)
+  const [subiendoPitch, setSubiendoPitch] = useState(false)
+  const [estadoSubidaPitch, setEstadoSubidaPitch] = useState("")
+  const [mensajePitch, setMensajePitch] = useState("")
+  const [destinoEntusiasmo, setDestinoEntusiasmo] = usePersistentState<
+    "mi-espacio" | "cofruto"
+  >(uiKey("entusiasmo:destino"), "mi-espacio", {
+    enabled: Boolean(uiStoragePrefix),
+  })
+  const coordenadasSinDefinir = CAMPOS_COORDENADAS.filter(
+    (campo) => !coordenadas[campo].trim()
+  ).length
+  const [proximoEncuentro, setProximoEncuentro] = useState<ProximoEncuentro | null>(null)
+  const [aportesRecibidos, setAportesRecibidos] = useState<AporteItem[]>([])
+  const [aporteDestinatario, setAporteDestinatario] = useState("")
+  const [aporteContenido, setAporteContenido] = useState("")
+  const [enviandoAporte, setEnviandoAporte] = useState(false)
+  const [mensajeAporte, setMensajeAporte] = useState("")
+  const [valoracionesAbiertas, setValoracionesAbiertas] = useState(false)
+  const [producciones, setProducciones] = useState<ProduccionItem[]>([])
+  const [tituloProduccion, setTituloProduccion] = useState("")
+  const [textoProduccion, setTextoProduccion] = useState("")
+  const [archivoProduccion, setArchivoProduccion] = useState<File | null>(null)
+  const [tipoNuevaProduccion, setTipoNuevaProduccion] = useState<"texto" | "imagen" | "audio">(
+    "texto"
+  )
+  const [guardandoProduccion, setGuardandoProduccion] = useState(false)
+  const [mensajeProduccion, setMensajeProduccion] = useState("")
+  const [tareas, setTareas] = useState<TareaItem[]>([])
+  const [nuevaTarea, setNuevaTarea] = useState("")
+  const [guardandoTarea, setGuardandoTarea] = useState(false)
+  const [mensajeTarea, setMensajeTarea] = useState("")
+
   const [mensajeExito, setMensajeExito] = useState("")
   const [mensajeError, setMensajeError] = useState("")
   const [subiendoVideo, setSubiendoVideo] = useState(false)
@@ -594,6 +746,442 @@ export default function CasaTalentosPage() {
       void cargarDatosCasaTalentos()
     }
   }, [mounted])
+
+  useEffect(() => {
+    if (!mounted) return
+
+    const cargarProximoEncuentro = async () => {
+      try {
+        const res = await fetch("/api/agenda/por-actividad", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ actividadSlug: "casatalentos" }),
+        })
+        const data = await leerRespuestaJson<{ items?: ProximoEncuentro[] }>(res)
+        setProximoEncuentro((data.items || [])[0] || null)
+      } catch {
+        setProximoEncuentro(null)
+      }
+    }
+
+    void cargarProximoEncuentro()
+  }, [mounted])
+
+  const cargarProyecto = async () => {
+    try {
+      setCargandoProyecto(true)
+      const res = await fetch("/api/entusiasmo/proyecto")
+      const data = await leerRespuestaJson<{
+        proyecto?: ProyectoEntusiasmo | null
+        pitchSignedUrl?: string | null
+        error?: string
+      }>(res)
+
+      if (!res.ok) {
+        setMensajeCoordenadas(data.error || "No se pudo cargar tu proyecto.")
+        return
+      }
+
+      const cargado = data.proyecto || null
+      setProyecto(cargado)
+      setPitchSignedUrl(data.pitchSignedUrl || null)
+      setCoordenadas({
+        que: cargado?.que || "",
+        paraQue: cargado?.para_que || "",
+        problemaSolucion: cargado?.problema_solucion || "",
+        resultadoSemanal: cargado?.resultado_semanal || "",
+        resultadoMensual: cargado?.resultado_mensual || "",
+        resultadoTrimestral: cargado?.resultado_trimestral || "",
+        resultadoAnual: cargado?.resultado_anual || "",
+        habilidadADesarrollar: cargado?.habilidad_a_desarrollar || "",
+        queTeEntusiasma: cargado?.que_te_entusiasma || "",
+        pitchContenido: cargado?.pitch_contenido || "",
+      })
+    } catch {
+      setMensajeCoordenadas("Error cargando tu proyecto.")
+    } finally {
+      setCargandoProyecto(false)
+    }
+  }
+
+  useEffect(() => {
+    if (mounted) {
+      void cargarProyecto()
+    }
+  }, [mounted])
+
+  const cargarAportesRecibidos = async () => {
+    try {
+      const res = await fetch("/api/entusiasmo/aportes")
+      const data = await leerRespuestaJson<{ aportes?: AporteItem[] }>(res)
+      setAportesRecibidos(data.aportes || [])
+    } catch {
+      setAportesRecibidos([])
+    }
+  }
+
+  useEffect(() => {
+    if (mounted) {
+      void cargarAportesRecibidos()
+    }
+  }, [mounted])
+
+  const cargarProducciones = async () => {
+    try {
+      const res = await fetch("/api/entusiasmo/producciones")
+      const data = await leerRespuestaJson<{ producciones?: ProduccionItem[] }>(res)
+      setProducciones(data.producciones || [])
+    } catch {
+      setProducciones([])
+    }
+  }
+
+  useEffect(() => {
+    if (mounted) {
+      void cargarProducciones()
+    }
+  }, [mounted])
+
+  const handleArchivoProduccion = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setArchivoProduccion(e.target.files?.[0] || null)
+    setMensajeProduccion("")
+  }
+
+  const crearProduccion = async () => {
+    setMensajeProduccion("")
+
+    try {
+      setGuardandoProduccion(true)
+
+      if (tipoNuevaProduccion === "texto") {
+        if (!textoProduccion.trim()) {
+          setMensajeProduccion("Escribí algo antes de guardar.")
+          return
+        }
+
+        const res = await fetch("/api/entusiasmo/producciones", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tipo: "texto",
+            titulo: tituloProduccion,
+            contenido: textoProduccion,
+          }),
+        })
+        const data = await leerRespuestaJson<{ error?: string }>(res)
+
+        if (!res.ok) {
+          setMensajeProduccion(data.error || "No se pudo guardar.")
+          return
+        }
+      } else {
+        if (!archivoProduccion) {
+          setMensajeProduccion("Elegí un archivo antes de guardar.")
+          return
+        }
+
+        const prepararRes = await fetch("/api/entusiasmo/producciones/preparar-upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: archivoProduccion.name,
+            mimeType: archivoProduccion.type,
+            fileSize: archivoProduccion.size,
+          }),
+        })
+        const preparacion = await leerRespuestaJson<PrepararUploadProduccionResponse>(
+          prepararRes
+        )
+
+        if (!prepararRes.ok || !preparacion.bucket || !preparacion.storagePath || !preparacion.signedToken) {
+          setMensajeProduccion(preparacion.error || "No se pudo preparar la subida.")
+          return
+        }
+
+        const { error: uploadError } = await supabase.storage
+          .from(preparacion.bucket)
+          .uploadToSignedUrl(preparacion.storagePath, preparacion.signedToken, archivoProduccion, {
+            contentType: archivoProduccion.type,
+            upsert: false,
+          })
+
+        if (uploadError) {
+          setMensajeProduccion(uploadError.message || "No se pudo subir el archivo.")
+          return
+        }
+
+        const confirmarRes = await fetch("/api/entusiasmo/producciones", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tipo: tipoNuevaProduccion,
+            titulo: tituloProduccion,
+            storagePath: preparacion.storagePath,
+            mimeType: archivoProduccion.type,
+          }),
+        })
+        const data = await leerRespuestaJson<{ error?: string }>(confirmarRes)
+
+        if (!confirmarRes.ok) {
+          setMensajeProduccion(data.error || "No se pudo guardar.")
+          return
+        }
+      }
+
+      setTituloProduccion("")
+      setTextoProduccion("")
+      setArchivoProduccion(null)
+      setMensajeProduccion("Guardado.")
+      await cargarProducciones()
+    } catch {
+      setMensajeProduccion("Error guardando la producción.")
+    } finally {
+      setGuardandoProduccion(false)
+    }
+  }
+
+  const alternarVisibilidadProduccion = async (id: number, visibleActual: boolean) => {
+    try {
+      await fetch("/api/entusiasmo/producciones", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, visible: !visibleActual }),
+      })
+      await cargarProducciones()
+    } catch {
+      setMensajeProduccion("No se pudo cambiar la visibilidad.")
+    }
+  }
+
+  const eliminarProduccion = async (id: number) => {
+    try {
+      await fetch("/api/entusiasmo/producciones", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      })
+      await cargarProducciones()
+    } catch {
+      setMensajeProduccion("No se pudo eliminar.")
+    }
+  }
+
+  const cargarTareas = async () => {
+    try {
+      const res = await fetch("/api/entusiasmo/tareas")
+      const data = await leerRespuestaJson<{ tareas?: TareaItem[] }>(res)
+      setTareas(data.tareas || [])
+    } catch {
+      setTareas([])
+    }
+  }
+
+  useEffect(() => {
+    if (mounted) {
+      void cargarTareas()
+    }
+  }, [mounted])
+
+  const agregarTarea = async () => {
+    if (!nuevaTarea.trim()) {
+      setMensajeTarea("Escribí la tarea antes de agregarla.")
+      return
+    }
+
+    try {
+      setGuardandoTarea(true)
+      setMensajeTarea("")
+
+      const res = await fetch("/api/entusiasmo/tareas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contenido: nuevaTarea }),
+      })
+      const data = await leerRespuestaJson<{ error?: string }>(res)
+
+      if (!res.ok) {
+        setMensajeTarea(data.error || "No se pudo agregar la tarea.")
+        return
+      }
+
+      setNuevaTarea("")
+      await cargarTareas()
+    } catch {
+      setMensajeTarea("Error agregando la tarea.")
+    } finally {
+      setGuardandoTarea(false)
+    }
+  }
+
+  const alternarTareaCompletada = async (id: number, completadaActual: boolean) => {
+    try {
+      await fetch("/api/entusiasmo/tareas", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, completada: !completadaActual }),
+      })
+      await cargarTareas()
+    } catch {
+      setMensajeTarea("No se pudo actualizar la tarea.")
+    }
+  }
+
+  const enviarAporte = async () => {
+    const destinatario = aporteDestinatario.trim().toLowerCase()
+    const contenido = aporteContenido.trim()
+
+    if (!destinatario || !contenido) {
+      setMensajeAporte("Completá el email y el contenido del aporte.")
+      return
+    }
+
+    try {
+      setEnviandoAporte(true)
+      setMensajeAporte("")
+
+      const res = await fetch("/api/entusiasmo/aportes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ participanteEmail: destinatario, contenido }),
+      })
+      const data = await leerRespuestaJson<{ error?: string }>(res)
+
+      if (!res.ok) {
+        setMensajeAporte(data.error || "No se pudo enviar el aporte.")
+        return
+      }
+
+      setMensajeAporte(`Aporte enviado a ${destinatario}.`)
+      setAporteContenido("")
+    } catch {
+      setMensajeAporte("Error enviando el aporte.")
+    } finally {
+      setEnviandoAporte(false)
+    }
+  }
+
+  const guardarCoordenadas = async () => {
+    try {
+      setGuardandoCoordenadas(true)
+      setMensajeCoordenadas("")
+
+      const res = await fetch("/api/entusiasmo/proyecto", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(coordenadas),
+      })
+
+      const data = await leerRespuestaJson<{
+        proyecto?: ProyectoEntusiasmo
+        error?: string
+      }>(res)
+
+      if (!res.ok) {
+        setMensajeCoordenadas(data.error || "No se pudo guardar tu proyecto.")
+        return
+      }
+
+      setProyecto(data.proyecto || null)
+      setMensajeCoordenadas("Guardado.")
+    } catch {
+      setMensajeCoordenadas("Error guardando tu proyecto.")
+    } finally {
+      setGuardandoCoordenadas(false)
+    }
+  }
+
+  const handleArchivoPitch = (file: File | null) => {
+    setArchivoPitch(file)
+    setMensajePitch("")
+  }
+
+  const handleSubirPitch = async () => {
+    setMensajePitch("")
+    setEstadoSubidaPitch("")
+
+    if (!archivoPitch) {
+      setMensajePitch("Primero grabá o elegí un archivo para tu pitch.")
+      return
+    }
+
+    try {
+      setSubiendoPitch(true)
+      setEstadoSubidaPitch("Preparando subida...")
+
+      const prepararRes = await fetch("/api/entusiasmo/pitch/preparar-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: archivoPitch.name,
+          mimeType: archivoPitch.type,
+          fileSize: archivoPitch.size,
+        }),
+      })
+
+      const preparacion = await leerRespuestaJson<PrepararUploadPitchResponse>(prepararRes)
+
+      if (!prepararRes.ok) {
+        setMensajePitch(preparacion.error || "No se pudo preparar la subida del pitch.")
+        return
+      }
+
+      if (!preparacion.bucket || !preparacion.storagePath || !preparacion.signedToken) {
+        setMensajePitch("La preparación de subida vino incompleta.")
+        return
+      }
+
+      setEstadoSubidaPitch("Subiendo pitch...")
+
+      const { error: uploadError } = await supabase.storage
+        .from(preparacion.bucket)
+        .uploadToSignedUrl(
+          preparacion.storagePath,
+          preparacion.signedToken,
+          archivoPitch,
+          { contentType: archivoPitch.type, upsert: false }
+        )
+
+      if (uploadError) {
+        setMensajePitch(
+          uploadError.message ||
+            "No se pudo subir el pitch al storage. Probá nuevamente con buena conexión."
+        )
+        return
+      }
+
+      setEstadoSubidaPitch("Confirmando pitch...")
+
+      const confirmarRes = await fetch("/api/entusiasmo/pitch/confirmar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          storagePath: preparacion.storagePath,
+          mimeType: archivoPitch.type,
+        }),
+      })
+
+      const data = await leerRespuestaJson<{
+        proyecto?: ProyectoEntusiasmo
+        pitchUrl?: string
+        error?: string
+      }>(confirmarRes)
+
+      if (!confirmarRes.ok) {
+        setMensajePitch(data.error || "No se pudo confirmar el pitch.")
+        return
+      }
+
+      setProyecto(data.proyecto || null)
+      setPitchSignedUrl(data.pitchUrl || null)
+      setArchivoPitch(null)
+      setMensajePitch("Pitch actualizado.")
+    } catch {
+      setMensajePitch("Error subiendo el pitch.")
+    } finally {
+      setSubiendoPitch(false)
+      setEstadoSubidaPitch("")
+    }
+  }
 
   useEffect(() => {
     if (!mounted || !esAdmin) return
@@ -1054,20 +1642,6 @@ export default function CasaTalentosPage() {
     }, 0)
   }, [mensajesLeidos, mensajesRaiz, respuestasPorMensaje])
 
-  const tituloMensajes = useMemo(() => {
-    return (
-      <span className="flex items-center gap-2 flex-wrap">
-        <span>Mensajes</span>
-        {cantidadMensajesNoLeidos > 0 && (
-          <span className="workspace-badge-unread">
-            {cantidadMensajesNoLeidos} no leido
-            {cantidadMensajesNoLeidos === 1 ? "" : "s"}
-          </span>
-        )}
-      </span>
-    )
-  }, [cantidadMensajesNoLeidos])
-
   const marcarHiloComoLeido = (mensaje: MensajeGeneral) => {
     setMensajesLeidos((prev) => ({
       ...prev,
@@ -1373,333 +1947,6 @@ export default function CasaTalentosPage() {
     }
   }
 
-  const handleArchivo = (file: File | null) => {
-    setMensajeExito("")
-    setMensajeError("")
-
-    if (!file) {
-      setArchivo(null)
-      return
-    }
-
-    if (!file.type.startsWith("video/")) {
-      setMensajeError("El archivo debe ser un video.")
-      return
-    }
-
-    if (file.size > 50 * 1024 * 1024) {
-      setMensajeError("El video es muy pesado. Máximo 50MB para este MVP.")
-      return
-    }
-
-    setArchivo(file)
-    setMensajeExito(`Video listo para subir: ${file.name}`)
-  }
-
-  const handleCargarVideo = async () => {
-    setMensajeExito("")
-    setMensajeError("")
-    setEstadoSubidaVideo("")
-
-    if (!archivo) {
-      setMensajeError("Primero graba o elige un video.")
-      return
-    }
-
-    try {
-      setSubiendoVideo(true)
-      setEstadoSubidaVideo("Preparando subida...")
-
-      const participanteNombre = nombreParticipante || nombre || "Participante"
-      const tituloVideo = titulo || `Video ${nombreDiaActual}`
-
-      const prepararRes = await fetch("/api/casatalentos/preparar-upload", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          participanteNombre,
-          titulo: tituloVideo,
-          fileName: archivo.name,
-          mimeType: archivo.type,
-          fileSize: archivo.size,
-        }),
-      })
-
-      const preparacion = await leerRespuestaJson<PrepararUploadResponse>(prepararRes)
-
-      if (!prepararRes.ok) {
-        setMensajeError(preparacion.error || "No se pudo preparar la subida del video.")
-        return
-      }
-
-      if (
-        !preparacion.bucket ||
-        !preparacion.storagePath ||
-        !preparacion.signedToken
-      ) {
-        setMensajeError("La preparación de subida vino incompleta.")
-        return
-      }
-
-      if (preparacion.maxBytes && archivo.size > preparacion.maxBytes) {
-        setMensajeError("El video es muy pesado. Máximo 50MB.")
-        return
-      }
-
-      setEstadoSubidaVideo("Subiendo video...")
-
-      const { error: uploadError } = await supabase.storage
-        .from(preparacion.bucket)
-        .uploadToSignedUrl(
-          preparacion.storagePath,
-          preparacion.signedToken,
-          archivo,
-          {
-            contentType: archivo.type,
-            upsert: false,
-          }
-        )
-
-      if (uploadError) {
-        setMensajeError(
-          uploadError.message ||
-            "No se pudo subir el video al storage. Probá nuevamente con buena conexión."
-        )
-        return
-      }
-
-      setEstadoSubidaVideo("Confirmando video...")
-
-      const confirmarRes = await fetch("/api/casatalentos/confirmar-video", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          participanteNombre,
-          titulo: tituloVideo,
-          storagePath: preparacion.storagePath,
-          mimeType: archivo.type,
-          fileSize: archivo.size,
-          diaClave: preparacion.diaClave,
-          fechaSemana: preparacion.fechaSemana,
-        }),
-      })
-
-      const data = await leerRespuestaJson<{
-        video?: VideoItem
-        error?: string
-      }>(confirmarRes)
-
-      if (!confirmarRes.ok) {
-        setMensajeError(data.error || "No se pudo confirmar el video.")
-        return
-      }
-
-      setArchivo(null)
-      setTitulo("")
-      setNombreParticipante("")
-
-      setMensajeExito("Video subido correctamente.")
-      await cargarDatosCasaTalentos()
-    } catch (error) {
-      setMensajeError("Hubo un problema al cargar el video.")
-      console.error(error)
-    } finally {
-      setEstadoSubidaVideo("")
-      setSubiendoVideo(false)
-    }
-  }
-
-  const handleElegir = async () => {
-    setMensajeExito("")
-    setMensajeError("")
-
-    if (elegidoSeleccionado === null) {
-      setMensajeError("Seleccioná un proceso para evaluar.")
-      return
-    }
-
-    if (bloquearNuevaEvaluacion) {
-      setMensajeError("Ya realizaste tu evaluación esta semana.")
-      return
-    }
-
-    const videoElegido = videosSemana.find((v) => v.id === elegidoSeleccionado)
-    if (!videoElegido) {
-      setMensajeError("El proceso seleccionado no pertenece a la semana activa.")
-      return
-    }
-
-    try {
-      setEligiendo(true)
-      setMensajeExito("Guardando evaluación...")
-
-      const res = await fetch("/api/casatalentos/votar", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          videoId: elegidoSeleccionado,
-          votanteNombre: nombre,
-          votanteEmail: email || null,
-        }),
-      })
-
-      const data = await leerRespuestaJson<{
-        error?: string
-      }>(res)
-
-      if (!res.ok) {
-        setMensajeExito("")
-        setMensajeError(data.error || "No se pudo guardar la evaluación.")
-        return
-      }
-
-      setMensajeExito("Evaluación guardada correctamente.")
-      await cargarDatosCasaTalentos()
-    } catch (error) {
-      console.error("Error al elegir:", error)
-      setMensajeExito("")
-      setMensajeError("Hubo un problema al guardar la evaluación.")
-    } finally {
-      setEligiendo(false)
-    }
-  }
-
-  const handleComentar = async (videoId: number) => {
-    const contenido = (comentariosDraft[videoId] || "").trim()
-
-    setMensajeExito("")
-    setMensajeError("")
-
-    if (!contenido) {
-      setMensajeError("Escribe un aporte antes de enviarlo.")
-      return
-    }
-
-    try {
-      setComentandoVideoId(videoId)
-
-      const res = await fetch("/api/casatalentos/comentar", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          videoId,
-          autorNombre: nombre,
-          autorEmail: email || null,
-          contenido,
-        }),
-      })
-
-      const raw = await res.text()
-      let data: { error?: string } = {}
-
-      try {
-        data = raw ? JSON.parse(raw) : {}
-      } catch {
-        data = {
-          error: `Respuesta no válida del servidor: ${raw || "vacía"}`,
-        }
-      }
-
-      if (!res.ok) {
-        setMensajeError(data.error || "No se pudo guardar el aporte.")
-        return
-      }
-
-      setComentariosDraft((prev) => ({
-        ...prev,
-        [videoId]: "",
-      }))
-
-      setMensajeExito("Aporte guardado correctamente.")
-      await cargarDatosCasaTalentos()
-    } catch (error) {
-      console.error("Error comentando:", error)
-      setMensajeError("Hubo un problema al guardar el aporte.")
-    } finally {
-      setComentandoVideoId(null)
-    }
-  }
-
-  const handleEliminarVideoParticipante = async (videoId: number) => {
-    const confirmar = window.confirm(
-      "¿Seguro que querés borrar este video? Se eliminan también sus votos y aportes. Esta acción no se puede deshacer."
-    )
-
-    if (!confirmar) return
-
-    try {
-      setMensajeError("")
-      setMensajeExito("")
-      setEliminandoVideoId(videoId)
-
-      const res = await fetch("/api/casatalentos/eliminar-video", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ videoId }),
-      })
-
-      const data = await leerRespuestaJson<{ error?: string }>(res)
-
-      if (!res.ok) {
-        setMensajeError(data.error || "No se pudo eliminar el video.")
-        return
-      }
-
-      setMensajeExito("Video eliminado correctamente.")
-      await cargarDatosCasaTalentos()
-    } catch {
-      setMensajeError("Hubo un problema al eliminar el video.")
-    } finally {
-      setEliminandoVideoId(null)
-    }
-  }
-
-  const handleLimpiarVideos = async () => {
-    if (
-      !window.confirm(
-        "¿Seguro que querés borrar TODOS los videos, votos y aportes de CasaTalentos? Esta acción no se puede deshacer."
-      )
-    ) {
-      return
-    }
-
-    setMensajeExito("")
-    setMensajeError("")
-
-    try {
-      const res = await fetch("/api/casatalentos/limpiar", {
-        method: "POST",
-      })
-
-      const data = await leerRespuestaJson<{
-        error?: string
-      }>(res)
-
-      if (!res.ok) {
-        setMensajeError(data.error || "No se pudieron limpiar los datos.")
-        return
-      }
-
-      setVideoAbierto(null)
-      setElegidoSeleccionado(null)
-      setArchivo(null)
-      setMensajeExito("Se limpiaron los videos, elecciones y aportes.")
-      await cargarDatosCasaTalentos()
-    } catch {
-      setMensajeError("Error limpiando datos.")
-    }
-  }
-
   const handleEnviarMensajeGeneral = async (parentId?: number) => {
     const contenidoHtml = esAdmin
       ? parentId
@@ -1919,9 +2166,8 @@ export default function CasaTalentosPage() {
     return (
       <main className="workspace-page space-y-6">
         <WorkspaceHero
-          eyebrow="Coworking creativo"
-          title="CasaTalentos"
-          subtitle="Preparando tu acceso al espacio de producción compartida."
+          title="Entusiasmento"
+          subtitle="Preparando tu acceso al espacio de entrenamiento."
         />
 
         <section className="workspace-panel">
@@ -1946,8 +2192,7 @@ export default function CasaTalentosPage() {
     return (
       <main className="workspace-page space-y-6">
         <WorkspaceHero
-          eyebrow="Coworking creativo"
-          title="CasaTalentos"
+          title="Entusiasmento"
           subtitle="Redirigiendo al inicio de sesión."
         />
 
@@ -1960,26 +2205,416 @@ export default function CasaTalentosPage() {
 
   return (
       <main className="workspace-page space-y-6">
-        <WorkspaceHero
-          eyebrow={esAdmin ? "Coordinación creativa" : "CoWorking"}
-          title={esAdmin ? "Admin CasaTalentos" : "CasaTalentos"}
-          subtitle={
-            esAdmin
-              ? "Administrá referentes, reuniones, grabaciones y el dispositivo semanal desde un mismo lugar."
-              : "Espacio para habitar tus creaciones"
-          }
-          logoSrc="/casatalentos-logo.png"
-          logoAlt="Logo CasaTalentos"
-          logoClassName="!h-44 !w-44"
-          logoBlendClassName="mix-blend-multiply"
-        >
-          <div className="flex flex-wrap gap-3">
-            <span className="workspace-chip">Talento</span>
-            <span className="workspace-chip">Palabra</span>
-            <span className="workspace-chip">Producción</span>
-            <span className="workspace-chip">Propósito</span>
+        <WorkspaceHero title="Entusiasmento" subtitle="Espacio para Plasmar" />
+
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          {proximoEncuentro && (
+            <div className="inline-flex items-center gap-3 rounded-full border border-[var(--accent)] bg-white/90 px-4 py-2 shadow-sm">
+              <span className="text-xs text-gray-600">
+                {formatearFecha(proximoEncuentro.fecha)} · {proximoEncuentro.hora}
+              </span>
+              {proximoEncuentro.meetLink && proximoEncuentro.puedeIngresar ? (
+                <ConsentimientoMeetButton
+                  actividad="casatalentos"
+                  href={proximoEncuentro.meetLink}
+                  disponibilidadId={proximoEncuentro.disponibilidadId}
+                  fechaEncuentro={proximoEncuentro.fecha}
+                  horaEncuentro={proximoEncuentro.hora}
+                  className="workspace-button-secondary !px-3 !py-1 text-xs"
+                >
+                  Reunión semanal
+                </ConsentimientoMeetButton>
+              ) : (
+                <span className="text-xs font-semibold text-[var(--accent-strong)]">
+                  Reunión semanal
+                </span>
+              )}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setValoracionesAbiertas((v) => !v)}
+            className="inline-flex items-center gap-2 rounded-full border-2 border-[var(--accent)] bg-[rgba(255,247,225,0.9)] px-4 py-2 shadow-[0_0_16px_rgba(207,145,48,0.45)] transition hover:shadow-[0_0_22px_rgba(207,145,48,0.6)]"
+          >
+            <span
+              aria-hidden
+              style={{ fontSize: `${Math.min(1 + mensajesGenerales.length * 0.04, 1.7)}rem` }}
+            >
+              ✉️
+            </span>
+            <span className="text-xs font-semibold text-[var(--accent-strong)]">
+              Valoraciones{mensajesGenerales.length > 0 ? ` (${mensajesGenerales.length})` : ""}
+            </span>
+            {cantidadMensajesNoLeidos > 0 && (
+              <span className="workspace-badge-unread">{cantidadMensajesNoLeidos}</span>
+            )}
+          </button>
+        </div>
+
+        {valoracionesAbiertas && (
+          <div className="space-y-6 rounded-[1.75rem] border-2 border-[var(--accent)] bg-[rgba(255,247,225,0.5)] p-4 shadow-[0_0_24px_rgba(207,145,48,0.2)]">
+              <div className="space-y-6">
+                {(mensajeExito || mensajeError) && (
+                  <div
+                    className={`rounded-2xl border px-4 py-3 text-sm font-medium ${
+                      mensajeError
+                        ? "border-red-200 bg-red-50 text-red-700"
+                        : "border-green-200 bg-green-50 text-green-700"
+                    }`}
+                  >
+                    {mensajeError || mensajeExito}
+                  </div>
+                )}
+
+                <div className="space-y-3 rounded-[1.75rem] border-2 border-[var(--accent)] bg-white/70 p-4">
+                  <div className="space-y-1">
+                    <p className="workspace-eyebrow text-[var(--accent-strong)]">✦ Dejar una marca</p>
+                    <h3 className="text-lg font-bold tracking-tight text-[var(--accent-strong)]">
+                      Nueva valoración o agradecimiento
+                    </h3>
+                  </div>
+                  <input
+                    className="workspace-field"
+                    placeholder="Título (ej: Gracias por el acompañamiento)"
+                    value={asuntoMensajeGeneralDraft}
+                    onChange={(e) => setAsuntoMensajeGeneralDraft(e.target.value)}
+                  />
+                  {esAdmin ? (
+                    <EditorMensajeAdmin
+                      ref={editorNuevoMensajeRef}
+                      value={mensajeGeneralDraftHtml}
+                      onChange={setMensajeGeneralDraftHtml}
+                    />
+                  ) : (
+                    <textarea
+                      className="workspace-field min-h-[110px]"
+                      placeholder="Escribí aquí una valoración, un agradecimiento, o algo que quieras compartir con el espacio..."
+                      value={mensajeGeneralDraft}
+                      onChange={(e) => setMensajeGeneralDraft(e.target.value)}
+                    />
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => void handleEnviarMensajeGeneral()}
+                    disabled={guardandoMensajeGeneral}
+                    className="workspace-button-primary disabled:opacity-60"
+                  >
+                    {guardandoMensajeGeneral && respondiendoMensajeId === null
+                      ? "Enviando..."
+                      : "Compartir"}
+                  </button>
+                </div>
+
+                {mensajesRaiz.length === 0 && (
+                  <p className="text-gray-600">
+                    Todavía no hay valoraciones ni agradecimientos en Entusiasmento.
+                  </p>
+                )}
+
+                {mensajesRaiz.map((mensaje) => {
+                  const respuestas = respuestasPorMensaje.get(mensaje.id) || []
+                  const respuestaActual = respuestasDraft[mensaje.id] || ""
+                  const editandoEsteMensaje = mensajeEditandoId === mensaje.id
+                  const cantidadRespuestas = respuestas.length
+                  const estaLeido = hiloLeido(mensaje)
+
+                  return (
+                    <div
+                      key={mensaje.id}
+                      className={`workspace-message-card space-y-4 ${
+                        estaLeido ? "" : "workspace-message-card-unread"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-4 flex-wrap">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-lg font-semibold tracking-[-0.02em]">
+                              {mensaje.asunto || "Mensaje sin asunto"}
+                            </p>
+                            {!estaLeido && (
+                              <span className="workspace-badge-unread">
+                                No leido
+                              </span>
+                            )}
+                          </div>
+                          <p className="workspace-inline-note">{mensaje.autor_nombre}</p>
+                          <p className="workspace-inline-note text-xs">
+                            {formatearFechaHora(mensaje.created_at)}
+                            {mensaje.updated_at &&
+                            mensaje.updated_at !== mensaje.created_at
+                              ? " · editado"
+                              : ""}
+                          </p>
+                          <p className="workspace-inline-note text-xs">
+                            {cantidadRespuestas === 0
+                              ? "Sin respuestas"
+                              : `${cantidadRespuestas} ${
+                                  cantidadRespuestas === 1 ? "respuesta" : "respuestas"
+                                }`}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const abriendo = !mensajesAbiertos[mensaje.id]
+                            setMensajesAbiertos((prev) => ({
+                              ...prev,
+                              [mensaje.id]: abriendo,
+                            }))
+                            if (abriendo) {
+                              marcarHiloComoLeido(mensaje)
+                            }
+                          }}
+                          className="workspace-button-secondary"
+                        >
+                          {mensajesAbiertos[mensaje.id] ? "Cerrar" : "Ver mensaje"}
+                        </button>
+                      </div>
+
+                      {editandoEsteMensaje && (
+                        <div className="space-y-3">
+                          <input
+                            className="workspace-field"
+                            value={mensajeEditandoAsunto}
+                            onChange={(e) => setMensajeEditandoAsunto(e.target.value)}
+                            placeholder="Asunto del mensaje"
+                          />
+                          {esAdmin ? (
+                            <EditorMensajeAdmin
+                              ref={editorEdicionMensajeRef}
+                              value={mensajeEditandoContenidoHtml}
+                              onChange={setMensajeEditandoContenidoHtml}
+                            />
+                          ) : (
+                            <textarea
+                              className="workspace-field min-h-[100px]"
+                              value={mensajeEditandoContenido}
+                              onChange={(e) => setMensajeEditandoContenido(e.target.value)}
+                            />
+                          )}
+                          <div className="flex gap-3">
+                            <button
+                              type="button"
+                              onClick={() => void handleEditarMensajeGeneral(mensaje.id)}
+                              disabled={guardandoMensajeGeneral}
+                              className="workspace-button-primary disabled:opacity-60"
+                            >
+                              {guardandoMensajeGeneral ? "Guardando..." : "Guardar edición"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMensajeEditandoId(null)
+                                setMensajeEditandoAsunto("")
+                                setMensajeEditandoContenido("")
+                                setMensajeEditandoContenidoHtml("")
+                              }}
+                              className="workspace-button-secondary"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {esAdmin && !editandoEsteMensaje && (
+                        <div className="flex gap-3 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMensajeEditandoId(mensaje.id)
+                              setMensajeEditandoAsunto(mensaje.asunto || "")
+                              setMensajeEditandoContenido(mensaje.contenido)
+                              setMensajeEditandoContenidoHtml(
+                                mensaje.contenido_html ||
+                                  textoPlanoAHtmlSeguro(mensaje.contenido)
+                              )
+                            }}
+                            className="workspace-button-secondary"
+                          >
+                            Editar mensaje
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleEliminarMensajeGeneral(mensaje.id)}
+                            disabled={guardandoMensajeGeneral}
+                            className="workspace-button-secondary disabled:opacity-60"
+                          >
+                            Eliminar mensaje
+                          </button>
+                        </div>
+                      )}
+
+                      {mensajesAbiertos[mensaje.id] && !editandoEsteMensaje && (
+                        <div className="workspace-divider pt-4 space-y-3">
+                          {mensaje.contenido_html ? (
+                            <div
+                              className="break-words text-sm text-gray-700 [&_em]:italic [&_h3]:text-base [&_h3]:font-semibold [&_p]:my-2 [&_strong]:font-semibold"
+                              dangerouslySetInnerHTML={{ __html: mensaje.contenido_html }}
+                            />
+                          ) : (
+                            <p className="whitespace-pre-wrap text-sm text-gray-700">
+                              {mensaje.contenido}
+                            </p>
+                          )}
+
+                          <h4 className="font-semibold">
+                            Respuestas
+                            {cantidadRespuestas > 0 ? ` (${cantidadRespuestas})` : ""}
+                          </h4>
+
+                          {respuestas.length === 0 && (
+                              <p className="workspace-inline-note">
+                                Todavía no hay respuestas en este hilo.
+                              </p>
+                            )}
+
+                            {respuestas.map((respuesta) => (
+                            <div key={respuesta.id} className="workspace-message-reply space-y-1">
+                                <p className="text-sm font-medium">{respuesta.autor_nombre}</p>
+                                <p className="workspace-inline-note text-xs">
+                                  {formatearFechaHora(respuesta.created_at)}
+                                  {respuesta.updated_at &&
+                                  respuesta.updated_at !== respuesta.created_at
+                                  ? " · editado"
+                                  : ""}
+                              </p>
+                              {mensajeEditandoId === respuesta.id ? (
+                                <div className="space-y-3 pt-1">
+                                  {esAdmin ? (
+                                    <EditorMensajeAdmin
+                                      ref={(instance) => {
+                                        editorRespuestaRef.current[respuesta.id] = instance
+                                      }}
+                                      value={mensajeEditandoContenidoHtml}
+                                      onChange={setMensajeEditandoContenidoHtml}
+                                    />
+                                  ) : (
+                                    <textarea
+                                      className="workspace-field min-h-[100px]"
+                                      value={mensajeEditandoContenido}
+                                      onChange={(e) => setMensajeEditandoContenido(e.target.value)}
+                                    />
+                                  )}
+                                  <div className="flex gap-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleEditarMensajeGeneral(respuesta.id)}
+                                      disabled={guardandoMensajeGeneral}
+                                      className="workspace-button-primary disabled:opacity-60"
+                                    >
+                                      {guardandoMensajeGeneral ? "Guardando..." : "Guardar edición"}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setMensajeEditandoId(null)
+                                        setMensajeEditandoAsunto("")
+                                        setMensajeEditandoContenido("")
+                                        setMensajeEditandoContenidoHtml("")
+                                      }}
+                                      className="workspace-button-secondary"
+                                    >
+                                      Cancelar
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  {respuesta.contenido_html ? (
+                                    <div
+                                      className="break-words text-sm text-gray-700 [&_em]:italic [&_h3]:text-base [&_h3]:font-semibold [&_p]:my-2 [&_strong]:font-semibold"
+                                      dangerouslySetInnerHTML={{
+                                        __html: respuesta.contenido_html,
+                                      }}
+                                    />
+                                  ) : (
+                                    <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                                      {respuesta.contenido}
+                                    </p>
+                                  )}
+
+                                  {esAdmin && (
+                                    <div className="mt-2 flex gap-3 flex-wrap">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setMensajeEditandoId(respuesta.id)
+                                          setMensajeEditandoAsunto("")
+                                          setMensajeEditandoContenido(respuesta.contenido)
+                                          setMensajeEditandoContenidoHtml(
+                                            respuesta.contenido_html ||
+                                              textoPlanoAHtmlSeguro(respuesta.contenido)
+                                          )
+                                        }}
+                                        className="workspace-button-secondary"
+                                      >
+                                        Editar mensaje
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          void handleEliminarMensajeGeneral(respuesta.id)
+                                        }
+                                        disabled={guardandoMensajeGeneral}
+                                        className="workspace-button-secondary disabled:opacity-60"
+                                      >
+                                        Eliminar mensaje
+                                      </button>
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          ))}
+
+                          {esAdmin ? (
+                            <EditorMensajeAdmin
+                              ref={(instance) => {
+                                editorRespuestaRef.current[mensaje.id] = instance
+                              }}
+                              value={respuestasDraftHtml[mensaje.id] || ""}
+                              onChange={(value) =>
+                                setRespuestasDraftHtml((prev) => ({
+                                  ...prev,
+                                  [mensaje.id]: value,
+                                }))
+                              }
+                            />
+                          ) : (
+                            <textarea
+                              className="workspace-field min-h-[90px]"
+                              placeholder="Responder a este hilo..."
+                              value={respuestaActual}
+                              onChange={(e) =>
+                                setRespuestasDraft((prev) => ({
+                                  ...prev,
+                                  [mensaje.id]: e.target.value,
+                                }))
+                              }
+                            />
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => void handleEnviarMensajeGeneral(mensaje.id)}
+                            disabled={guardandoMensajeGeneral}
+                            className="workspace-button-secondary disabled:opacity-60"
+                          >
+                            {guardandoMensajeGeneral && respondiendoMensajeId === mensaje.id
+                              ? "Enviando..."
+                              : "Responder"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
           </div>
-        </WorkspaceHero>
+        )}
 
         {MODO_PRUEBA && (
           <section className="workspace-panel-soft space-y-2 bg-yellow-50/80">
@@ -2019,190 +2654,790 @@ export default function CasaTalentosPage() {
 
         {!cargandoAcceso && (acceso || MODO_PRUEBA) && (
           <div className="space-y-4">
-          {esAdmin && (
-            <section className="space-y-3">
-              <div className="workspace-panel-soft space-y-2">
-                <p className="workspace-eyebrow">Administracion de CasaTalentos</p>
-                <h2 className="text-xl font-semibold tracking-[-0.02em]">
-                  Coordinacion del espacio
-                </h2>
-                <p className="workspace-inline-note text-[var(--foreground)]">
-                  Aqui administras referentes, grabaciones y el seguimiento general
-                  del espacio sin salir de CasaTalentos.
-                </p>
-              </div>
 
-              <CasaTalentosAdminPanel
-                onActualizado={cargarDatosCasaTalentos}
-                storageOwnerKey={draftOwner}
-                uiStoragePrefix={uiStoragePrefix}
-              />
-            </section>
-          )}
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setDestinoEntusiasmo("mi-espacio")}
+                    className={`rounded-[1.5rem] border-2 px-4 py-4 text-left transition ${
+                      destinoEntusiasmo === "mi-espacio"
+                        ? "border-[var(--accent)] bg-[rgba(207,145,48,0.1)] shadow-[0_6px_0_0_rgba(207,145,48,0.25)]"
+                        : "border-[var(--line)] bg-white/70"
+                    }`}
+                  >
+                    <p className="text-2xl leading-none">🪴</p>
+                    <p className="mt-2 text-base font-bold tracking-tight">Mi espacio</p>
+                    <p className="text-xs text-gray-600">Tu proyecto, a tu ritmo</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDestinoEntusiasmo("cofruto")}
+                    className={`rounded-[1.5rem] border-2 px-4 py-4 text-left transition ${
+                      destinoEntusiasmo === "cofruto"
+                        ? "border-emerald-500 bg-emerald-50 shadow-[0_6px_0_0_rgba(16,185,129,0.25)]"
+                        : "border-[var(--line)] bg-white/70"
+                    }`}
+                  >
+                    <p className="text-2xl leading-none">🧺</p>
+                    <p className="mt-2 text-base font-bold tracking-tight">CoFruto</p>
+                    <p className="text-xs text-gray-600">La mesa común</p>
+                  </button>
+                </div>
 
-          {esAdmin && (esAdmin || tieneRecurso("reunion_semanal_casatalentos")) && (
-            <SeccionDesplegable
-              titulo="Reunión semanal"
-              storageKey={uiKey("seccion:reunion-semanal")}
-            >
-              <AgendaActividad
-                actividadSlug="casatalentos"
-                tituloSeccion="Próximo encuentro de CasaTalentos"
-                mostrarSoloProximo
-              />
-            </SeccionDesplegable>
-          )}
+                {mensajeCoordenadas && (
+                  <p className="rounded-xl border border-[var(--line)] bg-[rgba(255,250,242,0.7)] px-3 py-2 text-sm text-gray-700">
+                    {mensajeCoordenadas}
+                  </p>
+                )}
 
-          {esAdmin && (esAdmin || recursosSolapa.length > 0) && (
-            <SeccionDesplegable
-              titulo="Recursos"
-              storageKey={uiKey("seccion:recursos")}
-            >
-              <div className="space-y-4">
-                {esAdmin && (
-                  <div className="workspace-panel-soft space-y-3">
-                    <div className="space-y-1">
-                      <p className="workspace-eyebrow">Nuevo recurso</p>
-                      <h3 className="font-semibold">Cargar recurso</h3>
+                {destinoEntusiasmo === "mi-espacio" && (
+                  <div className="space-y-6">
+                    {cargandoProyecto && (
+                      <p className="text-sm text-gray-600">Cargando tu proyecto...</p>
+                    )}
+
+                    <div className="space-y-3 rounded-[2rem] border-[3px] border-[var(--accent)] bg-gradient-to-br from-white to-[rgba(207,145,48,0.06)] p-5 shadow-[0_8px_0_0_rgba(207,145,48,0.18)]">
+                      <div className="space-y-1">
+                        <p className="workspace-eyebrow">✦ Siempre visible</p>
+                        <h3 className="text-2xl font-bold tracking-tight">Tu pitch</h3>
+                        <p className="workspace-inline-note">
+                          Así te ven en la mesa
+                        </p>
+                      </div>
+
+                      {pitchSignedUrl && (
+                        <div className="mx-auto max-w-[220px]">
+                          {proyecto?.pitch_mime_type?.startsWith("image/") ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={pitchSignedUrl}
+                              alt="Tu pitch"
+                              className="w-full rounded-xl border border-[var(--line)]"
+                            />
+                          ) : (
+                            <VideoEmbed src={pitchSignedUrl} title="Tu pitch" />
+                          )}
+                        </div>
+                      )}
+
+                      <GrabadorVideo
+                        onVideoListo={handleArchivoPitch}
+                        disabled={subiendoPitch}
+                        maxSegundos={90}
+                      />
+
+                      {mensajePitch && (
+                        <p className="text-sm text-gray-700">{mensajePitch}</p>
+                      )}
+
+                      {archivoPitch && (
+                        <button
+                          type="button"
+                          disabled={subiendoPitch}
+                          onClick={() => void handleSubirPitch()}
+                          className="workspace-button"
+                        >
+                          {subiendoPitch
+                            ? estadoSubidaPitch || "Subiendo..."
+                            : proyecto?.pitch_storage_path
+                              ? "Volver a grabarlo"
+                              : "Guardar pitch"}
+                        </button>
+                      )}
                     </div>
 
-                    <input
-                      className="workspace-field"
-                      placeholder="Título"
-                      value={recursoTitulo}
-                      onChange={(e) => setRecursoTitulo(e.target.value)}
-                    />
+                    {aportesRecibidos.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="workspace-eyebrow">Te dejaron un aporte</p>
+                        {aportesRecibidos.map((aporte, indice) => {
+                          const colores = [
+                            "border-amber-300 bg-amber-50",
+                            "border-sky-300 bg-sky-50",
+                            "border-rose-300 bg-rose-50",
+                            "border-emerald-300 bg-emerald-50",
+                          ]
+                          const color = colores[indice % colores.length]
 
-                    <EditorMensajeAdmin
-                      ref={recursoEditorRef}
-                      value={recursoDescripcion}
-                      onChange={setRecursoDescripcion}
-                    />
+                          return (
+                            <div
+                              key={aporte.id}
+                              className={`rounded-2xl rounded-tl-sm border-2 px-4 py-3 text-sm ${color}`}
+                            >
+                              <p className="text-gray-800">{aporte.contenido}</p>
+                              <p className="mt-1 text-xs text-gray-500">
+                                {aporte.autor_nombre || aporte.autor_email}
+                              </p>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
 
-                    <select
-                      className="workspace-field"
-                      value={recursoTipo}
-                      onChange={(e) => setRecursoTipo(e.target.value)}
-                    >
-                      <option value="enlace">Enlace</option>
-                      <option value="video">Video</option>
-                      <option value="imagen">Imagen</option>
-                      <option value="archivo">Archivo</option>
-                      <option value="grabacion">Grabación</option>
-                      <option value="guia">Guía</option>
-                    </select>
+                    {/* Reservado para Fase B: barras de actividad reales
+                        una vez que Producciones exista y dé señal. */}
+                    <div className="space-y-1 rounded-full border-2 border-dashed border-[var(--line-strong)] bg-white/50 px-6 py-4">
+                      <p className="workspace-eyebrow">♪ Tu ritmo</p>
+                      <p className="text-sm italic text-gray-500">
+                        Acá vas a ver tu actividad de las últimas semanas
+                        apenas empieces a cargar producciones.
+                      </p>
+                    </div>
 
-                    <input
-                      className="workspace-field"
-                      placeholder="URL"
-                      value={recursoUrl}
-                      onChange={(e) => setRecursoUrl(e.target.value)}
-                    />
+                    <div className="rounded-2xl border border-sky-200 bg-sky-50/60 p-4">
+                      <button
+                        type="button"
+                        onClick={() => setCoordenadasAbiertas((v) => !v)}
+                        className="flex w-full items-center justify-between gap-3 text-left"
+                      >
+                        <span className="flex items-center gap-3">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-300 bg-white text-base">
+                            🧭
+                          </span>
+                          <span>
+                            <span className="block text-lg font-bold tracking-tight text-sky-900">
+                              Coordenadas
+                            </span>
+                            <span className="text-sm text-sky-700">
+                              {coordenadasSinDefinir} todavía sin definir
+                            </span>
+                          </span>
+                        </span>
+                        <span aria-hidden className="text-sky-500">
+                          {coordenadasAbiertas ? "▲" : "▼"}
+                        </span>
+                      </button>
 
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={recursoVisible}
-                        onChange={(e) => setRecursoVisible(e.target.checked)}
-                      />
-                      Visible para participante
-                    </label>
+                      {coordenadasAbiertas && (
+                        <div className="mt-4 space-y-4">
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <label className="space-y-2">
+                              <span className="text-sm font-medium text-gray-700">
+                                Proyecto sobre el que querés trabajar (qué)
+                              </span>
+                              <textarea
+                                className="workspace-field min-h-24"
+                                value={coordenadas.que}
+                                onChange={(e) =>
+                                  setCoordenadas((prev) => ({ ...prev, que: e.target.value }))
+                                }
+                              />
+                            </label>
+                            <label className="space-y-2">
+                              <span className="text-sm font-medium text-gray-700">
+                                Objetivo concreto que querés alcanzar (para qué)
+                              </span>
+                              <textarea
+                                className="workspace-field min-h-24"
+                                value={coordenadas.paraQue}
+                                onChange={(e) =>
+                                  setCoordenadas((prev) => ({ ...prev, paraQue: e.target.value }))
+                                }
+                              />
+                            </label>
+                            <label className="space-y-2 md:col-span-2">
+                              <span className="text-sm font-medium text-gray-700">
+                                Problema y solución
+                              </span>
+                              <textarea
+                                className="workspace-field min-h-24"
+                                value={coordenadas.problemaSolucion}
+                                onChange={(e) =>
+                                  setCoordenadas((prev) => ({
+                                    ...prev,
+                                    problemaSolucion: e.target.value,
+                                  }))
+                                }
+                              />
+                            </label>
+                            <label className="space-y-2">
+                              <span className="text-sm font-medium text-gray-700">
+                                Una habilidad que quieras desarrollar
+                              </span>
+                              <textarea
+                                className="workspace-field min-h-24"
+                                value={coordenadas.habilidadADesarrollar}
+                                onChange={(e) =>
+                                  setCoordenadas((prev) => ({
+                                    ...prev,
+                                    habilidadADesarrollar: e.target.value,
+                                  }))
+                                }
+                              />
+                            </label>
+                            <label className="space-y-2">
+                              <span className="text-sm font-medium text-gray-700">
+                                Algo que te entusiasme mucho en la vida
+                              </span>
+                              <textarea
+                                className="workspace-field min-h-24"
+                                value={coordenadas.queTeEntusiasma}
+                                onChange={(e) =>
+                                  setCoordenadas((prev) => ({
+                                    ...prev,
+                                    queTeEntusiasma: e.target.value,
+                                  }))
+                                }
+                              />
+                            </label>
+                          </div>
 
-                    <button
-                      type="button"
-                      onClick={() => void guardarRecurso()}
-                      className="workspace-button-secondary"
-                      disabled={
-                        guardandoRecurso ||
-                        !recursoTitulo.trim() ||
-                        !tieneContenidoRecurso({
-                          descripcion: recursoDescripcion,
-                          url: recursoUrl,
-                        })
-                      }
-                    >
-                      {guardandoRecurso ? "Guardando..." : "Guardar recurso"}
-                    </button>
+                          <div className="workspace-panel-soft space-y-3">
+                            <h3 className="text-lg font-semibold">Resultados</h3>
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <label className="space-y-2">
+                                <span className="text-sm font-medium text-gray-700">
+                                  Semanal
+                                </span>
+                                <textarea
+                                  className="workspace-field min-h-20"
+                                  value={coordenadas.resultadoSemanal}
+                                  onChange={(e) =>
+                                    setCoordenadas((prev) => ({
+                                      ...prev,
+                                      resultadoSemanal: e.target.value,
+                                    }))
+                                  }
+                                />
+                              </label>
+                              <label className="space-y-2">
+                                <span className="text-sm font-medium text-gray-700">
+                                  Mensual
+                                </span>
+                                <textarea
+                                  className="workspace-field min-h-20"
+                                  value={coordenadas.resultadoMensual}
+                                  onChange={(e) =>
+                                    setCoordenadas((prev) => ({
+                                      ...prev,
+                                      resultadoMensual: e.target.value,
+                                    }))
+                                  }
+                                />
+                              </label>
+                              <label className="space-y-2">
+                                <span className="text-sm font-medium text-gray-700">
+                                  Trimestral
+                                </span>
+                                <textarea
+                                  className="workspace-field min-h-20"
+                                  value={coordenadas.resultadoTrimestral}
+                                  onChange={(e) =>
+                                    setCoordenadas((prev) => ({
+                                      ...prev,
+                                      resultadoTrimestral: e.target.value,
+                                    }))
+                                  }
+                                />
+                              </label>
+                              <label className="space-y-2">
+                                <span className="text-sm font-medium text-gray-700">
+                                  Anual
+                                </span>
+                                <textarea
+                                  className="workspace-field min-h-20"
+                                  value={coordenadas.resultadoAnual}
+                                  onChange={(e) =>
+                                    setCoordenadas((prev) => ({
+                                      ...prev,
+                                      resultadoAnual: e.target.value,
+                                    }))
+                                  }
+                                />
+                              </label>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={guardandoCoordenadas}
+                            onClick={() => void guardarCoordenadas()}
+                            className="workspace-button"
+                          >
+                            {guardandoCoordenadas ? "Guardando..." : "Guardar coordenadas"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-3 rounded-[1.75rem] border-2 border-violet-200 bg-violet-50/50 p-4">
+                      <div className="space-y-1">
+                        <p className="workspace-eyebrow text-violet-500">🎨 Producciones</p>
+                        <h3 className="text-lg font-bold tracking-tight text-violet-900">
+                          Lo que vas armando
+                        </h3>
+                        <p className="workspace-inline-note">
+                          Imágenes, textos, canciones — vos elegís qué mostrar
+                          en la mesa común.
+                        </p>
+                      </div>
+
+                      {mensajeProduccion && (
+                        <p className="text-sm text-gray-700">{mensajeProduccion}</p>
+                      )}
+
+                      <div className="space-y-3">
+                        {producciones.map((item) => (
+                          <div
+                            key={item.id}
+                            className="space-y-2 rounded-xl border border-violet-200 bg-white/80 p-3"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span aria-hidden>
+                                {item.tipo === "imagen"
+                                  ? "🖼️"
+                                  : item.tipo === "audio"
+                                    ? "🎵"
+                                    : "📝"}
+                              </span>
+                              <span className="text-sm font-medium">
+                                {item.titulo || (item.tipo === "texto" ? "" : item.tipo)}
+                              </span>
+                            </div>
+
+                            {item.tipo === "imagen" && item.signedUrl && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={item.signedUrl}
+                                alt={item.titulo || "Producción"}
+                                className="max-h-48 rounded-lg border border-violet-100 object-contain"
+                              />
+                            )}
+
+                            {item.tipo === "audio" && item.signedUrl && (
+                              <audio controls src={item.signedUrl} className="w-full">
+                                Tu navegador no soporta audio.
+                              </audio>
+                            )}
+
+                            {item.tipo === "texto" && item.contenido && (
+                              <p className="whitespace-pre-wrap text-sm text-gray-700">
+                                {item.contenido}
+                              </p>
+                            )}
+
+                            <div className="flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() => void alternarVisibilidadProduccion(item.id, item.visible)}
+                                className={`flex items-center gap-1 text-xs font-semibold ${
+                                  item.visible ? "text-[var(--accent-strong)]" : "text-gray-500"
+                                }`}
+                              >
+                                {item.visible ? "👁️ En la mesa común" : "🔒 Solo lo ves vos"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void eliminarProduccion(item.id)}
+                                className="text-xs text-red-500 underline"
+                              >
+                                Eliminar
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                        {producciones.length === 0 && (
+                          <p className="text-sm text-gray-600">Todavía no subiste nada.</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2 rounded-xl border border-dashed border-violet-300 bg-white/60 p-3">
+                        <div className="flex flex-wrap gap-2">
+                          {(["texto", "imagen", "audio"] as const).map((t) => (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() => setTipoNuevaProduccion(t)}
+                              className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                                tipoNuevaProduccion === t
+                                  ? "border-violet-500 bg-violet-100 text-violet-800"
+                                  : "border-violet-200 bg-white text-violet-500"
+                              }`}
+                            >
+                              {t === "texto" ? "📝 Texto" : t === "imagen" ? "🖼️ Imagen" : "🎵 Audio"}
+                            </button>
+                          ))}
+                        </div>
+
+                        <input
+                          className="workspace-field"
+                          placeholder="Título (opcional)"
+                          value={tituloProduccion}
+                          onChange={(e) => setTituloProduccion(e.target.value)}
+                        />
+
+                        {tipoNuevaProduccion === "texto" ? (
+                          <textarea
+                            className="workspace-field min-h-20"
+                            placeholder="Escribí tu producción..."
+                            value={textoProduccion}
+                            onChange={(e) => setTextoProduccion(e.target.value)}
+                          />
+                        ) : tipoNuevaProduccion === "audio" ? (
+                          <div className="space-y-2">
+                            <GrabadorAudio
+                              onAudioListo={setArchivoProduccion}
+                              maxSegundos={300}
+                            />
+                            <p className="text-xs text-gray-500">o subí un archivo ya grabado:</p>
+                            <input type="file" accept="audio/*" onChange={handleArchivoProduccion} />
+                          </div>
+                        ) : (
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleArchivoProduccion}
+                          />
+                        )}
+
+                        <button
+                          type="button"
+                          disabled={guardandoProduccion}
+                          onClick={() => void crearProduccion()}
+                          className="workspace-button-secondary"
+                        >
+                          {guardandoProduccion ? "Guardando..." : "Agregar producción"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 rounded-[1.75rem] border-2 border-amber-200 bg-amber-50/50 p-4">
+                      <div className="space-y-1">
+                        <p className="workspace-eyebrow text-amber-600">📋 Tareas semanales</p>
+                        <h3 className="text-lg font-bold tracking-tight text-amber-900">
+                          Lo que te proponés esta semana
+                        </h3>
+                      </div>
+
+                      {mensajeTarea && (
+                        <p className="text-sm text-gray-700">{mensajeTarea}</p>
+                      )}
+
+                      <div className="space-y-2">
+                        {tareas.map((tarea) => (
+                          <label
+                            key={tarea.id}
+                            className="flex items-center gap-3 rounded-xl border border-amber-200 bg-white/80 px-3 py-2"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={tarea.completada}
+                              onChange={() => void alternarTareaCompletada(tarea.id, tarea.completada)}
+                            />
+                            <span
+                              className={`text-sm ${
+                                tarea.completada ? "text-gray-400 line-through" : "text-gray-800"
+                              }`}
+                            >
+                              {tarea.contenido}
+                            </span>
+                          </label>
+                        ))}
+                        {tareas.length === 0 && (
+                          <p className="text-sm text-gray-600">
+                            Todavía no cargaste tareas para esta semana.
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex gap-2">
+                        <input
+                          className="workspace-field"
+                          placeholder="Nueva tarea de la semana..."
+                          value={nuevaTarea}
+                          onChange={(e) => setNuevaTarea(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          disabled={guardandoTarea}
+                          onClick={() => void agregarTarea()}
+                          className="workspace-button-secondary shrink-0"
+                        >
+                          {guardandoTarea ? "..." : "Agregar"}
+                        </button>
+                      </div>
+                    </div>
+
+                    {esAdmin && (
+                      <div className="space-y-3 rounded-2xl border-2 border-dashed border-[var(--accent-strong)] bg-[rgba(154,98,24,0.05)] p-4">
+                        <div className="space-y-1">
+                          <p className="workspace-eyebrow">Solo admin</p>
+                          <h3 className="text-lg font-semibold">
+                            Dejar un aporte
+                          </h3>
+                          <p className="workspace-inline-note">
+                            Se muestra como una nota de color en el espacio de
+                            esa persona.
+                          </p>
+                        </div>
+
+                        {mensajeAporte && (
+                          <p className="text-sm text-gray-700">{mensajeAporte}</p>
+                        )}
+
+                        <input
+                          className="workspace-field"
+                          placeholder="Email del participante"
+                          value={aporteDestinatario}
+                          onChange={(e) => setAporteDestinatario(e.target.value)}
+                        />
+                        <textarea
+                          className="workspace-field min-h-20"
+                          placeholder="Tu aporte..."
+                          value={aporteContenido}
+                          onChange={(e) => setAporteContenido(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          disabled={enviandoAporte}
+                          onClick={() => void enviarAporte()}
+                          className="workspace-button-secondary"
+                        >
+                          {enviandoAporte ? "Enviando..." : "Enviar aporte"}
+                        </button>
+                      </div>
+                    )}
+
+                    {esAdmin && (
+                      <div className="space-y-3 rounded-2xl border-2 border-dashed border-[var(--accent-strong)] bg-[rgba(154,98,24,0.05)] p-4">
+                        <div className="space-y-1">
+                          <p className="workspace-eyebrow">Solo admin</p>
+                          <h3 className="text-lg font-semibold">
+                            Gestión de referentes
+                          </h3>
+                        </div>
+                        <CasaTalentosAdminPanel
+                          onActualizado={cargarDatosCasaTalentos}
+                          storageOwnerKey={draftOwner}
+                          uiStoragePrefix={uiStoragePrefix}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {recursosSolapa.length === 0 ? (
-                  <p className="text-gray-600">
-                    Todavía no hay recursos cargados para CasaTalentos.
-                  </p>
-                ) : (
-                  recursosSolapa.map((item) => {
-                    if (esAdmin && "titulo" in item && recursoEditandoId === item.id) {
-                      return (
-                        <div
-                          key={item.id}
-                          className="workspace-panel-soft space-y-3 border border-[var(--line)]"
-                        >
-                          <input
-                            className="workspace-field"
-                            placeholder="Título"
-                            value={recursoEditTitulo}
-                            onChange={(e) => setRecursoEditTitulo(e.target.value)}
-                          />
+                {destinoEntusiasmo === "cofruto" && (
+                  <div className="space-y-6">
+                    <div className="workspace-panel-soft space-y-2 py-6 text-center">
+                      <p className="text-lg font-semibold">🧺 CoFruto</p>
+                      <p className="text-sm text-gray-600">
+                        Acá vas a poder visitar proyectos de otros participantes
+                        muy pronto. Mientras tanto, acá abajo están los Recursos.
+                      </p>
+                    </div>
+            {esAdmin && (esAdmin || recursosSolapa.length > 0) && (
+              <SeccionDesplegable
+                titulo="Recursos"
+                storageKey={uiKey("seccion:recursos")}
+              >
+                <div className="space-y-4">
+                  {esAdmin && (
+                    <div className="workspace-panel-soft space-y-3">
+                      <div className="space-y-1">
+                        <p className="workspace-eyebrow">Nuevo recurso</p>
+                        <h3 className="font-semibold">Cargar recurso</h3>
+                      </div>
 
-                          <EditorMensajeAdmin
-                            ref={recursoEditEditorRef}
-                            value={recursoEditDescripcion}
-                            onChange={setRecursoEditDescripcion}
-                          />
+                      <input
+                        className="workspace-field"
+                        placeholder="Título"
+                        value={recursoTitulo}
+                        onChange={(e) => setRecursoTitulo(e.target.value)}
+                      />
 
-                          <select
-                            className="workspace-field"
-                            value={recursoEditTipo}
-                            onChange={(e) => setRecursoEditTipo(e.target.value)}
+                      <EditorMensajeAdmin
+                        ref={recursoEditorRef}
+                        value={recursoDescripcion}
+                        onChange={setRecursoDescripcion}
+                      />
+
+                      <select
+                        className="workspace-field"
+                        value={recursoTipo}
+                        onChange={(e) => setRecursoTipo(e.target.value)}
+                      >
+                        <option value="enlace">Enlace</option>
+                        <option value="video">Video</option>
+                        <option value="imagen">Imagen</option>
+                        <option value="archivo">Archivo</option>
+                        <option value="grabacion">Grabación</option>
+                        <option value="guia">Guía</option>
+                      </select>
+
+                      <input
+                        className="workspace-field"
+                        placeholder="URL"
+                        value={recursoUrl}
+                        onChange={(e) => setRecursoUrl(e.target.value)}
+                      />
+
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={recursoVisible}
+                          onChange={(e) => setRecursoVisible(e.target.checked)}
+                        />
+                        Visible para participante
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => void guardarRecurso()}
+                        className="workspace-button-secondary"
+                        disabled={
+                          guardandoRecurso ||
+                          !recursoTitulo.trim() ||
+                          !tieneContenidoRecurso({
+                            descripcion: recursoDescripcion,
+                            url: recursoUrl,
+                          })
+                        }
+                      >
+                        {guardandoRecurso ? "Guardando..." : "Guardar recurso"}
+                      </button>
+                    </div>
+                  )}
+
+                  {recursosSolapa.length === 0 ? (
+                    <p className="text-gray-600">
+                      Todavía no hay recursos cargados para CasaTalentos.
+                    </p>
+                  ) : (
+                    recursosSolapa.map((item) => {
+                      if (esAdmin && "titulo" in item && recursoEditandoId === item.id) {
+                        return (
+                          <div
+                            key={item.id}
+                            className="workspace-panel-soft space-y-3 border border-[var(--line)]"
                           >
-                            <option value="enlace">Enlace</option>
-                            <option value="video">Video</option>
-                            <option value="imagen">Imagen</option>
-                            <option value="archivo">Archivo</option>
-                            <option value="grabacion">Grabación</option>
-                            <option value="guia">Guía</option>
-                          </select>
-
-                          <input
-                            className="workspace-field"
-                            placeholder="URL"
-                            value={recursoEditUrl}
-                            onChange={(e) => setRecursoEditUrl(e.target.value)}
-                          />
-
-                          <label className="flex items-center gap-2">
                             <input
-                              type="checkbox"
-                              checked={recursoEditVisible}
-                              onChange={(e) => setRecursoEditVisible(e.target.checked)}
+                              className="workspace-field"
+                              placeholder="Título"
+                              value={recursoEditTitulo}
+                              onChange={(e) => setRecursoEditTitulo(e.target.value)}
                             />
-                            Visible para participante
-                          </label>
 
-                          <div className="flex gap-3 flex-wrap">
-                            <button
-                              type="button"
-                              onClick={() => void guardarEdicionRecurso()}
-                              disabled={guardandoEdicionRecurso}
-                              className="workspace-button-primary disabled:opacity-60"
-                            >
-                              {guardandoEdicionRecurso ? "Guardando..." : "Guardar cambios"}
-                            </button>
+                            <EditorMensajeAdmin
+                              ref={recursoEditEditorRef}
+                              value={recursoEditDescripcion}
+                              onChange={setRecursoEditDescripcion}
+                            />
 
-                            <button
-                              type="button"
-                              onClick={cancelarEdicionRecurso}
-                              className="workspace-button-secondary"
+                            <select
+                              className="workspace-field"
+                              value={recursoEditTipo}
+                              onChange={(e) => setRecursoEditTipo(e.target.value)}
                             >
-                              Cancelar
-                            </button>
+                              <option value="enlace">Enlace</option>
+                              <option value="video">Video</option>
+                              <option value="imagen">Imagen</option>
+                              <option value="archivo">Archivo</option>
+                              <option value="grabacion">Grabación</option>
+                              <option value="guia">Guía</option>
+                            </select>
+
+                            <input
+                              className="workspace-field"
+                              placeholder="URL"
+                              value={recursoEditUrl}
+                              onChange={(e) => setRecursoEditUrl(e.target.value)}
+                            />
+
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={recursoEditVisible}
+                                onChange={(e) => setRecursoEditVisible(e.target.checked)}
+                              />
+                              Visible para participante
+                            </label>
+
+                            <div className="flex gap-3 flex-wrap">
+                              <button
+                                type="button"
+                                onClick={() => void guardarEdicionRecurso()}
+                                disabled={guardandoEdicionRecurso}
+                                className="workspace-button-primary disabled:opacity-60"
+                              >
+                                {guardandoEdicionRecurso ? "Guardando..." : "Guardar cambios"}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={cancelarEdicionRecurso}
+                                className="workspace-button-secondary"
+                              >
+                                Cancelar
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      )
-                    }
+                        )
+                      }
 
-                    return (
+                      return (
+                        <RecursoCard
+                          key={item.id}
+                          titulo={"titulo" in item ? item.titulo : item.nombre || "Recurso"}
+                          descripcion={item.descripcion}
+                          recursoTipo={
+                            "recurso_tipo" in item ? item.recurso_tipo : item.tipo
+                          }
+                          url={item.url}
+                          footer={
+                            esAdmin ? (
+                              <div className="space-y-2">
+                                <label className="flex items-center gap-2 text-sm">
+                                  <input
+                                    type="checkbox"
+                                    checked={"visible" in item ? item.visible : true}
+                                    onChange={(e) =>
+                                      void cambiarVisibleRecurso(item.id, e.target.checked)
+                                    }
+                                  />
+                                  Visible para participante
+                                </label>
+
+                                <div className="flex gap-3 flex-wrap">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      "titulo" in item && iniciarEdicionRecurso(item)
+                                    }
+                                    className="text-sm text-blue-600 underline"
+                                  >
+                                    Editar
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => void eliminarRecurso(item.id)}
+                                    disabled={eliminandoRecursoId === item.id}
+                                    className="text-sm text-red-600 underline disabled:opacity-60"
+                                  >
+                                    {eliminandoRecursoId === item.id
+                                      ? "Eliminando..."
+                                      : "Eliminar"}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : undefined
+                          }
+                        />
+                      )
+                    })
+                  )}
+                </div>
+              </SeccionDesplegable>
+            )}
+
+            {!esAdmin && recursosSolapa.length > 0 && (
+              <SeccionDesplegable
+                titulo="Recursos"
+                storageKey={uiKey("seccion:recursos")}
+              >
+                <div className="space-y-4">
+                  {recursosSolapa.map((item) =>
+                    item.url ? (
                       <RecursoCard
                         key={item.id}
                         titulo={"titulo" in item ? item.titulo : item.nombre || "Recurso"}
@@ -2211,1174 +3446,28 @@ export default function CasaTalentosPage() {
                           "recurso_tipo" in item ? item.recurso_tipo : item.tipo
                         }
                         url={item.url}
-                        footer={
-                          esAdmin ? (
-                            <div className="space-y-2">
-                              <label className="flex items-center gap-2 text-sm">
-                                <input
-                                  type="checkbox"
-                                  checked={"visible" in item ? item.visible : true}
-                                  onChange={(e) =>
-                                    void cambiarVisibleRecurso(item.id, e.target.checked)
-                                  }
-                                />
-                                Visible para participante
-                              </label>
-
-                              <div className="flex gap-3 flex-wrap">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    "titulo" in item && iniciarEdicionRecurso(item)
-                                  }
-                                  className="text-sm text-blue-600 underline"
-                                >
-                                  Editar
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => void eliminarRecurso(item.id)}
-                                  disabled={eliminandoRecursoId === item.id}
-                                  className="text-sm text-red-600 underline disabled:opacity-60"
-                                >
-                                  {eliminandoRecursoId === item.id
-                                    ? "Eliminando..."
-                                    : "Eliminar"}
-                                </button>
-                              </div>
-                            </div>
-                          ) : undefined
+                      />
+                    ) : (
+                      <RecursoCard
+                        key={item.id}
+                        titulo={"titulo" in item ? item.titulo : item.nombre || "Recurso"}
+                        descripcion={item.descripcion}
+                        recursoTipo={
+                          "recurso_tipo" in item ? item.recurso_tipo : item.tipo
                         }
+                        url={item.url}
                       />
                     )
-                  })
-                )}
-              </div>
-            </SeccionDesplegable>
-          )}
-
-          {(esAdmin || tieneRecurso("dispositivo_videos_casatalentos")) && (
-            <SeccionDesplegable
-              titulo="Dispositivo CasaTalentos"
-              storageKey={uiKey("seccion:dispositivo")}
-              mantenerMontado
-            >
-              <div className="space-y-6">
-                {esAdmin && <CasaTalentosAdminResumenBlock resumen={resumenAdmin} />}
-
-                <div className="workspace-panel-soft space-y-4">
-                  <div className="space-y-1">
-                    <h3 className="text-lg font-semibold">Semana activa</h3>
-                    <p className="workspace-inline-note">
-                      Semana del {formatearFecha(semanaEnUso)}
-                    </p>
-                  </div>
-
-                  <div className="grid gap-3 md:grid-cols-4">
-                    <div className="rounded-xl border border-[var(--line)] bg-[rgba(255,251,244,0.92)] p-3">
-                      <p className="workspace-eyebrow !text-[0.62rem]">
-                        Hoy
-                      </p>
-                      <p className="mt-1 font-medium">{nombreDiaActual}</p>
-                    </div>
-                    <div className="rounded-xl border border-[var(--line)] bg-[rgba(255,251,244,0.92)] p-3">
-                      <p className="workspace-eyebrow !text-[0.62rem]">
-                        Videos
-                      </p>
-                      <p className="mt-1 font-medium">{resumenSemana.videos}</p>
-                    </div>
-                    <div className="rounded-xl border border-[var(--line)] bg-[rgba(255,251,244,0.92)] p-3">
-                      <p className="workspace-eyebrow !text-[0.62rem]">
-                        Participantes
-                      </p>
-                      <p className="mt-1 font-medium">{resumenSemana.participantes}</p>
-                    </div>
-                    <div className="rounded-xl border border-[var(--line)] bg-[rgba(255,251,244,0.92)] p-3">
-                      <p className="workspace-eyebrow !text-[0.62rem]">
-                        Aportes
-                      </p>
-                      <p className="mt-1 font-medium">{resumenSemana.comentarios}</p>
-                    </div>
-                  </div>
+                  )}
                 </div>
-
-                {esAdmin && participantesSinVideoLunes.length > 0 && (
-                  <div className="workspace-panel-soft space-y-3 border border-[#E8B4B4] bg-[#FFF6F6]">
-                    <h3 className="text-lg font-semibold text-[#8A2D2D]">
-                      Seguimiento del lunes
-                    </h3>
-                    <div className="space-y-2 text-sm text-[#7A1F1F]">
-                      {participantesSinVideoLunes.map((participante) => (
-                        <p key={participante.email}>
-                          {participante.nombre} no envió su video del lunes.
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="workspace-panel-soft space-y-3">
-                  <div className="flex flex-wrap gap-2" role="tablist" aria-label="Dispositivo CasaTalentos">
-                    {[
-                      { id: "referentes", label: "Referentes" },
-                      { id: "videos", label: "Videos de la semana" },
-                      { id: "evaluacion", label: "Evaluación" },
-                    ].map((tab) => {
-                      const activo = subsolapaDispositivo === tab.id
-
-                      return (
-                        <button
-                          key={tab.id}
-                          type="button"
-                          role="tab"
-                          aria-selected={activo}
-                          onClick={() =>
-                            setSubsolapaDispositivo(
-                              tab.id as "referentes" | "videos" | "evaluacion"
-                            )
-                          }
-                          className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                            activo
-                              ? "border-[var(--accent)] bg-[var(--accent)] text-white"
-                              : "border-[var(--line)] bg-white/70 text-[var(--foreground)] hover:border-[var(--accent)]"
-                          }`}
-                        >
-                          {tab.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                {subsolapaDispositivo === "referentes" && (
-                  <div className="space-y-4">
-                    <div className="workspace-panel-soft space-y-3">
-                      <h3 className="text-lg font-semibold">Referente general</h3>
-                      {contieneHtml(textoReferentesGenerales) ? (
-                        <div
-                          className="max-w-none text-[var(--muted)] [&_a]:underline"
-                          dangerouslySetInnerHTML={{ __html: textoReferentesGenerales }}
-                        />
-                      ) : (
-                        <div className="whitespace-pre-wrap text-[var(--muted)]">
-                          {textoReferentesGenerales}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">Referente de la semana</h3>
-
-                      {!semanaEnUso && (
-                        <p className="text-gray-600">Todavía no hay semana seleccionada.</p>
-                      )}
-
-                      {semanaEnUso && !referenteSemanalActual && (
-                        <p className="text-gray-600">
-                          No hay referente semanal cargado para la semana del {formatearFecha(semanaEnUso)}.
-                        </p>
-                      )}
-
-                      {referenteSemanalActual && (
-                        <div className="workspace-panel-soft space-y-3">
-                          <p className="font-medium">{referenteSemanalActual.titulo}</p>
-
-                          {referenteSemanalActual.descripcion && (
-                            contieneHtml(referenteSemanalActual.descripcion) ? (
-                              <div
-                                className="max-w-none text-[var(--muted)] [&_a]:underline"
-                                dangerouslySetInnerHTML={{
-                                  __html: referenteSemanalActual.descripcion,
-                                }}
-                              />
-                            ) : (
-                              <p className="whitespace-pre-wrap text-[var(--muted)]">
-                                {referenteSemanalActual.descripcion}
-                              </p>
-                            )
-                          )}
-
-                          {referenteSemanalActual.video_url && (
-                            <VideoEmbed
-                              src={referenteSemanalActual.video_url}
-                              title={referenteSemanalActual.titulo || "Referente semanal"}
-                            />
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {esAdmin && (
-                  <div className="workspace-panel-soft space-y-3 border border-[var(--line)] bg-[rgba(255,250,242,0.9)]">
-                    <p className="workspace-eyebrow">Participar / Evaluar dispositivo semanal</p>
-                    <h3 className="text-lg font-semibold">
-                      Tu participacion como admin tambien cuenta
-                    </h3>
-                    <p className="workspace-inline-note text-[var(--foreground)]">
-                      Desde esta misma seccion podes subir tu video cuando
-                      corresponda, dejar aportes escritos, realizar la
-                      elección/evaluación semanal y seguir el ranking, el top 3 y
-                      el ganador sin salir del flujo del dispositivo.
-                    </p>
-                  </div>
-                )}
-
-                {subsolapaDispositivo === "videos" && (
-                  <div className="space-y-6">
-                    {mostrarBloqueSubida && (
-                      <div className="workspace-divider pt-4 space-y-4">
-                        <h3 className="text-lg font-semibold">Subir tu video</h3>
-                        <p className="workspace-inline-note">
-                          Podés grabarlo ahora desde la cámara o elegir un archivo ya guardado. El
-                          martes el trabajo pasa por los aportes escritos a los videos del lunes.
-                        </p>
-
-                        <input
-                          placeholder="Tu nombre"
-                          className="w-full rounded-2xl border border-[var(--line)] bg-[rgba(255,250,242,0.92)] p-3"
-                          value={nombreParticipante}
-                          onChange={(e) => setNombreParticipante(e.target.value)}
-                        />
-
-                        <input
-                          placeholder="Título del video"
-                          className="w-full rounded-2xl border border-[var(--line)] bg-[rgba(255,250,242,0.92)] p-3"
-                          value={titulo}
-                          onChange={(e) => setTitulo(e.target.value)}
-                        />
-
-                        <GrabadorVideo
-                          onVideoListo={handleArchivo}
-                          disabled={subiendoVideo}
-                          maxSegundos={65}
-                        />
-
-                        {!archivo && (
-                          <p className="workspace-inline-note">
-                            Cuando el video esté listo, podrás subirlo desde aquí.
-                          </p>
-                        )}
-
-                        {archivo && (
-                          <p className="text-green-700 text-sm">
-                            Video listo para subir: <strong>{archivo.name}</strong>
-                          </p>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={handleCargarVideo}
-                          disabled={subiendoVideo}
-                          className="workspace-button-primary disabled:opacity-60"
-                        >
-                          {subiendoVideo ? "Subiendo..." : "Subir video"}
-                        </button>
-
-                        {estadoSubidaVideo && (
-                          <p className="text-sm text-[var(--muted)]">
-                            {estadoSubidaVideo}
-                          </p>
-                        )}
-
-                        {mensajeExito && (
-                          <p className="text-green-700 text-sm font-medium">{mensajeExito}</p>
-                        )}
-
-                        {mensajeError && (
-                          <p className="text-red-700 text-sm font-medium">{mensajeError}</p>
-                        )}
-                      </div>
-                    )}
-
-                    {semanaEnUso === semanaActual && esMartesAportes && (
-                      <div className="workspace-panel-soft space-y-3 border border-[#D6C39A] bg-[#FFF6E4]/70">
-                        <h3 className="text-lg font-semibold text-[#6D4F17]">
-                          Martes de aportes
-                        </h3>
-                        <p className="workspace-inline-note text-[var(--foreground)]">
-                          Hoy no se sube video. El martes está dedicado a escribir aportes sobre los
-                          videos del lunes para acompañar la evolución del proceso.
-                        </p>
-                      </div>
-                    )}
-
-                    {semanaEnUso === semanaActual &&
-                      Boolean(diaActualClave) &&
-                      yaSubioVideoHoy && (
-                        <div className="border-t pt-4">
-                          <p className="text-sm font-medium text-green-700">
-                            Ya cargaste el video de hoy. Podras volver a subir cuando llegue el proximo dia del dispositivo.
-                          </p>
-                        </div>
-                      )}
-
-                    <div className="workspace-divider pt-4 space-y-4">
-                      <h3 className="text-lg font-semibold">Videos de la semana</h3>
-
-                      {videosSemana.length === 0 && (
-                        <p className="workspace-inline-note">
-                          No hay videos cargados para la semana actual.
-                        </p>
-                      )}
-
-                      {videosSemana.map((video) => {
-                        const comentariosDeVideo = comentariosPorVideo.get(video.id) || []
-                        const comentarioActual = comentariosDraft[video.id] || ""
-                        const abierto = videoAbierto === video.video_url
-
-                        return (
-                          <div key={video.id} className="workspace-card-link !rounded-[1.45rem] !p-5 space-y-4">
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between gap-3 flex-wrap">
-                                <p className="text-lg font-semibold tracking-[-0.02em]">
-                                  {video.participante_nombre}
-                                </p>
-                                <span className="workspace-chip">
-                                  {video.dia_clave || video.dia || "Día sin definir"}
-                                </span>
-                              </div>
-                              <p className="workspace-inline-note text-[var(--foreground)]">
-                                {video.titulo}
-                              </p>
-                              <p className="workspace-inline-note text-xs">
-                                Día: {video.dia_clave || video.dia || "sin día"}
-                              </p>
-                              <p className="workspace-inline-note text-xs">
-                                Semana: {formatearFecha(video.fecha_semana)}
-                              </p>
-
-                              {esAdmin && (
-                                <button
-                                  type="button"
-                                  onClick={() => void handleEliminarVideoParticipante(video.id)}
-                                  disabled={eliminandoVideoId === video.id}
-                                  className="workspace-button-secondary disabled:opacity-60"
-                                >
-                                  {eliminandoVideoId === video.id
-                                    ? "Eliminando..."
-                                    : "Eliminar video"}
-                                </button>
-                              )}
-                            </div>
-
-                            {video.video_url && (
-                              <div className="space-y-3">
-                                {!abierto && (
-                                  <div className="flex items-center gap-4 flex-wrap">
-                                    <video
-                                      src={video.video_url}
-                                      className="h-28 w-28 rounded-[1.6rem] border border-[var(--line)] object-cover"
-                                      muted
-                                      playsInline
-                                      preload="metadata"
-                                    />
-
-                                    <button
-                                      type="button"
-                                      className="workspace-button-secondary"
-                                      onClick={() => setVideoAbierto(video.video_url || null)}
-                                    >
-                                      Ver video
-                                    </button>
-                                  </div>
-                                )}
-
-                                {abierto && (
-                                  <div className="space-y-3">
-                                    <video
-                                      controls
-                                      src={video.video_url}
-                                      className="w-full max-w-xl rounded-xl border"
-                                    />
-
-                                    <button
-                                      type="button"
-                                      className="workspace-button-secondary"
-                                      onClick={() => setVideoAbierto(null)}
-                                    >
-                                      Ocultar video
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            <div className="workspace-divider pt-4 space-y-3">
-                              <h4 className="font-semibold">Aportes a este video</h4>
-
-                              {comentariosDeVideo.length === 0 && (
-                                <p className="workspace-inline-note">
-                                  Todavía no hay aportes para este video.
-                                </p>
-                              )}
-
-                              {comentariosDeVideo.map((comentario) => (
-                                <div key={comentario.id} className="workspace-message-reply space-y-1">
-                                  <p className="text-sm font-medium">{comentario.autor_nombre}</p>
-                                  <p className="workspace-inline-note text-xs">
-                                    {formatearFechaHora(comentario.created_at)}
-                                  </p>
-                                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                                    {comentario.contenido}
-                                  </p>
-                                </div>
-                              ))}
-
-                              <textarea
-                                className="workspace-field min-h-[90px]"
-                                placeholder="Escribí aquí tu aporte para este video..."
-                                value={comentarioActual}
-                                onChange={(e) =>
-                                  setComentariosDraft((prev) => ({
-                                    ...prev,
-                                    [video.id]: e.target.value,
-                                  }))
-                                }
-                              />
-
-                              <button
-                                type="button"
-                                onClick={() => handleComentar(video.id)}
-                                disabled={comentandoVideoId === video.id}
-                                className="workspace-button-secondary disabled:opacity-60"
-                              >
-                                {comentandoVideoId === video.id
-                                  ? "Guardando aporte..."
-                                  : "Enviar aporte"}
-                              </button>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-
-                  </div>
-                )}
-
-                {subsolapaDispositivo === "evaluacion" && (
-                  <div className="workspace-panel-soft space-y-4">
-                    <h3 className="text-lg font-semibold">Evaluación</h3>
-
-                    {yaParticipoEvaluacionSemana && (
-                      <div className="rounded-2xl border border-[#D6C39A] bg-[#FFF6E4]/80 px-4 py-3 text-sm font-medium text-[#6D4F17]">
-                        Gracias por elegir. Los resultados se develarán a las 17 horas.
-                      </div>
-                    )}
-
-                    {nombreGanadorEntusiasmo && (
-                      <div className="rounded-3xl border border-[#D6C39A] bg-[#FFF1C7]/90 px-5 py-4 shadow-sm">
-                        <p className="text-lg font-semibold text-[#6D4F17]">
-                          {ganadorSemana?.empate
-                            ? `¡Felicitaciones ${nombreGanadorEntusiasmo}, se ganaron el Entusiasmo esta semana!`
-                            : `¡Felicitaciones ${nombreGanadorEntusiasmo}, te ganaste el Entusiasmo esta semana!`}
-                        </p>
-                      </div>
-                    )}
-
-                    {mostrarEncuestaEvaluacion ? (
-                      <div className="space-y-4">
-                        {opcionesEvaluacionProceso.length === 0 && (
-                          <p className="workspace-inline-note">
-                            Todavía no hay procesos disponibles para evaluar esta semana.
-                          </p>
-                        )}
-
-                        {opcionesEvaluacionProceso.map((participante) => {
-                          const videoRepresentativo = participante.videoRepresentativo
-                          if (!videoRepresentativo) return null
-
-                          return (
-                            <label
-                              key={participante.clave}
-                              className="block cursor-pointer rounded-2xl border border-[var(--line)] bg-white/70 p-4 transition hover:border-[var(--accent)]"
-                            >
-                              <div className="flex items-start gap-3">
-                                <input
-                                  type="radio"
-                                  name="proceso-elegido"
-                                  className="mt-1"
-                                  checked={elegidoSeleccionado === videoRepresentativo.id}
-                                  onChange={() =>
-                                    setElegidoSeleccionado(videoRepresentativo.id)
-                                  }
-                                />
-                                <div className="space-y-2">
-                                  <p className="font-semibold">{participante.nombre}</p>
-                                  <div className="flex flex-wrap gap-2">
-                                    <span className="workspace-chip">
-                                      Video lunes: {participante.subioLunes ? "sí" : "no"}
-                                    </span>
-                                    <span className="workspace-chip">
-                                      Video miércoles: {participante.subioMiercoles ? "sí" : "no"}
-                                    </span>
-                                  </div>
-                                  <p className="workspace-inline-note text-xs">
-                                    Aportes recibidos: {participante.aportesRecibidos}
-                                  </p>
-                                  <p className="workspace-inline-note text-xs">
-                                    Bonus por aportes recibidos: {participante.bonusAportes}
-                                  </p>
-                                  <p className="workspace-inline-note text-xs">
-                                    Aportes realizados: {participante.aportesRealizados}
-                                  </p>
-                                  {resultadosVotacionVisibles && (
-                                    <>
-                                      <p className="workspace-inline-note text-xs">
-                                        Elecciones recibidas: {participante.totalVotos}
-                                      </p>
-                                      <p className="workspace-inline-note text-xs">
-                                        Puntaje total: {participante.puntajeTotal}
-                                      </p>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                            </label>
-                          )
-                        })}
-                      </div>
-                    ) : bloquearNuevaEvaluacion ? null : !mostrarControlesEvaluacion && !evaluacionCerrada ? (
-                      <p className="workspace-inline-note">
-                        La elección del proceso semanal se habilita el jueves.
-                      </p>
-                    ) : mostrarControlesEvaluacion ? (
-                      <p className="workspace-inline-note">
-                        La evaluación ya fue registrada esta semana.
-                      </p>
-                    ) : null}
-
-                    <div className="flex gap-3 flex-wrap">
-                      {mostrarEncuestaEvaluacion && (
-                        <button
-                          type="button"
-                          onClick={handleElegir}
-                          disabled={
-                            eligiendo ||
-                            elegidoSeleccionado === null ||
-                            opcionesEvaluacionProceso.length === 0
-                          }
-                          className="workspace-button-primary disabled:opacity-60"
-                        >
-                          {eligiendo ? "Guardando evaluación..." : "Confirmar evaluación"}
-                        </button>
-                      )}
-
-                      {esAdmin && (
-                        <button
-                          type="button"
-                          onClick={handleLimpiarVideos}
-                          className="workspace-button-secondary"
-                        >
-                          Limpiar todos los videos y votos
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="workspace-divider pt-4 space-y-4">
-                      <h3 className="text-lg font-semibold">Ranking y resultado</h3>
-
-                      {!resultadosVotacionVisibles && (
-                        <div className="workspace-panel-soft space-y-2">
-                          <p className="font-medium">Evaluación en curso</p>
-                          <p className="workspace-inline-note">
-                            Hasta el jueves a las 17:00 hs de Argentina no se muestran resultados
-                            parciales ni ranking de la semana. El resultado se revela al cierre.
-                          </p>
-                        </div>
-                      )}
-
-                      {resultadosVotacionVisibles && top3.length === 0 && (
-                        <p className="workspace-inline-note">
-                          Aún no hay evaluación para la semana seleccionada.
-                        </p>
-                      )}
-
-                      {resultadosVotacionVisibles && top3.length > 0 && (
-                        <div className="space-y-4">
-                          <div className="space-y-3">
-                            {top3.map((item, index) => (
-                              <div key={item.clave} className="workspace-card-link !rounded-[1.35rem] !p-4 space-y-1">
-                                <p className="font-medium">
-                                  {index + 1}. {item.nombre}
-                                </p>
-                                <p className="workspace-inline-note text-xs">
-                                  Elecciones recibidas: {item.totalVotos}
-                                </p>
-                                <p className="workspace-inline-note text-xs">
-                                  Aportes recibidos: {item.aportesRecibidos}
-                                </p>
-                                <p className="workspace-inline-note text-xs">
-                                  Bonus por aportes recibidos: {item.bonusAportes}
-                                </p>
-                                <p className="workspace-inline-note text-xs">
-                                  Puntaje total: {item.puntajeTotal}
-                                </p>
-                                <p className="workspace-inline-note text-xs">
-                                  Subió lunes y miércoles:{" "}
-                                  {item.subioLunes && item.subioMiercoles ? "sí" : "no"}
-                                </p>
-                                <p className="workspace-inline-note text-xs">
-                                  Participó en la elección: {item.participoEligiendo ? "sí" : "no"}
-                                </p>
-                                <p className="workspace-inline-note text-xs">
-                                  Elegible para ganar: {item.elegible ? "sí" : "no"}
-                                </p>
-                                <div className="mt-3 rounded-2xl border border-[var(--line)] bg-white/60 p-3">
-                                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
-                                    Quiénes eligieron este proceso
-                                  </p>
-                                  {(eleccionesPorParticipante.get(item.clave) || []).length > 0 ? (
-                                    <div className="mt-2 space-y-1">
-                                      {(eleccionesPorParticipante.get(item.clave) || []).map((eleccion) => (
-                                        <p key={eleccion.id} className="workspace-inline-note text-xs">
-                                          {eleccion.nombre}
-                                        </p>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <p className="mt-2 workspace-inline-note text-xs">
-                                      Todavía no recibió elecciones.
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="workspace-divider pt-4 space-y-3">
-                            <h4 className="text-base font-semibold">Ganador de la semana</h4>
-
-                            {!ganadorSemana && (
-                              <p className="workspace-inline-note">
-                                No hay ganador definido esta semana. Para ganar hay que subir los
-                                videos del lunes y miércoles, y además participar de la
-                                elección/evaluación del jueves.
-                              </p>
-                            )}
-
-                            {ganadorSemana && ganadorSemana.empate && (
-                              <div className="space-y-3">
-                                <p className="font-medium">
-                                  {ganadorSemana.participantes.map((participante) => participante.nombre).join(" y ")}
-                                </p>
-                                <p className="workspace-inline-note text-xs">
-                                  Empate entre procesos elegibles.
-                                </p>
-                                {ganadorSemana.participantes.map((participante) => (
-                                  <div key={participante.clave} className="rounded-2xl border border-[#D6C39A] bg-[#FFF6E4]/75 p-3">
-                                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6D4F17]">
-                                      Eligieron a {participante.nombre}
-                                    </p>
-                                    <p className="mt-2 workspace-inline-note text-xs">
-                                      Puntaje total: {participante.puntajeTotal}
-                                    </p>
-                                    <div className="mt-2 space-y-1">
-                                      {(eleccionesPorParticipante.get(participante.clave) || []).map((eleccion) => (
-                                        <p key={eleccion.id} className="workspace-inline-note text-xs">
-                                          {eleccion.nombre}
-                                        </p>
-                                      ))}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            {ganadorSemana && !ganadorSemana.empate && (
-                              <div className="space-y-3">
-                                <p className="font-medium">{ganadorSemana.participante.nombre}</p>
-                                <p className="workspace-inline-note text-xs">
-                                  Elecciones recibidas: {ganadorSemana.participante.totalVotos}
-                                </p>
-                                <p className="workspace-inline-note text-xs">
-                                  Aportes recibidos: {ganadorSemana.participante.aportesRecibidos}
-                                </p>
-                                <p className="workspace-inline-note text-xs">
-                                  Bonus por aportes recibidos: {ganadorSemana.participante.bonusAportes}
-                                </p>
-                                <p className="workspace-inline-note text-xs">
-                                  Puntaje total: {ganadorSemana.participante.puntajeTotal}
-                                </p>
-                                <p className="workspace-inline-note text-xs">
-                                  Cumplió con subir lunes y miércoles y además participó de la
-                                  elección/evaluación del jueves.
-                                </p>
-                                <div className="rounded-2xl border border-[#D6C39A] bg-[#FFF6E4]/75 p-3">
-                                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6D4F17]">
-                                    Eligieron este proceso
-                                  </p>
-                                  <div className="mt-2 space-y-1">
-                                    {(eleccionesPorParticipante.get(ganadorSemana.participante.clave) || []).map((eleccion) => (
-                                      <p key={eleccion.id} className="workspace-inline-note text-xs">
-                                        {eleccion.nombre}
-                                      </p>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {resultadosVotacionVisibles && votosSemana.length > 0 && (
-                      <div className="workspace-divider pt-4 space-y-3">
-                        <h3 className="text-lg font-semibold">Detalle de elecciones</h3>
-                        <div className="space-y-3">
-                          {rankingParticipantes
-                            .filter((participante) =>
-                              (eleccionesPorParticipante.get(participante.clave) || []).length > 0
-                            )
-                            .map((participante) => (
-                              <div key={participante.clave} className="workspace-panel-soft space-y-2">
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <p className="font-semibold">{participante.nombre}</p>
-                                  <span className="workspace-chip">
-                                    {participante.totalVotos} elecciones recibidas
-                                  </span>
-                                </div>
-                                <div className="space-y-1">
-                                  {(eleccionesPorParticipante.get(participante.clave) || []).map((eleccion) => (
-                                    <p key={eleccion.id} className="workspace-inline-note text-xs">
-                                      {eleccion.nombre}
-                                    </p>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
+              </SeccionDesplegable>
+            )}
                   </div>
                 )}
               </div>
-            </SeccionDesplegable>
-          )}
 
-          {!esAdmin && tieneRecurso("reunion_semanal_casatalentos") && (
-            <SeccionDesplegable
-              titulo="Reunión semanal"
-              storageKey={uiKey("seccion:reunion-semanal")}
-            >
-              <AgendaActividad
-                actividadSlug="casatalentos"
-                tituloSeccion="Próximo encuentro de CasaTalentos"
-                mostrarSoloProximo
-              />
-            </SeccionDesplegable>
-          )}
 
-          <SeccionDesplegable
-            titulo={tituloMensajes}
-            storageKey={uiKey("seccion:mensajes")}
-            mantenerMontado
-          >
-            <div className="space-y-6">
-              {(mensajeExito || mensajeError) && (
-                <div
-                  className={`rounded-2xl border px-4 py-3 text-sm font-medium ${
-                    mensajeError
-                      ? "border-red-200 bg-red-50 text-red-700"
-                      : "border-green-200 bg-green-50 text-green-700"
-                  }`}
-                >
-                  {mensajeError || mensajeExito}
-                </div>
-              )}
 
-              <div className="workspace-panel-soft space-y-3">
-                <div className="space-y-1">
-                  <p className="workspace-eyebrow">Nuevo hilo</p>
-                  <h3 className="text-lg font-semibold">Nuevo mensaje</h3>
-                </div>
-                <input
-                  className="workspace-field"
-                  placeholder="Asunto del mensaje"
-                  value={asuntoMensajeGeneralDraft}
-                  onChange={(e) => setAsuntoMensajeGeneralDraft(e.target.value)}
-                />
-                {esAdmin ? (
-                  <EditorMensajeAdmin
-                    ref={editorNuevoMensajeRef}
-                    value={mensajeGeneralDraftHtml}
-                    onChange={setMensajeGeneralDraftHtml}
-                  />
-                ) : (
-                  <textarea
-                    className="workspace-field min-h-[110px]"
-                    placeholder="Escribí aquí comentarios sobre las reuniones, valoraciones, agradecimientos o algo que quieras compartir..."
-                    value={mensajeGeneralDraft}
-                    onChange={(e) => setMensajeGeneralDraft(e.target.value)}
-                  />
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => void handleEnviarMensajeGeneral()}
-                  disabled={guardandoMensajeGeneral}
-                  className="workspace-button-primary disabled:opacity-60"
-                >
-                  {guardandoMensajeGeneral && respondiendoMensajeId === null
-                    ? "Enviando..."
-                    : "Enviar mensaje"}
-                </button>
-              </div>
-
-              {mensajesRaiz.length === 0 && (
-                <p className="text-gray-600">
-                  Todavía no hay mensajes generales en CasaTalentos.
-                </p>
-              )}
-
-              {mensajesRaiz.map((mensaje) => {
-                const respuestas = respuestasPorMensaje.get(mensaje.id) || []
-                const respuestaActual = respuestasDraft[mensaje.id] || ""
-                const editandoEsteMensaje = mensajeEditandoId === mensaje.id
-                const cantidadRespuestas = respuestas.length
-                const estaLeido = hiloLeido(mensaje)
-
-                return (
-                  <div
-                    key={mensaje.id}
-                    className={`workspace-message-card space-y-4 ${
-                      estaLeido ? "" : "workspace-message-card-unread"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-4 flex-wrap">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-lg font-semibold tracking-[-0.02em]">
-                            {mensaje.asunto || "Mensaje sin asunto"}
-                          </p>
-                          {!estaLeido && (
-                            <span className="workspace-badge-unread">
-                              No leido
-                            </span>
-                          )}
-                        </div>
-                        <p className="workspace-inline-note">{mensaje.autor_nombre}</p>
-                        <p className="workspace-inline-note text-xs">
-                          {formatearFechaHora(mensaje.created_at)}
-                          {mensaje.updated_at &&
-                          mensaje.updated_at !== mensaje.created_at
-                            ? " · editado"
-                            : ""}
-                        </p>
-                        <p className="workspace-inline-note text-xs">
-                          {cantidadRespuestas === 0
-                            ? "Sin respuestas"
-                            : `${cantidadRespuestas} ${
-                                cantidadRespuestas === 1 ? "respuesta" : "respuestas"
-                              }`}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const abriendo = !mensajesAbiertos[mensaje.id]
-                          setMensajesAbiertos((prev) => ({
-                            ...prev,
-                            [mensaje.id]: abriendo,
-                          }))
-                          if (abriendo) {
-                            marcarHiloComoLeido(mensaje)
-                          }
-                        }}
-                        className="workspace-button-secondary"
-                      >
-                        {mensajesAbiertos[mensaje.id] ? "Cerrar" : "Ver mensaje"}
-                      </button>
-                    </div>
-
-                    {editandoEsteMensaje && (
-                      <div className="space-y-3">
-                        <input
-                          className="workspace-field"
-                          value={mensajeEditandoAsunto}
-                          onChange={(e) => setMensajeEditandoAsunto(e.target.value)}
-                          placeholder="Asunto del mensaje"
-                        />
-                        {esAdmin ? (
-                          <EditorMensajeAdmin
-                            ref={editorEdicionMensajeRef}
-                            value={mensajeEditandoContenidoHtml}
-                            onChange={setMensajeEditandoContenidoHtml}
-                          />
-                        ) : (
-                          <textarea
-                            className="workspace-field min-h-[100px]"
-                            value={mensajeEditandoContenido}
-                            onChange={(e) => setMensajeEditandoContenido(e.target.value)}
-                          />
-                        )}
-                        <div className="flex gap-3">
-                          <button
-                            type="button"
-                            onClick={() => void handleEditarMensajeGeneral(mensaje.id)}
-                            disabled={guardandoMensajeGeneral}
-                            className="workspace-button-primary disabled:opacity-60"
-                          >
-                            {guardandoMensajeGeneral ? "Guardando..." : "Guardar edición"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setMensajeEditandoId(null)
-                              setMensajeEditandoAsunto("")
-                              setMensajeEditandoContenido("")
-                              setMensajeEditandoContenidoHtml("")
-                            }}
-                            className="workspace-button-secondary"
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {esAdmin && !editandoEsteMensaje && (
-                      <div className="flex gap-3 flex-wrap">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setMensajeEditandoId(mensaje.id)
-                            setMensajeEditandoAsunto(mensaje.asunto || "")
-                            setMensajeEditandoContenido(mensaje.contenido)
-                            setMensajeEditandoContenidoHtml(
-                              mensaje.contenido_html ||
-                                textoPlanoAHtmlSeguro(mensaje.contenido)
-                            )
-                          }}
-                          className="workspace-button-secondary"
-                        >
-                          Editar mensaje
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void handleEliminarMensajeGeneral(mensaje.id)}
-                          disabled={guardandoMensajeGeneral}
-                          className="workspace-button-secondary disabled:opacity-60"
-                        >
-                          Eliminar mensaje
-                        </button>
-                      </div>
-                    )}
-
-                    {mensajesAbiertos[mensaje.id] && !editandoEsteMensaje && (
-                      <div className="workspace-divider pt-4 space-y-3">
-                        {mensaje.contenido_html ? (
-                          <div
-                            className="break-words text-sm text-gray-700 [&_em]:italic [&_h3]:text-base [&_h3]:font-semibold [&_p]:my-2 [&_strong]:font-semibold"
-                            dangerouslySetInnerHTML={{ __html: mensaje.contenido_html }}
-                          />
-                        ) : (
-                          <p className="whitespace-pre-wrap text-sm text-gray-700">
-                            {mensaje.contenido}
-                          </p>
-                        )}
-
-                        <h4 className="font-semibold">
-                          Respuestas
-                          {cantidadRespuestas > 0 ? ` (${cantidadRespuestas})` : ""}
-                        </h4>
-
-                        {respuestas.length === 0 && (
-                            <p className="workspace-inline-note">
-                              Todavía no hay respuestas en este hilo.
-                            </p>
-                          )}
-
-                          {respuestas.map((respuesta) => (
-                          <div key={respuesta.id} className="workspace-message-reply space-y-1">
-                              <p className="text-sm font-medium">{respuesta.autor_nombre}</p>
-                              <p className="workspace-inline-note text-xs">
-                                {formatearFechaHora(respuesta.created_at)}
-                                {respuesta.updated_at &&
-                                respuesta.updated_at !== respuesta.created_at
-                                ? " · editado"
-                                : ""}
-                            </p>
-                            {mensajeEditandoId === respuesta.id ? (
-                              <div className="space-y-3 pt-1">
-                                {esAdmin ? (
-                                  <EditorMensajeAdmin
-                                    ref={(instance) => {
-                                      editorRespuestaRef.current[respuesta.id] = instance
-                                    }}
-                                    value={mensajeEditandoContenidoHtml}
-                                    onChange={setMensajeEditandoContenidoHtml}
-                                  />
-                                ) : (
-                                  <textarea
-                                    className="workspace-field min-h-[100px]"
-                                    value={mensajeEditandoContenido}
-                                    onChange={(e) => setMensajeEditandoContenido(e.target.value)}
-                                  />
-                                )}
-                                <div className="flex gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={() => void handleEditarMensajeGeneral(respuesta.id)}
-                                    disabled={guardandoMensajeGeneral}
-                                    className="workspace-button-primary disabled:opacity-60"
-                                  >
-                                    {guardandoMensajeGeneral ? "Guardando..." : "Guardar edición"}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setMensajeEditandoId(null)
-                                      setMensajeEditandoAsunto("")
-                                      setMensajeEditandoContenido("")
-                                      setMensajeEditandoContenidoHtml("")
-                                    }}
-                                    className="workspace-button-secondary"
-                                  >
-                                    Cancelar
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <>
-                                {respuesta.contenido_html ? (
-                                  <div
-                                    className="break-words text-sm text-gray-700 [&_em]:italic [&_h3]:text-base [&_h3]:font-semibold [&_p]:my-2 [&_strong]:font-semibold"
-                                    dangerouslySetInnerHTML={{
-                                      __html: respuesta.contenido_html,
-                                    }}
-                                  />
-                                ) : (
-                                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                                    {respuesta.contenido}
-                                  </p>
-                                )}
-
-                                {esAdmin && (
-                                  <div className="mt-2 flex gap-3 flex-wrap">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setMensajeEditandoId(respuesta.id)
-                                        setMensajeEditandoAsunto("")
-                                        setMensajeEditandoContenido(respuesta.contenido)
-                                        setMensajeEditandoContenidoHtml(
-                                          respuesta.contenido_html ||
-                                            textoPlanoAHtmlSeguro(respuesta.contenido)
-                                        )
-                                      }}
-                                      className="workspace-button-secondary"
-                                    >
-                                      Editar mensaje
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        void handleEliminarMensajeGeneral(respuesta.id)
-                                      }
-                                      disabled={guardandoMensajeGeneral}
-                                      className="workspace-button-secondary disabled:opacity-60"
-                                    >
-                                      Eliminar mensaje
-                                    </button>
-                                  </div>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        ))}
-
-                        {esAdmin ? (
-                          <EditorMensajeAdmin
-                            ref={(instance) => {
-                              editorRespuestaRef.current[mensaje.id] = instance
-                            }}
-                            value={respuestasDraftHtml[mensaje.id] || ""}
-                            onChange={(value) =>
-                              setRespuestasDraftHtml((prev) => ({
-                                ...prev,
-                                [mensaje.id]: value,
-                              }))
-                            }
-                          />
-                        ) : (
-                          <textarea
-                            className="workspace-field min-h-[90px]"
-                            placeholder="Responder a este hilo..."
-                            value={respuestaActual}
-                            onChange={(e) =>
-                              setRespuestasDraft((prev) => ({
-                                ...prev,
-                                [mensaje.id]: e.target.value,
-                              }))
-                            }
-                          />
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => void handleEnviarMensajeGeneral(mensaje.id)}
-                          disabled={guardandoMensajeGeneral}
-                          className="workspace-button-secondary disabled:opacity-60"
-                        >
-                          {guardandoMensajeGeneral && respondiendoMensajeId === mensaje.id
-                            ? "Enviando..."
-                            : "Responder"}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </SeccionDesplegable>
-
-          {!esAdmin && recursosSolapa.length > 0 && (
-            <SeccionDesplegable
-              titulo="Recursos"
-              storageKey={uiKey("seccion:recursos")}
-            >
-              <div className="space-y-4">
-                {recursosSolapa.map((item) =>
-                  item.url ? (
-                    <RecursoCard
-                      key={item.id}
-                      titulo={"titulo" in item ? item.titulo : item.nombre || "Recurso"}
-                      descripcion={item.descripcion}
-                      recursoTipo={
-                        "recurso_tipo" in item ? item.recurso_tipo : item.tipo
-                      }
-                      url={item.url}
-                    />
-                  ) : (
-                    <RecursoCard
-                      key={item.id}
-                      titulo={"titulo" in item ? item.titulo : item.nombre || "Recurso"}
-                      descripcion={item.descripcion}
-                      recursoTipo={
-                        "recurso_tipo" in item ? item.recurso_tipo : item.tipo
-                      }
-                      url={item.url}
-                    />
-                  )
-                )}
-              </div>
-            </SeccionDesplegable>
-          )}
-
-          <SeccionDesplegable
-            titulo="Hoja de Ruta"
-            storageKey={uiKey("seccion:hoja-de-ruta")}
-            mantenerMontado
-          >
-            <HDRActividad
-              actividadSlug="casatalentos"
-              actorEmail={email}
-            />
-          </SeccionDesplegable>
 
           </div>
         )}

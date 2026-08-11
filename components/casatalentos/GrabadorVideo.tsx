@@ -216,10 +216,13 @@ export default function GrabadorVideo({
         await videoRef.current.play().catch(() => {})
       }
     } catch (err) {
-      console.error("Error abriendo cámara:", err)
+      // Advertencia, no error: esto pasa normalmente cuando el navegador/SO
+      // deniega el permiso de cámara/micrófono — es un caso esperado, ya
+      // manejado con el fallback de abajo, no una falla del código.
+      console.warn("No se pudo abrir la cámara/micrófono:", err)
       setUsaFallbackCaptura(true)
       setError(
-        "No se pudo acceder a la cámara integrada. Podés abrir la cámara del dispositivo y volver con el video listo."
+        "No pudimos acceder a la cámara o el micrófono. Revisá los permisos del navegador (o del dispositivo) para este sitio, o subí un archivo ya grabado."
       )
     } finally {
       setPreparandoCamara(false)

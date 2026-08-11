@@ -293,3 +293,244 @@ Se sincronizaron los 6 manualmente (mismo endpoint que usa el botón de la UI, `
 
 ## 3. Pendiente
 - Mismo hallazgo de la sesión del 27/7 sigue sin resolver: hay reuniones que existen **solo en Google Calendar** y no en la plataforma (CasaTalentos semanal, Mentoría Tato Fuentes, entre otras) — el reintento nuevo no las toca, porque no son un problema de sincronización fallida sino de que nunca se cargaron desde la plataforma. Sigue pendiente migrarlas.
+
+---
+
+# Sesión de trabajo 2026-08-04 (continuación 2) — Invitar al participante como asistente del evento de Google Calendar (BLOQUEADO por Google Workspace)
+
+## 1. Pedido
+Nicolás pidió que cada evento agendado desde Entheos no solo quede en su propio Google Calendar, sino que también se agregue a la agenda del participante (sea que use Google, Outlook, u otro).
+
+## 2. Diseño (correcto, implementado, pero sin efecto todavía — ver bloqueo abajo)
+La solución estándar para esto **no requiere integrar Outlook ni ningún otro proveedor por separado**: agregando al participante como `attendee` (invitado) del evento de Google Calendar, Google le manda automáticamente una invitación por mail con adjunto `.ics` — eso lo entienden nativamente Outlook, Apple Calendar, Yahoo, y cualquier cliente de calendario, no hace falta que el participante tenga Gmail. Si además tiene cuenta de Google, el evento le aparece directo en su Google Calendar (con RSVP pendiente) sin que tenga que hacer nada.
+
+Se agregó `attendees: [{ email, displayName }]` (con el `participante_email`/`participante_nombre` ya guardado en `disponibilidades`/`reservas`) y `sendUpdates: "all"` (para que Google efectivamente mande el mail de invitación) en los 3 lugares donde se crea/actualiza un evento:
+- `lib/google-calendar.ts` → `sincronizarDisponibilidadConGoogle` (encuentros 1 a 1 cargados por el admin).
+- `lib/google-calendar.ts` → `crearEventoGoogleDesdeReserva` (reservas que hace el propio participante desde `/agenda`).
+- `app/api/google/sync-serie/route.ts` → `sincronizarDisponibilidad` (series recurrentes, ej. Mentoría semanal).
+
+No se tocó la sincronización de las reuniones grupales (CasaTalentos semanal, Conectando Sentidos) — esas no tienen un único `participante_email` en `disponibilidades` (son para todo el grupo), invitar a un grupo grande como asistentes formales de un evento es una decisión de producto aparte (expone los emails de todos entre sí en la invitación) que no se tomó sin consultar.
+
+## 3. Bloqueo real encontrado al probar en vivo
+Se probó de punta a punta (disponibilidad de prueba descartable + llamada real a la API de Google + lectura del evento creado + limpieza total) y también con una llamada mínima directa a la API de Google sin pasar por el código del proyecto, para descartar un bug propio. **En ambos casos, Google acepta la petición (200 OK, evento creado con Meet) pero devuelve el evento con el `attendee` externo silenciosamente eliminado** — solo queda el organizador (`nicolasbusico@entheosescuela.com`). No es un error de la plataforma: el mismo comportamiento ocurre con una llamada cruda a la API, con el token OAuth que ya tenía todos los permisos necesarios (`scope: https://www.googleapis.com/auth/calendar`).
+
+Esto es consistente con una restricción a **nivel de cuenta/dominio de Google Workspace** (`entheosescuela.com`) sobre invitar invitados externos a eventos de Calendar — es una configuración del lado de Google, no algo que se pueda arreglar escribiendo más código. No tengo forma de confirmar el nombre exacto del control en el admin console de Workspace desde acá (la interfaz de Google cambia con el tiempo y no tengo acceso a esa cuenta), así que queda pendiente que Nicolás (o quien administre el Workspace) revise configuración de Calendar relacionada con invitados externos, o consulte directamente con soporte de Google Workspace describiendo el síntoma exacto: *"la API de Calendar crea el evento correctamente pero elimina en silencio a los invitados externos al dominio"*.
+
+## 4. Estado
+El código quedó escrito y probado (typecheck + lint limpios, probado en vivo con limpieza total de los eventos/registros de prueba) — **no se hizo commit todavía**, a la espera de que Nicolás revise el lado de Google Workspace. En cuanto se destrabe esa configuración, el código ya va a funcionar sin tocar nada más — no hace falta ningún cambio adicional de este lado.
+
+---
+
+# Sesión de trabajo 2026-08-09 → 2026-08-11 — Entusiasmento: reemplazo total de CasaTalentos (Fase 1 en curso)
+
+## 1. Objetivo y origen
+Nicolás pidió una "modificación radical" de CasaTalentos, confirmada luego como **reemplazo total** (no incremental). Nombre nuevo: **"Entusiasmento"** (provisorio). Slogan provisorio: **"Entrena y dale ritmo a tus resultados"**. Compartió el documento fundacional actualizado de ENTHEOS (`ENTHEOS_Documento_Fundacional_v0_5`, Google Doc) como contexto de origen — leído completo vía `WebFetch` (truco: la URL de "compartir" no es accesible sin login, pero `https://docs.google.com/document/d/{id}/export?format=txt` sí funciona para docs con acceso de lectura por link, redirige a un host `googleusercontent.com` que hay que volver a fetchear).
+
+**Hallazgos clave del documento** (relevantes para todo el diseño):
+- ENTHEOS organiza el trabajo en 3 momentos que se repiten en espiral: Diseño y Puesta a Punto → **Entrenamiento y Desarrollo** → Conexión y Presencia. "Entusiasmento" es la forma concreta de ese segundo momento (hoy CasaTalentos, "en revisión" según la Sección 9 del propio documento — el nombre "Entusiasmento" ya estaba como candidato ahí, no es una idea nueva de esta sesión).
+- Principio central citado textual: *"Producir, mostrar y mejorar lo producido es lo que permite que el entusiasmo se sostenga por fuera del vínculo con quien enseña."*
+- Decisión abierta #2 de la Sección 15 del documento — *"cómo activar el entusiasmo por entrenarse, no solo por los resultados"* — es exactamente la tensión que Nicolás planteó con sus propias palabras, y terminó resuelta con el cuestionario semilla de Coordenadas (ver punto 3).
+- Vocabulario de marca a sostener: talento, entusiasmo, momento, transitar, proceso, espiral, vuelta, mejor versión, Lugar Propio, decisiones, apropiación, responsabilidad, entrenamiento, producción, crecimiento, escucha, orden de los sentidos, desafío, espacio, comunidad. A evitar: lenguaje de jerarquía (nivel/etapa/"graduarse"), "reencontrar el verdadero yo", "desbloquear el potencial", éxito como cima.
+- Criterio de automatización de la Sección 12: *"se automatiza todo lo que rodea a la conversación, nunca la conversación"* — se automatiza agenda, recordatorios, formularios, cobro/alta, onboarding, seguimiento; no se automatiza ubicar el momento, decidir accesos, ni intervenciones clínicas/de mentoría. Este criterio terminó siendo el que definió el alcance del agente de IA (punto 4).
+
+## 2. Decisiones de arquitectura (blast radius investigado antes de decidir)
+Se lanzaron 3 agentes Explore en paralelo para relevar: (a) la implementación actual completa de CasaTalentos, (b) cuán hardcodeado está el string `"casatalentos"` en el resto del sistema, (c) infraestructura reutilizable de comunicaciones/cron/storage/IA.
+
+- **Se mantiene `actividad_slug: "casatalentos"` en la base de datos** — solo cambia el nombre visible a "Entusiasmento". El slug está hardcodeado (sin capa de indirección) en 15+ archivos: `lib/authz.ts` (`ActivitySlug`, `activityPermissionMap`), el combo de facturación CasaTalentos+Conectando Sentidos en `lib/admin-activity-sync.ts`/`lib/payment-pricing.ts`, whitelists duplicadas de agenda en `lib/agenda-unificada.ts`/`lib/agenda-reconciliacion.ts`, `admin/usuarios`, `AppNav.tsx`, comunicaciones, consentimientos, HDR. Crear un slug nuevo hubiera obligado a tocar todos esos puntos y decidir qué pasa con el combo — se descartó por riesgo/beneficio.
+- **La URL se mantiene `/casatalentos`** — mismo criterio, cero cambios en navegación/links existentes.
+- **Las tablas viejas de CasaTalentos se archivan, no se borran ni se migran**: `casatalentos_videos`, `casatalentos_votos`, `casatalentos_comentarios`, `casatalentos_mensajes`, `casatalentos_referentes_semanales` y el bucket `casatalentos-videos` quedan como registro histórico — decisión explícita de Nicolás ("el historial de CT lo archivamos... por si lo necesito en algún momento").
+- **El "Dispositivo CasaTalentos" viejo (ranking/videos/votación/evaluación) no se retira todavía** — Nicolás dijo explícitamente que va a seguir usando la versión anterior mientras tanto. Estrategia elegida: **aditiva primero, retiro después** — se agregó la sección nueva de Coordenadas/Pitch sin tocar ni una línea del bloque viejo, que sigue 100% funcional debajo. El retiro del dispositivo viejo queda para una fase posterior, una vez que lo nuevo esté validado en uso real.
+- **Primera integración de IA generativa del proyecto** (todavía no implementada, ver Pendiente) — no hay SDK previo, se va a armar `lib/ai.ts` con `fetch` directo a la API de Anthropic (mismo patrón hand-rolled que Resend/MercadoPago), modelo Haiku 4.5 por costo.
+
+## 3. Diseño de producto (definido en conversación, iterativo)
+Dos espacios que coexisten:
+- **Personal**: **Coordenadas** (qué, para qué, problema/solución, resultado semanal/mensual/trimestral/anual, habilidad a desarrollar, qué te entusiasma — cuestionario semilla ya probado en vivo con un participante real, caso CreArté/Festival de Experiencias) + **Pitch** (carta de presentación en video/imagen, **siempre visible**, se actualiza in-place, nunca es una lista histórica) + **Producciones** categorizadas en Producto / Servicio / Institucional / Comunicación / Administración, cada una con **visibilidad on/off decidida por el participante** (default: oculta, se muestra cuando quiere recibir aportes).
+- **CoFruto** (nombre provisorio — neologismo Coworking + disfrute + fruto, "con tinte de entrenamiento"): la "mesa en común", se arma automáticamente con la unión de todo lo que cada participante hizo visible. Se puede visitar a otros y dejar aportes/contactos. Admin ve siempre todo, sin importar la visibilidad marcada.
+- Pensado para admitir talentos heterogéneos (no solo "emprendedores" — un deportista o un músico tienen que sentirse igual de bien representados).
+
+## 4. El agente de IA — alcance y reglas (definidas por Nicolás, textuales)
+Presupuesto confirmado: **hasta ~US$5/mes** (rechazó explícitamente un escenario de ~US$100/mes). Dos funciones, nunca conversa libremente con el participante:
+1. **Recordatorio semanal por mail** (lunes): tareas, fechas de resultados, evaluaciones; ayuda a ordenar/planificar haciendo **preguntas** en vez de dar respuestas (ejemplo dado: *"¿dónde podrías trabajar en tu espacio lo que te falta hacer?"`); cierra/abre con la frase del **oráculo del día** — hallazgo en el código: ya existe `FRASES_ORACULO` en `app/campus/page.tsx` (una frase por día, elegida determinísticamente por fecha+email), se reutiliza tal cual, no hace falta inventar contenido nuevo.
+2. **Diagnóstico de uso para Nicolás**: decidido como **panel on-demand en admin** (se genera solo cuando él entra a verlo, más barato que un digest forzado) **+ un mail resumen semanal** con sugerencias de mejora de una semana a la otra.
+
+**Referentes (reglas que el agente tiene que sostener), dictadas textualmente por Nicolás**:
+- No resolver lo que el participante tiene que resolver por sí mismo (metáfora: enseñar a cazar, no cazar el alimento).
+- Si hay dudas reales, derivarlas a Nicolás — el agente no las contesta, así la persona va aprendiendo.
+- Hacer recordatorios de tareas, fechas de resultados, evaluaciones.
+- Ayudar a ordenar y planificar ofreciendo preguntas, nunca respuestas.
+- Traer la frase del oráculo del campus.
+- Nunca reemplaza el vínculo humano ni el rol de Nicolás — esto "no se negocia".
+
+Canal: **mail únicamente por ahora**. WhatsApp evaluado y pospuesto (requiere WhatsApp Business API, verificación de negocio, plantillas pre-aprobadas por Meta, y un costo por conversación que el mail no tiene). El pedido de Nicolás de que "una respuesta al mail se plasme en la app" quedó marcado como bloqueado por la misma limitación de Resend documentada en la sesión anterior (plan actual = 1 dominio, agregar el de recepción pide upgrade a Resend Pro US$20/mes) — no resuelto, a definir cuándo se retoma.
+
+## 5. Qué se construyó y probó en esta fase (commit pendiente — falta el rediseño visual antes de cerrar el paquete)
+- **`sql/2026-08-10_entusiasmento.sql`** (corrido por Nicolás en Supabase): tablas `entusiasmo_proyectos` (1 fila por participante — coordenadas + campos de pitch), `entusiasmo_producciones` (categoría/tipo/visible, FK a proyecto — **todavía no tiene endpoints ni UI**, solo el schema), `entusiasmo_aportes` (ídem, sin endpoints todavía). RLS habilitado sin policies (mismo patrón deny-by-default del resto del proyecto).
+- **`app/api/entusiasmo/proyecto/route.ts`** (GET/PUT): coordenadas propias, o de cualquiera si sos admin (`casatalentos.admin`). Reutiliza `requireActivityAccess("casatalentos", ...)` — mismo gate de acceso que todo CasaTalentos, sin tocar `authz.ts`.
+- **`app/api/entusiasmo/pitch/preparar-upload/route.ts`** + **`.../pitch/confirmar/route.ts`**: mismo patrón de signed-upload-URL que ya usa `casatalentos-videos`/`espacios-archivos`, bucket nuevo `entusiasmo-producciones` **auto-creado por código** (no hizo falta que Nicolás lo cree a mano en Supabase — probado en vivo, el bucket se creó solo en el primer POST).
+- **`app/casatalentos/page.tsx`**: nueva sección "Entusiasmento — Coordenadas y Pitch" agregada **antes** del bloque "Dispositivo CasaTalentos" (que sigue intacto, sin tocar). Reutiliza `GrabadorVideo.tsx` tal cual para el pitch. Título/eyebrow/subtítulo/chips del hero actualizados a "Entusiasmento" en los 3 estados (cargando / sin sesión / normal). También actualizado: `components/AppNav.tsx` (label del link, sin tocar el href `/casatalentos`) y `app/campus/page.tsx` (card del dashboard y texto del recordatorio). **No se tocaron todavía** las etiquetas menos visibles: combo de comunicaciones, consentimientos, HDR — queda para una pasada de renombrado más completa.
+- Probado en vivo de punta a punta con Playwright + `admin@escuela.com`: guardar/leer coordenadas por API y verificado que aparecen ya cargadas en la página real; subida de pitch completa (preparar → subir al storage → confirmar), incluida la auto-creación del bucket; sin errores de consola. Limpieza total de fila y archivo de prueba al final. `typecheck`/`lint` limpios (los 4 warnings que aparecen en `casatalentos/page.tsx` son preexistentes, no relacionados).
+
+## 6. Diseño visual/UX — delegado, en curso
+Nicolás pidió explícitamente **nada de solapas**, un menú "dinámico, amable, simple", y que la experiencia se sienta como un coworking real (compartir espacio, libertad de elegir qué mostrar). Se armó un prompt completo y autocontenido (identidad, vocabulario de marca, estructura de espacios, reglas del agente, paleta actual del proyecto — fondo `#f4ecde`, acento `#cf9130`) para que Nicolás se lo lleve a otra conversación de Claude y traiga de vuelta una dirección de arquitectura de navegación + metáforas visuales — publicado como Artifact. Pendiente: Nicolás trae la devolución, se decide si el resto de la construcción (Producciones, CoFruto, agente) espera ese diseño o avanza en paralelo con estilos genéricos y se re-skinea después.
+
+## 7. Pendiente (explícitamente fuera de esta entrega)
+- **Producciones** (endpoints + UI, con toggle de visibilidad por ítem) y **CoFruto** (vista agregada de todo lo visible + aportes) — schema ya existe, falta todo el resto.
+- **Agente de IA**: `lib/ai.ts` (primera integración LLM del proyecto), endpoint de recordatorio semanal enganchado al cron diario (`app/api/cron/diario/route.ts`, patrón `if (diaSemana === 1)`), endpoint de diagnóstico on-demand para admin, refactor del shell de mail HTML (hoy duplicado en 3 lugares: `crearHtmlRecordatorioPagoEntheos`, `crearHtmlRespuestaEntheos`, y el inline de `lib/mailing.ts` — conviene unificar antes de sumar una cuarta copia).
+- Rediseño visual completo (esperando la devolución del prompt de diseño).
+- Pasada de renombrado completa CasaTalentos→Entusiasmento en comunicaciones/consentimientos/HDR.
+- Retiro del "Dispositivo CasaTalentos" viejo, cuando Nicolás confirme que ya no lo necesita en paralelo.
+- Captura de respuestas de mail dentro de la app (bloqueado por Resend, ver sesión anterior).
+- Nada de esto se pusheó todavía — se decidió esperar a tener también la dirección de diseño antes de cerrar y subir este paquete a `main`.
+
+---
+
+# Sesión de trabajo 2026-08-11 — Diseño de Entusiasmento (Fase 0: bug de seguridad + Fase A: "Mi espacio")
+
+## 1. Bug de seguridad encontrado antes de construir nada (ya corregido)
+Nicolás recibió de otra conversación de Claude una dirección de diseño concreta para Entusiasmento (2 destinos "Mi espacio"/"CoFruto", producciones como filtros no como rutas, visibilidad opt-in por ítem, paleta intacta) y, al revisarla contra el plan de implementación, **encontró y verificó directo contra producción** que el bucket `entusiasmo-producciones` (creado en la sesión anterior) había quedado `public: true` — copiado por error del patrón de `espacios-archivos` en vez de `casatalentos-videos` (que siempre fue `public: false`). Esto rompía la premisa central del diseño: un archivo marcado "solo lo ves vos" igual sería alcanzable por URL directa sin autenticación.
+
+**Verificado independientemente y confirmado**: el bucket estaba vacío y `entusiasmo_proyectos` no tenía filas — el único archivo que existió ahí fue un PNG de prueba de la sesión anterior, subido y borrado en el mismo test automatizado. **Ningún dato real quedó expuesto.**
+
+**Corregido**: `entusiasmo-producciones` pasado a `public: false` en producción (`storage.updateBucket`), y `asegurarBucketEntusiasmo` (`app/api/entusiasmo/pitch/preparar-upload/route.ts`) corregido para crear/mantener el bucket privado a futuro, en vez de forzarlo público. Las lecturas del pitch dejaron de usar `getPublicUrl` (client-side, no sirve contra bucket privado) y pasaron a **signed URLs generadas server-side** (mismo patrón que ya usa `app/api/casatalentos/listar/route.ts` con `createSignedUrls`, 1 hora de validez): `GET /api/entusiasmo/proyecto` devuelve `pitchSignedUrl`, `POST /api/entusiasmo/pitch/confirmar` devuelve `pitchUrl` firmado.
+
+**Hallazgo relacionado, no corregido todavía**: `espacios-archivos` (adjuntos de Mentorías/Terapia en `EspacioAcompanamiento.tsx`) tiene el mismo patrón — bucket público, sin signed URL en ningún lado del código. Es contenido potencialmente más sensible (adjuntos de sesiones de mentoría/terapia). A diferencia de `entusiasmo-producciones`, **este bucket está en uso activo real** — pasarlo a privado rompe la visualización de adjuntos existentes a menos que se le sume lectura por signed URL en `EspacioAcompanamiento.tsx`, que es un cambio de mayor alcance y en un flujo distinto. Queda marcado como pendiente propio, fuera del alcance de esta sesión — evaluar cuándo se retoma.
+
+## 2. Política de retención del pitch (decidida, implementada)
+A diferencia de `casatalentos_videos` (se borran a los 28 días vía cron `limpiar-antiguos`), **el pitch no es descartable** — es la carta de presentación vigente de cada participante. Lo que hay que evitar es acumular versiones viejas cuando alguien regraba. Implementado dentro de `POST /api/entusiasmo/pitch/confirmar`: antes de guardar el `storage_path` nuevo, si ya existía uno distinto para esa persona, se borra el archivo viejo del bucket en el mismo request (sin cron nuevo). Producciones (Fase B, todavía sin construir) va a necesitar su propia política de retención cuando se construya — no decidida todavía, no aplica lo mismo automáticamente.
+
+## 3. Gate temporal de la sección nueva — IMPORTANTE, sacar en su momento
+La sección "Entusiasmento" (Mi espacio / CoFruto) hoy está **visible solo para admin** (`{esAdmin && (...)}` alrededor de todo el bloque en `app/casatalentos/page.tsx`) — los participantes reales siguen viendo únicamente el "Dispositivo CasaTalentos" de siempre, sin ningún cambio visible para ellos. Es a propósito: evita que participantes reales (Agustina, Verónica, Cristian, Florencia, María Gabriela, entre otros) entren a `/casatalentos` esta semana y encuentren un módulo a medio construir. **Este gate es temporal — sacarlo cuando la Fase C (CoFruto real, con producciones visibles de verdad) esté lista y Nicolás confirme que se puede abrir a todos.** Hay un comentario en el código en el mismo lugar (`app/casatalentos/page.tsx`, justo antes del `{esAdmin &&`) que apunta a esta sección de CLAUDE.md — no debería perderse de vista.
+
+## 4. Diseño aprobado — decisiones estructurales (no se re-discuten en fases siguientes)
+- Navegación de **2 destinos únicos**: "Mi espacio" y "CoFruto" — nunca solapas horizontales en ningún nivel del módulo.
+- Las 5 categorías de producciones (Producto/Servicio/Institucional/Comunicación/Administración) van a ser **píldoras de filtro sobre una sola lista** (Fase B), no rutas ni tabs separadas — un participante nuevo con 1-2 producciones no debe ver "habitaciones vacías".
+- Paleta intacta (`#f4ecde` crema, `#cf9130` dorado); el dorado se reserva para el marco del pitch y el estado "visible en la mesa" — sin quiebre visual, la diferencia es de organización del espacio.
+- Copy: "N todavía sin definir" (nunca "incompleto"/"te falta"), "mostrar"/"llevar a la mesa" (nunca "publicar"), sin % ni barra de progreso hacia 100, sin comparación entre participantes.
+- "Tu ritmo" (indicador de actividad) se saca de la Fase A por decisión de Nicolás: con solo coordenadas+pitch, alguien nuevo completa todo en un día y ve casi todas las barras vacías — comunica lo contrario de lo que busca el diseño ("no hiciste nada" en vez de "así viene tu ritmo"). Se implementa en Fase B cuando Producciones dé señal real, y no se muestra hasta que haya actividad en al menos 2 semanas distintas (un módulo ausente no dice nada; un módulo vacío dice algo malo).
+
+## 5. Qué se construyó en esta fase (Fase A recortada, sin "Tu ritmo") — pendiente de probar en vivo y confirmar antes de commit
+- `app/casatalentos/page.tsx`: la sección "Entusiasmento" se reestructuró en el shell de 2 destinos (`destinoEntusiasmo`, persistido con `usePersistentState`), Pitch rediseñado (tarjeta con marco dorado, "Volver a grabarlo"/"Guardar pitch" según corresponda, lectura por signed URL), Coordenadas rediseñada como fila plegable (`coordenadasAbiertas`, colapsada por defecto, "{N} todavía sin definir" contando los 9 campos vacíos vía `CAMPOS_COORDENADAS`), "Tu ritmo" como placeholder reservado sin lógica, destino "CoFruto" con estado vacío. Gate `esAdmin` alrededor de todo el bloque (ver punto 3).
+- `app/api/entusiasmo/proyecto/route.ts` y `app/api/entusiasmo/pitch/confirmar/route.ts`: signed URLs + borrado de versión anterior del pitch (ver puntos 1 y 2).
+
+## 6. Pendiente
+- Probar en vivo (bucket privado confirmado, signed URL funcional, URL pública vieja del mismo archivo devuelve 403, retención borra el archivo anterior al regrabar, copy de coordenadas, persistencia de destino) y limpiar mostrando explícitamente que el bucket queda vacío al final — recién ahí se hace commit.
+- Fase B: Producciones (filtros por categoría + visibilidad opt-in con ícono ojo/candado + copy "mostrar"/"llevar a la mesa") + "Tu ritmo" real.
+- Fase C: CoFruto real (lista vertical de "puestos", uno por participante).
+- Fase D: agente de IA. Fase E: relabeling completo + retiro del Dispositivo viejo.
+- Evaluar por separado la privacidad de `espacios-archivos` (punto 1).
+
+---
+
+# Sesión de trabajo 2026-08-11 (continuación) — Fase A2: romper solapas, retirar lo viejo, aportes de admin
+
+## 1. Objetivo
+Después de probar la Fase A, Nicolás pidió un salto grande: "sigue siendo un espacio académico aburrido". Pidió, todo junto: que Entusiasmento deje de vivir en un acordeón y sea la pantalla principal de `/casatalentos`; retirar de una vez el "Dispositivo CasaTalentos" viejo (antes se mantenía en paralelo a propósito — ahora confirmado explícitamente que se reemplaza); sacar "Hoja de Ruta" de esta página; renombrar "Mensajes" a "Valoraciones y agradecimientos"; achicar "Reunión semanal" a un botón en una esquina; eliminar "Grabaciones y biblioteca"; mudar "Gestión de referentes" al espacio de admin (que pasa a ser el mismo que ve el participante, con funciones extra); un mecanismo nuevo de aportes de admin sobre el trabajo de cualquier participante; y una pasada de personalidad visual rompiendo la homogeneidad de tarjetas iguales.
+
+Dos decisiones confirmadas por Nicolás antes de tocar código (preguntadas directamente porque afectaban a participantes reales):
+- **Entusiasmento se abre a todos los participantes ya** (no solo admin) — consecuencia directa de que el Dispositivo viejo desaparece y no queda nada más que mostrarles.
+- **"Valoraciones y agradecimientos" mantiene los hilos con respuestas** (no se aplana a muro simple), solo cambia nombre y propósito declarado.
+
+## 2. Hallazgo: ya existía un sistema de "aportes" genérico (HDR), no se reusó
+`lib/hdr.ts` tiene un sistema completo de Hoja de Ruta con coordenadas/respuestas/aportes (`crearAporteHDR`, tabla `hdr_aportes`), pero con un modelo de datos distinto (coordenadas configurables por admin, título/descripción, global o individual) al de Entusiasmento (9 campos fijos). Confirmado por grep que **solo `app/casatalentos/page.tsx` lo consumía** — se pudo sacar de esta página sin afectar nada más. El sistema HDR en sí (tablas, componentes, endpoints `/api/hdr/*`) **no se borró del código**, solo dejó de renderizarse acá — sigue disponible si en el futuro se necesita para otra actividad.
+
+Para "aportes de admin sobre el trabajo del participante" se reutilizó la tabla `entusiasmo_aportes` (creada en la Fase 0, sin uso hasta ahora) en vez de HDR — mismo modelo sirve para esto y para los aportes entre participantes que se van a necesitar en CoFruto (Fase C), sin duplicar sistemas.
+
+## 3. Qué se hizo
+- **`app/casatalentos/page.tsx`** (el más tocado, con diferencia):
+  - Se sacó el acordeón/gate `esAdmin &&` que envolvía Entusiasmento — ahora es contenido directo, visible para todos, arriba de la página (justo después del hero).
+  - Se eliminó el bloque completo "Dispositivo CasaTalentos" (ranking/videos/votación/evaluación, ~700 líneas de JSX) y los handlers que solo lo alimentaban (`handleArchivo`, `handleCargarVideo`, `handleElegir`, `handleComentar`, `handleEliminarVideoParticipante`, `handleLimpiarVideos`, ~330 líneas). Las tablas viejas (`casatalentos_videos`, etc.) siguen archivadas en la base, sin tocar.
+  - Se eliminó `<HDRActividad>` y su import.
+  - "Mensajes" → "Valoraciones y agradecimientos": cambió `tituloMensajes`, el copy del formulario ("Nueva valoración o agradecimiento", placeholder, botón "Compartir"), y el estado vacío. La mecánica de hilos/respuestas no cambió.
+  - Las dos apariciones de "Reunión semanal" (`SeccionDesplegable` + `<AgendaActividad>`, una para admin y otra para participante) se reemplazaron por **un solo botón compacto** arriba de la página, junto al hero: fecha/hora del próximo encuentro + `ConsentimientoMeetButton` (componente ya existente, reutilizado tal cual — ya resolvía el gate de términos y condiciones antes de entrar al Meet, no hizo falta escribir nada nuevo para eso). Nuevo estado `proximoEncuentro`, fetch propio a `/api/agenda/por-actividad` (mismo endpoint que ya usaba `AgendaActividad`, sin tocarlo).
+  - `<CasaTalentosAdminPanel>` se movió de su posición original (arriba de la página, siempre visible para admin) a **dentro de "Mi espacio", solo cuando `esAdmin`** — ahora el espacio de admin es el mismo que ve el participante, con un bloque extra.
+  - Coordenadas pasó a tener identidad visual propia (tono celeste, ícono de brújula 🧭); Pitch se reforzó (marco dorado más grueso, sombra, ícono ✦); "Tu ritmo" quedó como placeholder con forma de píldora punteada; "Valoraciones y agradecimientos" con tono rosa/rojo (♥, 💌); el selector Mi espacio/CoFruto ahora tiene íconos (🪴/🧺) y color distinto por destino (dorado vs. verde esmeralda).
+- **`components/casatalentos/CasaTalentosAdminPanel.tsx`**: se sacó por completo la sección "Grabaciones y biblioteca" (formulario, CRUD, `BibliotecaGrabaciones`, ~400 líneas incluyendo tipos/estado/handlers/fetch combinado) — Nicolás va a armar un espacio de suscripción aparte más adelante. Quedó solo "Gestión de referentes" (general + semanal), que es lo que ahora vive dentro de "Mi espacio" del admin.
+- **`app/api/entusiasmo/aportes/route.ts`** (nuevo): GET (propios, o de cualquiera si sos admin) y POST (por ahora **solo admin** puede crear aportes — dejado explícito en el endpoint, participantes-a-participantes queda para cuando exista CoFruto). Si la persona destinataria todavía no tiene fila en `entusiasmo_proyectos`, se le crea una vacía automáticamente para poder asociarle el aporte.
+- **UI de aportes**: en "Mi espacio", los aportes recibidos se muestran como notas/burbujas de color (rotando entre 4 colores) debajo del Pitch. En el bloque admin, un mini-formulario (email + texto) para dejarle un aporte a cualquier participante.
+
+## 4. Verificado en vivo (Playwright + `admin@escuela.com`, sin errores de consola)
+Entusiasmento visible sin necesitar abrir ningún acordeón; "Dispositivo CasaTalentos"/"Hoja de Ruta"/"Grabaciones y biblioteca" ausentes; "Valoraciones y agradecimientos" presente y funcional; "Gestión de referentes" visible dentro de Mi espacio solo para admin; envío de un aporte de prueba a un participante ficticio confirmado en base (fila creada en `entusiasmo_proyectos`, aporte guardado en `entusiasmo_aportes`, recuperable por `GET /api/entusiasmo/aportes?email=...`), limpieza total confirmada al final. `typecheck` limpio.
+
+## 5. Pendiente — código muerto identificado, no removido en esta pasada
+Además de los handlers del Dispositivo (ya eliminados), quedan **~45 warnings de lint** por variables/`useMemo` que solo alimentaban la UI vieja de ranking/votación/comentarios-por-video (ej. `resumenSemana`, `eleccionesPorParticipante`, `resultadosVotacionVisibles`, `comentariosPorVideo`, `referenteSemanalActual`, `resumenAdmin`, entre otros — todos en `app/casatalentos/page.tsx`, ninguno afecta funcionalidad, todos son cálculos derivados sin consumidor en el JSX actual). No se tocaron en esta entrega por alcance/tiempo — es una limpieza de bajo riesgo pero mecánica, pendiente para una pasada dedicada.
+
+## 6. Pendiente general (sin cambios respecto a la Fase A)
+- Fase B: Producciones reales (hoy solo hay schema) — esto también habilita "Tu ritmo" real.
+- Fase C: CoFruto real.
+- Fase D: agente de IA (recordatorios semanales, diagnóstico admin).
+- Relabeling menor pendiente (consentimientos, HDR ya no aplica, comunicaciones ya decía "CasaTalentos" en el selector de actividad — no se tocó, bajo impacto).
+- Evaluar por separado la privacidad de `espacios-archivos` (bucket público, mencionado en la sesión anterior).
+- **No se hizo commit todavía** — a la espera de que Nicolás lo pruebe y confirme, mismo criterio que toda la iniciativa de Entusiasmento.
+
+---
+
+# Sesión de trabajo 2026-08-11 (continuación 2) — Fase A3a: Recursos en CoFruto, Valoraciones como cuadrito, Producciones, Tareas semanales
+
+## 1. Objetivo
+Después de probar la Fase A2, Nicolás pidió 5 cosas más de una: Recursos dentro de CoFruto; comentarios de admin anclados a un fragmento de texto en Coordenadas (estilo Google Docs, con popup); Valoraciones y agradecimientos como un cuadrito junto al botón de reunión semanal; un espacio de Producciones (imágenes/texto/audio) debajo de Coordenadas con visibilidad; y Tareas semanales para que luego el agente les haga seguimiento.
+
+Dado que los comentarios anclados a texto son sustancialmente más complejos que el resto (hoy no existe forma de que admin vea el espacio de otro participante — el aporte de la Fase A2 era "a ciegas", solo con el email), se propuso y se acordó con Nicolás dividir en dos entregas: **Fase A3a** (esta, las 4 más simples) y **Fase A3b** (próxima, los comentarios anclados — con su propio diagnóstico).
+
+## 2. Qué se hizo (Fase A3a)
+- **Recursos dentro de CoFruto**: las dos secciones "Recursos" (admin y participante) se movieron de su lugar original (arriba de la página) a adentro del destino "CoFruto" — ya no son secciones aparte, aparecen debajo del cartel "🧺 CoFruto".
+- **Valoraciones y agradecimientos como cuadrito**: se sacó de ser un acordeón en el medio del flujo y pasó a ser un botón compacto (mismo porte que el de "Reunión semanal", junto a él, debajo del hero) con un ícono 💌 que crece levemente según la cantidad de valoraciones (`mensajesGenerales.length`) y muestra el contador de no leídos — clickeable para abrir/cerrar el contenido completo (mismos hilos/respuestas de siempre, sin cambios en la lógica) en un panel con fondo rosado, ahí mismo.
+- **Producciones**: tabla ya existía (Fase 0), se agregaron los endpoints (`app/api/entusiasmo/producciones/route.ts` GET/POST/PATCH/DELETE, `.../preparar-upload/route.ts` mismo patrón que el pitch, mismo bucket privado, ahora acepta `image/*` y `audio/*`) y la UI debajo de Coordenadas: elegís tipo (texto/imagen/audio), subís o escribís, y cada ítem tiene el toggle "👁️ En la mesa común" / "🔒 Solo lo ves vos". Sin categorías todavía (Producto/Servicio/etc. quedan para cuando se retome esa parte del diseño original). CoFruto todavía no muestra las producciones visibles de otros — eso es Fase C.
+- **Tareas semanales**: tabla nueva `entusiasmo_tareas` (`sql/2026-08-12_entusiasmo_tareas.sql`, **pendiente que Nicolás la corra**), endpoint `app/api/entusiasmo/tareas/route.ts` (GET/POST/PATCH), UI debajo de Producciones — el participante escribe tareas y las tilda. El seguimiento automático del agente queda para la Fase D (no implementado, no hay agente todavía).
+
+## 3. Verificado en vivo (lo que no depende de la tabla nueva)
+Cuadrito de Valoraciones abre y cierra correctamente; Recursos visible dentro de CoFruto; producción de texto creada y verificada en base; producción de imagen probada **directo contra los endpoints** (preparar-upload → subida → confirmar, los 3 pasos con 200 y el registro correcto en base) — la prueba end-to-end vía UI en Playwright falló por un problema del script de prueba (el selector de `input[type="file"]` agarró el de Pitch en vez del de Producciones, porque hay más de un input de archivo en la página), no del código; toggle de visibilidad confirmado; limpieza total mostrada al final. Sin errores de consola. `typecheck`/`lint` limpios (mismos 45 warnings preexistentes del código muerto del Dispositivo, documentados en la sesión anterior, sin warnings nuevos).
+
+## 4. Pendiente
+- **Nicolás tiene que correr `sql/2026-08-12_entusiasmo_tareas.sql`** antes de poder probar Tareas semanales en vivo — es lo único que quedó sin verificar en esta entrega.
+- Fase A3b: comentarios de admin anclados a texto en Coordenadas (selector de a quién ver + coordenadas en modo lectura + selección de texto + popup), reemplaza el formulario suelto de "Dejar un aporte" armado en la Fase A2.
+- Sigue pendiente de fases anteriores: Fase C (CoFruto mostrando producciones visibles reales), Fase D (agente de IA, incluido el seguimiento de tareas semanales), limpieza de código muerto del Dispositivo viejo, privacidad de `espacios-archivos`.
+- **No se hizo commit todavía.**
+
+---
+
+# Sesión de trabajo 2026-08-11 (continuación 3) — Ronda de feedback sobre la Fase A3a
+
+## 1. Contexto
+Nicolás probó la Fase A3a en vivo (con `entusiasmo_tareas` ya corrido) y dio una lista larga de feedback — mezcla de un bug real, ajustes visuales concretos, y pedidos grandes para fases futuras. Pidió explícitamente "ve anotando y considerando todo esto para los próximos cambios", así que se separó en dos grupos: lo que se corrigió ya (ajustes chicos y contenidos, más un bug real) y lo que queda documentado para más adelante (rediseños grandes).
+
+## 2. Hallazgo importante: el cartel de consentimiento NO es un bug
+Nicolás reportó que "la reunión semanal no dispara el cartel de consentimiento informado". Investigado: `ConsentimientoMeetButton` (componente ya existente, reutilizado tal cual desde la Fase A2) tiene esta línea explícita: `if (esAdmin || !actividadValida || !session?.user?.email) { abrirDestinoUnaVez(href); return }` — **el rol admin salta el consentimiento a propósito, en todo el proyecto**, no es algo nuevo de Entusiasmento. `"casatalentos"` sí está registrado como actividad de consentimiento en `lib/consentimientos.ts`. Si Nicolás estaba probando con una cuenta admin (como se hizo toda esta sesión), es el comportamiento esperado — no vieron el cartel porque son admin, no porque esté roto. **Pendiente confirmar con Nicolás**: si prueba con un usuario participante real sí debería aparecer; si igual no aparece ahí, eso sí sería un bug a investigar.
+
+## 3. Qué se corrigió en esta ronda
+- **Cartel grande (hero) simplificado**: ahora dice solo "Entusiasmento" con el subtítulo "Espacio para Plasmar" — se sacaron el eyebrow, la descripción larga y los chips (Talento/Entusiasmo/Producción/Propósito), y se unificó: ya no hay versión distinta para admin ("Admin Entusiasmento" desapareció).
+- **Cuadrito de Valoraciones**: se sacó el corazón (♥ → ✦) y el tono rosa/afecto se reemplazó por dorado con brillo (`box-shadow` con glow dorado en el botón y en el panel expandido) — la metáfora pasa a ser "luz/valor" en vez de "afecto", como pidió.
+- **Producciones**: ahora se ve el contenido real de lo subido, no solo el título — imágenes como miniatura, audio con reproductor, texto con el contenido completo. Esto requirió sumar `signedUrl` a la respuesta de `GET /api/entusiasmo/producciones` (mismo patrón de signed URLs de 1 hora que ya usa el pitch, bucket privado).
+- **Tareas semanales**: probado en vivo end-to-end (crear, tildar completada) ahora que la tabla existe — funciona.
+
+## 4. Incidente menor durante la prueba: hydration error transitorio (resuelto, no era del código)
+Al probar, aparecieron errores de hidratación de React en la consola (`Hydration failed...`) apuntando exactamente al lugar donde se había sacado el `eyebrow` del hero. Se verificó que el código fuente ya estaba correcto (sin `eyebrow`) — era el **servidor de desarrollo sirviendo una versión en caché** de esa ruta, desincronizado después de varias ediciones seguidas al mismo archivo. Confirmado: tras reiniciar `npm run dev`, 0 errores en 3 recargas seguidas. No afecta producción (un build real compila una sola vez, no tiene este tipo de staleness) — se documenta solo por si vuelve a aparecer algo similar en una sesión futura con ediciones muy seguidas al mismo archivo grande.
+
+## 5. Anotado para fases futuras (NO implementado todavía, a pedido explícito de Nicolás)
+- **Pitch**: mantiene el formato/posición actual, pero Nicolás quiere un estilo más moderno tipo redes sociales (Instagram) — pendiente de diseño más concreto antes de construir.
+- **Tu ritmo**: Nicolás no terminaba de entender cómo funciona (es normal, hoy es solo un placeholder reservado para la Fase B) pero confirmó que le gusta la metáfora musical — se mantiene esa dirección para cuando se construya de verdad.
+- **Coordenadas — pregunta importante que Nicolás hizo y quedó respondida**: hoy "Mi espacio" muestra siempre los datos de quien está logueado (si sos admin, ves tus propias coordenadas, no las de un participante). Nicolás notó esto y preguntó si como admin debería poder ver las de cada persona — **la respuesta es sí, y es exactamente lo que la Fase A3b (comentarios anclados a texto) ya iba a necesitar construir** (un selector de a qué participante está viendo el admin). Aporte nuevo de Nicolás para esa fase: sugirió que **para el admin específicamente sí tendría sentido usar solapas** (una por participante, para cambiar entre ellos) — excepción puntual a la regla general de "nada de solapas", solo para este selector, a tener en cuenta cuando se diseñe la Fase A3b.
+- **Tareas semanales — pedido grande para más adelante**: agregar fecha y hora por tarea, que los recordatorios del futuro agente se basen en esa configuración particular de cada tarea (no un horario genérico), y un dashboard de tareas para el participante. Esto es sustancialmente más grande que el CRUD simple de esta entrega — probablemente su propia fase, ligada a cuando se construya el agente (Fase D).
+- **Aportes de admin**: confirmado por Nicolás que quedan igual por ahora, entendiendo que se reemplazan en la Fase A3b.
+
+## 6. Pendiente
+- Confirmar con Nicolás si probó el consentimiento como admin (esperado que no aparezca) o como participante (ahí sí sería bug real).
+- Todo lo anotado en el punto 5, para cuando se retomen esas fases.
+- **No se hizo commit todavía.**
+
+---
+
+# Sesión de trabajo 2026-08-11 (continuación 4) — Ronda de feedback 2: logo, bug real de micrófono, grabar audio, emoji
+
+## 1. Qué se corrigió
+- **Logo del hero**: se sacó `logoSrc="/casatalentos-logo.png"` (el logo viejo de CasaTalentos) del cartel de "Entusiasmento" — Nicolás va a subir uno nuevo. Sin `logoSrc`, `WorkspaceHero` cae en su logo genérico por defecto (Interlegere) mientras tanto.
+- **Bug real encontrado y corregido**: la participante Cuchulain Mago reportó un error crudo de Next.js (`NotAllowedError: Permission denied`) al intentar dar permiso de micrófono. Investigado: **el manejo de este error ya existía** en `GrabadorVideo.tsx` (try/catch con mensaje amigable + fallback a subir archivo) — lo que pasaba es que el `console.error(...)` dentro de ese catch hace que **Next.js 16 en modo desarrollo muestre igual el overlay de error a pantalla completa**, aunque la app ya se haya recuperado sola — se ve como un crash sin serlo. Se cambió ese `console.error` a `console.warn` (que no dispara el overlay) y se mejoró el mensaje ("revisá los permisos del navegador... o subí un archivo ya grabado"). Confirmado en vivo con Playwright simulando **ambos casos** (permiso concedido y denegado, usando flags de fake-media-device de Chromium): con permiso funciona y graba; sin permiso muestra el mensaje amigable y **cero errores sin manejar en consola** — antes esto último no se había probado explícitamente.
+- **Grabar audio en Producciones**: nuevo componente `components/casatalentos/GrabadorAudio.tsx` (grabación con `MediaRecorder`, mismo patrón de manejo de errores ya corregido) — en el formulario de Producciones, tipo "audio" ahora ofrece "🎙️ Grabar audio" además de subir un archivo. Probado en vivo: graba, detiene, muestra reproductor de preview.
+- **Emoji de Valoraciones**: 💌 (carta con corazón) → ✉️ (sobre sin corazón) — la vez anterior solo se había sacado el símbolo "♥" de texto, pero el emoji en sí seguía teniendo corazón dibujado.
+
+## 2. Verificado en vivo
+Hero sin logo viejo; emoji sin corazón (✉️ presente, 💌 ausente); grabación de audio con permiso concedido (fake mic de Chromium) graba y muestra preview; grabación de audio con permiso denegado muestra el mensaje amigable sin ningún error de consola sin manejar. `typecheck`/`lint` limpios (mismos 45 warnings preexistentes, sin nuevos).
+
+## 3. Pendiente
+- Nicolás va a subir un logo nuevo para Entusiasmento — cuando lo tenga, agregarlo a `logoSrc` en el hero.
+- Resto de lo anotado en la ronda de feedback anterior (Pitch estilo Instagram, Tu ritmo con metáfora musical, Fase A3b con selector de participante para admin, Tareas semanales con fecha/hora + recordatorios + dashboard).
+- **No se hizo commit todavía.**

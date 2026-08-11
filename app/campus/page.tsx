@@ -308,8 +308,8 @@ export default function CampusPage() {
       if (mostrarRecordatorioCasaTalentos) {
         const proxima = siguienteSemanaDiaHora(5, 7, 0)
         items.push({
-          actividad: "CasaTalentos",
-          texto: `Próximo coworking: ${formatearRecordatorio(proxima)}`,
+          actividad: "Entusiasmento",
+          texto: `Próximo entrenamiento: ${formatearRecordatorio(proxima)}`,
           href: "/casatalentos",
         })
       }
@@ -563,10 +563,10 @@ export default function CampusPage() {
         <div className="grid gap-4 md:grid-cols-2">
           {accesoCasaTalentos && (
             <Card
-              titulo="CasaTalentos"
-              descripcion="Acceso a la actividad, biblioteca, reunión semanal y dispositivo de videos."
+              titulo="Entusiasmento"
+              descripcion="Tu proyecto, tu pitch, y el espacio de entrenamiento semanal."
               href="/casatalentos"
-              subtitulo="Coworking creativo"
+              subtitulo="Entrenamiento"
               estado="Trabajo semanal"
             />
           )}

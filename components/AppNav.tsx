@@ -86,7 +86,7 @@ export default function AppNav() {
         { href: "/admin/consentimientos", label: "Admin Consentimientos" },
         { href: "/admin/usuarios", label: "Admin Usuarios" },
         { href: "/admin/comunicaciones", label: "Comunicaciones" },
-        { href: "/casatalentos", label: "CasaTalentos" },
+        { href: "/casatalentos", label: "Entusiasmento" },
         { href: "/conectando-sentidos", label: "Conectando Sentidos" },
         { href: "/mentorias", label: "Mentorías" },
         { href: "/terapia", label: "Terapia" },
@@ -101,7 +101,7 @@ export default function AppNav() {
         ]
     : [
         { href: "/campus", label: "Campus" },
-        { href: "/casatalentos", label: "CasaTalentos" },
+        { href: "/casatalentos", label: "Entusiasmento" },
         { href: "/conectando-sentidos", label: "Conectando Sentidos" },
         { href: "/mentorias", label: "Mentorías" },
         { href: "/terapia", label: "Terapia" },
