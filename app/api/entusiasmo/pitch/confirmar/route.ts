@@ -125,3 +125,66 @@ export async function POST(req: Request) {
     )
   }
 }
+
+export async function DELETE(req: Request) {
+  try {
+    const auth = await requireActivityAccess(
+      "casatalentos",
+      getActivityAdminPermission("casatalentos")
+    )
+
+    if ("response" in auth) {
+      return auth.response
+    }
+
+    const body: Body = await req.json()
+    const esAdmin = hasPermission(auth.actor, "casatalentos.admin")
+    const emailSolicitado = body.participanteEmail?.trim().toLowerCase()
+
+    if (emailSolicitado && emailSolicitado !== auth.actor.email && !esAdmin) {
+      return NextResponse.json(
+        { error: "No podés eliminar el pitch de otra persona." },
+        { status: 403 }
+      )
+    }
+
+    const emailObjetivo = emailSolicitado || auth.actor.email
+    const supabase = createAdminSupabaseClient()
+
+    const { data: existente } = await supabase
+      .from("entusiasmo_proyectos")
+      .select("pitch_storage_path")
+      .eq("participante_email", emailObjetivo)
+      .maybeSingle()
+
+    if (!existente?.pitch_storage_path) {
+      return NextResponse.json({ error: "No hay ningún pitch cargado." }, { status: 400 })
+    }
+
+    const { error } = await supabase
+      .from("entusiasmo_proyectos")
+      .update({
+        pitch_storage_path: null,
+        pitch_mime_type: null,
+        pitch_actualizado_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("participante_email", emailObjetivo)
+
+    if (error) {
+      return NextResponse.json(
+        { error: "No se pudo eliminar el pitch.", detalle: error },
+        { status: 500 }
+      )
+    }
+
+    await supabase.storage.from(BUCKET).remove([existente.pitch_storage_path])
+
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Error interno eliminando el pitch.", detalle: String(error) },
+      { status: 500 }
+    )
+  }
+}

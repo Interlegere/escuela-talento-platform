@@ -763,5 +763,84 @@ Hasta ahora la fecha/hora de una tarea semanal solo se podía definir al crearla
 Con la cuenta de test `admin@escuela.com` (que genera su propio proyecto aislado): se creó una tarea sin fecha, se confirmó que muestra "+ Fecha", se editó a 20/08/2026 09:15 y se confirmó tanto en pantalla ("Jue 20/08 · 09:15", con el botón pasando a decir "Editar") como en la base (`fecha: "2026-08-20"`, `hora: "09:15:00"`). Tarea y proyecto de prueba borrados al final. `typecheck`/`lint` limpios, sin warnings nuevos.
 
 ## 4. Pendiente
-- **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
 - Resto sin cambios: Pitch estilo Instagram, agente de IA (Fase D).
+
+Commiteado y pusheado (`7a6fc05`).
+
+---
+
+# Sesión de trabajo 2026-08-12 (continuación) — Pitch estilo Stories/Reels
+
+## 1. Objetivo
+Rediseño visual pedido en una ronda de feedback bien anterior: que el bloque de Pitch se sintiera más "estilo Instagram". Dado lo ambiguo del pedido, se le mostraron a Nicolás 2 mockups concretos (formato Stories/Reels vertical vs. formato post de feed clásico) antes de tocar código — eligió **Stories/Reels**.
+
+## 2. Qué se hizo
+`app/casatalentos/page.tsx`, bloque de Pitch dentro de "Mi espacio": se reemplazó la tarjeta con marco dorado grueso por un marco vertical (9:16) con anillo degradado dorado (como el borde de una Story activa), esquinas bien redondeadas, fondo negro. Adentro:
+- Un overlay superior con degradado (transparente a negro) mostrando un avatar circular (inicial del nombre, con su propio mini-anillo dorado) + el nombre de la persona.
+- La imagen/video del pitch llenando todo el marco (`object-cover`), o un estado vacío centrado ("Todavía no grabaste tu pitch." / "Todavía no subió su pitch." según se esté viendo el propio o el de otro) cuando no hay nada cargado todavía.
+- Un overlay inferior con degradado mostrando "✦ Así te ven en la mesa" como caption.
+Los controles para grabar/subir (que solo se muestran cuando es el propio espacio, no viendo a otro) quedaron debajo del marco, sin cambios de lógica — solo de layout, para no arriesgar tocar `GrabadorVideo` ni el flujo de subida. Nuevo derivado `nombrePitchMostrado` (nombre propio, o el de la persona vista si sos admin mirando a otro, resuelto contra la lista de participantes activos que ya se cargaba).
+
+## 3. Verificado en vivo
+Con la cuenta de test `admin@escuela.com`: estado vacío confirmado visualmente (marco con anillo dorado, avatar "A", texto "Todavía no grabaste tu pitch.", caption abajo). Después se subió una imagen de prueba de punta a punta (preparar-upload → subida real al bucket → confirmar) y se confirmó que el marco pasa a mostrar la imagen llenando el espacio (`object-cover`) en vez del estado vacío. Se confirmó además que la vista de puestos en CoFruto (que muestra el pitch de otros participantes con su propio layout, sin marco de Stories) no se tocó y sigue intacta. Imagen y proyecto de prueba borrados al final. `typecheck`/`lint` limpios, sin warnings nuevos.
+
+## 4. Ronda de feedback: layout desarmónico + duda sobre CoFruto
+Nicolás probó con su cuenta real (`nicolasbusico.psi@gmail.com`) y mandó captura: el marco del reel (vacío al principio, columna angosta) quedaba apilado arriba de la tarjeta de grabación (`GrabadorVideo`, con su propio encabezado "Preparación / Elegí cómo preparar tu video") — dos bloques con peso visual propio, uno debajo del otro, sin relación clara. Pidió ponerlos lado a lado o integrar el menú de grabación al reel.
+
+**Se resolvió con layout, no tocando `GrabadorVideo`**: ese componente se reutiliza también en `CasaTalentosAdminPanel` (referentes semanales), así que no convenía meterle mano a su estructura interna solo para este caso. Se cambió el contenedor a `flex flex-col md:flex-row`: en desktop el reel queda a la izquierda (ancho fijo, `shrink-0`) y la tarjeta de grabación ocupa el resto del ancho a la derecha; en mobile se apilan (no entrarían lado a lado en una pantalla angosta). Confirmado visualmente en ambos anchos.
+
+**Duda sobre CoFruto**: Nicolás grabó un pitch real con su cuenta y, viendo CoFruto como admin, no lo vio reflejado — preguntó si se vería para otro participante. Investigado: su cuenta (`nicolasbusico.psi@gmail.com`) no tiene ninguna inscripción activa a ninguna actividad — es la cuenta de dueño/admin, no una cuenta de participante — así que nunca entra a la lista de participantes que arma CoFruto, para nadie que lo mire (no es por el filtro de "no te ves a vos mismo", es que no está en el padrón). Confirmado que si un participante real sube un pitch, sí se vería para los demás: se probó viendo CoFruto con una cuenta distinta y las producciones visibles de Cuchulain Mago aparecieron correctamente. No se tocó el pitch real que Nicolás subió a su cuenta (no es un dato de prueba mío, queda como está).
+
+## 5. Eliminar pitch (pedido en la misma ronda)
+"Actualizar" el pitch ya funcionaba (botón "Volver a grabarlo" — al confirmar uno nuevo, el endpoint ya borraba el archivo anterior del bucket, política de retención de la Fase A). Lo que faltaba era poder **sacarlo del todo**, sin reemplazarlo por otro.
+
+- **`app/api/entusiasmo/pitch/confirmar/route.ts`**: nuevo `DELETE` — verifica dueño o admin, borra el archivo del bucket y deja `pitch_storage_path`/`pitch_mime_type`/`pitch_actualizado_at` en `null`.
+- **`app/casatalentos/page.tsx`**: nuevo botón "Eliminar pitch" (texto rojo, debajo del botón de guardar), visible solo cuando ya hay un pitch cargado y no se está viendo el espacio de otra persona. Pide confirmación (`window.confirm`, mismo patrón que otras acciones destructivas del proyecto) antes de borrar.
+
+**Verificado en vivo**: con la cuenta de test, se cargó un pitch de prueba, se confirmó que el botón aparece, se lo eliminó, y se confirmó tanto en pantalla (vuelve al estado vacío del marco, mensaje "Pitch eliminado") como en la base y el storage (`pitch_storage_path: null`, carpeta del bucket vacía). Proyecto de prueba borrado al final. `typecheck`/`lint` limpios.
+
+## 6. CoFruto: incluir el propio puesto (pedido en la misma ronda)
+Hasta ahora CoFruto excluía siempre al que estaba mirando ("no te ves a vos mismo, ya te ves en Mi espacio" — decisión original de la Fase C). Nicolás pidió el cambio: le pareció mejor que el participante también se vea reflejado en la mesa junto a los demás.
+
+- **`app/api/entusiasmo/cofruto/route.ts`**: se sacó el filtro que excluía `emailPropio` de la lista. Cada puesto ahora trae un campo nuevo `esPropio`, y la lista se ordena con el propio puesto primero.
+- **`app/casatalentos/page.tsx`**: el puesto propio se distingue visualmente (borde dorado en vez de verde esmeralda, como el resto de "Mi espacio") y muestra una etiqueta "(vos)" al lado del nombre.
+
+**Verificado en vivo**: usuario y datos 100% descartables (usuario, inscripción activa a `casatalentos`, honorario y pago al día para destrabar el acceso, una producción visible) — se agregó temporalmente a `ENTUSIASMENTO_BETA_EMAILS` para poder probarlo como participante real (no admin), se confirmó en pantalla "Prueba CoFruto (vos)" apareciendo primero en la lista con el borde dorado distintivo, y "Cuchulain Mago" apareciendo después con el estilo normal. Se revirtió el agregado a `ENTUSIASMENTO_BETA_EMAILS` y se borró todo el dato de prueba (usuario, inscripción, honorario, pago, proyecto, producción) al terminar. `typecheck`/`lint` limpios.
+
+## 7. Performance: chequeo de acceso lento al abrir Entusiasmento
+Nicolás reportó que abrir Entusiasmento tarda mucho en resolver el acceso. Investigado con mediciones reales (`curl` cronometrado contra el endpoint real, antes/después) en vez de a ojo: el cuello de botella no era ningún cálculo pesado, sino **una cadena larga de consultas a Supabase hechas una atrás de la otra** — cada viaje de ida y vuelta a la base tarda un rato (probablemente por la distancia geográfica al servidor de Supabase), así que encadenar 6-8 consultas secuenciales suma varios segundos.
+
+- **`lib/authz.ts`, `resolveActivityAccess`** (la función que decide si alguien puede entrar a una actividad — la usa toda la plataforma, no solo Entusiasmento): tenía una consulta 100% redundante (volvía a pedir la actividad que `asegurarActividadBase` ya acababa de traer un instante antes) — se sacó. Además, 3 consultas que en el fondo son independientes entre sí (si tiene acceso extra por espacios, si tiene una inscripción activa, y su honorario configurado) se disparan ahora **en simultáneo** (`Promise.all`) en vez de una detrás de la otra — la decisión final es exactamente la misma, solo cambia el orden en que se piden los datos.
+- **`cargarRecursosActividad`** (misma función usada en todas las actividades): sus dos consultas (recursos de la actividad + accesos individuales) también eran independientes y ahora corren en paralelo.
+- **A propósito, no se tocó** el resto de la cadena (chequeo de pago mensual, carga de recursos cuando hay acceso extra) por prudencia — son ramas con más lógica de negocio sensible (dinero, accesos), y ya se logró una mejora real sin arriesgar esa parte.
+
+**Medido, no estimado**: con la cuenta de test admin, la respuesta del endpoint bajó de ~1.0s a ~0.6s. Con un participante real (inscripción + pago al día, caso más representativo), bajó de ~1.3–1.8s a ~1.0–1.2s. Se verificó además que la lógica de decisión no cambió: se probaron en vivo los 3 casos (participante con pago al día → acceso, participante sin inscripción → `sin_inscripcion`, y el camino de acceso admin) y todos devolvieron exactamente el mismo resultado que antes. Datos de prueba borrados al final. `typecheck`/`lint` limpios.
+
+**Pendiente si hace falta más**: la carga completa de la página de Entusiasmento (no solo el chequeo de acceso) dispara bastantes otros pedidos en paralelo después de eso (proyecto, aportes, producciones, tareas, participantes, etc.) — no se auditó esa parte todavía porque Nicolás pidió específicamente por "cargar el acceso". Si sigue sintiéndose lento en general, esa es la próxima punta a tirar.
+
+## 8. CoFruto: rediseño — grilla siempre visible, con el pitch estilo reel
+Nicolás pidió sacar el acordeón (no le gustaba tener que abrir cada puesto) y en cambio mostrar todo de entrada, como puestos de una feria — y que el pitch también se vea con el estilo "Instagram" ya usado en Mi espacio, en miniatura. Con un máximo de 4 cosas visibles por persona para que ningún puesto crezca sin límite.
+
+- **`app/api/entusiasmo/cofruto/route.ts`**: ahora capa cada puesto a un máximo de 4 producciones (las más recientes) — el corte se hace antes de generar las signed URLs, así no se pagan de más por producciones que no se van a mostrar.
+- **`app/casatalentos/page.tsx`**: se sacó el acordeón (clic para abrir/cerrar) — ahora es una grilla responsive (1 columna en mobile, 2–3 en pantallas más anchas) de tarjetas ("mesas"), cada una mostrando **todo de entrada, sin clics**: el pitch en miniatura con el mismo anillo dorado y marco oscuro de "Mi espacio" (más chico, `92px` de ancho), y al lado una grilla 2×2 de hasta 4 producciones (imagen real si es imagen, ícono si es audio, texto recortado si es texto). Se sacó el estado `puestoAbiertoEmail`, que ya no hace falta.
+
+**Verificado en vivo**: se le agregaron temporalmente un pitch de prueba y 5 producciones de texto a la cuenta real de Cuchulain Mago (participante beta) para forzar el caso "más de 4" — se confirmó por API que devuelve exactamente 4 (las últimas 4, ordenadas por fecha), y visualmente que la tarjeta muestra el pitch en miniatura + las 4 producciones en grilla, todo visible sin ningún clic. Se revirtió todo al final (se borraron las 5 producciones de prueba y se volvió a dejar el pitch en `null`), quedó solo la producción real que ya tenía antes. `typecheck`/`lint` limpios.
+
+## 9. CoFruto: modal ampliado al seleccionar un puesto
+Con la grilla siempre visible (punto 8), las miniaturas quedaron chicas — Nicolás pidió poder agrandar un puesto puntual para ver bien tanto el pitch como las producciones ("así como está ahora no se ve bien la imagen de producción ni el pitch").
+
+- **`app/casatalentos/page.tsx`**: cada tarjeta de la grilla de CoFruto pasó de `<div>` a `<button>` clickeable (con sombra al pasar el mouse como affordance). Al tocarla, se abre un modal (mismo patrón visual que `EditarEncuentroModal` de Agenda — fondo oscuro + panel centrado) con el nombre de la persona, un botón "Cerrar", el pitch en tamaño grande (hasta 260px de ancho, mismo anillo dorado/marco negro que en "Mi espacio") y una grilla 2 columnas de sus producciones visibles, ahora en tamaño legible de verdad: imágenes como cuadrado grande (no recortadas a 60px), audio con reproductor `<audio controls>` nativo en vez de solo un ícono, y texto completo sin el recorte de 4 líneas de la miniatura chica. Nuevo estado `puestoAmpliadoEmail`.
+- Ajuste de layout durante la prueba: al principio la imagen de producción se estiraba a la altura completa del pitch (por `align-items: stretch` del contenedor flex) — se corrigió con `content-start`/`self-start` en la grilla de producciones y un alto fijo (`aspect-square`) solo para imágenes, así cada tile queda con su tamaño natural en vez de estirarse.
+
+**Verificado en vivo**: participante 100% descartable (usuario + inscripción activa a `casatalentos`, sin necesidad de honorario/pago porque se lo miró desde la cuenta admin, que no pasa por ese gate) con un pitch de imagen y 2 producciones (imagen + texto largo) subidas de verdad al bucket. Confirmado que la tarjeta chica aparece en la grilla, que el click abre el modal con el nombre correcto, que la imagen de producción se ve grande y nítida (no los ~60px de la miniatura), que el texto largo se lee completo sin recorte, y que el botón "Cerrar" cierra el modal. Cero errores de consola. Datos y archivos de prueba borrados al final (usuario, inscripción, proyecto, producciones, ambos archivos del bucket). `typecheck`/`lint` limpios, sin warnings nuevos.
+
+**Ronda de feedback inmediata**: Nicolás probó con datos reales (su propia cuenta viendo el espacio de Cuchulain Mago) y avisó que la imagen de producción "sigue en tamaño pequeño" dentro del modal — con el pitch ocupando casi la mitad del ancho del panel (`max-w-2xl`, 672px), a la grilla de producciones le queda poco lugar real. Pidió una opción de ampliar.
+
+- **`app/casatalentos/page.tsx`**: cada tile de imagen dentro del modal pasó a ser un `<button>` (con un overlay "🔍 Ampliar" que aparece al pasar el mouse) que abre un segundo overlay por encima de todo (`z-[60]`, fondo negro semitransparente) mostrando esa imagen puntual a tamaño grande (`max-h-[85vh]`, `object-contain`, sin recorte). Nuevo estado `imagenAmpliada`. Clic afuera de la imagen o en "Cerrar" cierra solo este lightbox (el modal del puesto sigue abierto detrás).
+- Primer intento de prueba con la imagen de 1×1 px ya usada en otros tests de esta sesión mostró el lightbox casi vacío (el navegador no agranda una imagen de 1px) — no era un bug, era el dato de prueba; se repitió la prueba con una imagen real (`public/interlegere-icono-transparente.png`, 500×500) y ahí sí se vio grande y nítida como corresponde.
+
+**Verificado en vivo**: mismo participante descartable, click en la imagen dentro del modal abre el lightbox a 500×500px (contra ~120×120px del tile), cierra correctamente con el botón dedicado, cero errores de consola. Datos de prueba borrados al final. `typecheck`/`lint` limpios, sin warnings nuevos.
+
+## 10. Pendiente
+- **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
+- Resto sin cambios: agente de IA (Fase D). Si se quiere seguir optimizando velocidad, falta auditar el resto de los pedidos que dispara la página de Entusiasmento al cargar (más allá del chequeo de acceso).

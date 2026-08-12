@@ -53,7 +53,7 @@ type ActivityAccessResult = {
 type ActividadRecord = {
   id: number
   slug: string
-  nombre?: string
+  nombre?: string | null
 }
 
 type RecursoRecord = {
@@ -150,20 +150,22 @@ export async function cargarRecursosActividad(
   actividadId: number,
   email: string
 ) {
-  const { data: recursosActividad, error: recursosError } = await supabase
-    .from("actividad_recursos")
-    .select("*, recursos(*)")
-    .eq("actividad_id", actividadId)
-    .eq("activo", true)
+  const [{ data: recursosActividad, error: recursosError }, { data: overrides }] =
+    await Promise.all([
+      supabase
+        .from("actividad_recursos")
+        .select("*, recursos(*)")
+        .eq("actividad_id", actividadId)
+        .eq("activo", true),
+      supabase
+        .from("accesos_individuales")
+        .select("*, recursos(*)")
+        .eq("participante_email", email),
+    ])
 
   if (recursosError) {
     throw new Error("Error cargando recursos")
   }
-
-  const { data: overrides } = await supabase
-    .from("accesos_individuales")
-    .select("*, recursos(*)")
-    .eq("participante_email", email)
 
   return construirRecursosFinales({
     recursosActividad: (recursosActividad || []) as ActividadRecursoRow[],
@@ -457,21 +459,54 @@ export async function resolveActivityAccess(
           actividadSlug as Exclude<ActivitySlug, "membresia">
         )
 
-  const { data: actividad, error: actividadError } = await supabase
-    .from("actividades")
-    .select("*")
-    .eq("slug", actividadAsegurada?.slug || actividadSlug)
-    .maybeSingle()
+  // Para membresia (única actividad sin asegurarActividadBase) hace falta
+  // una consulta propia; para el resto, asegurarActividadBase ya trajo la
+  // fila completa — repetir la misma consulta acá sería un viaje a la base
+  // 100% redundante.
+  let actividad: ActividadRecord | null = actividadAsegurada
 
-  if (actividadError) {
-    throw new Error("Actividad no encontrada")
+  if (!actividad) {
+    const { data, error: actividadError } = await supabase
+      .from("actividades")
+      .select("*")
+      .eq("slug", actividadSlug)
+      .maybeSingle()
+
+    if (actividadError) {
+      throw new Error("Actividad no encontrada")
+    }
+
+    actividad = data
   }
 
   if (!actividad) {
     throw new Error("Actividad no encontrada")
   }
 
-  if (await tieneAccesoExtraDesdeEspacios(actividadSlug, email)) {
+  // Se resuelven en paralelo: son consultas independientes entre sí (el
+  // honorario no depende de los datos de la inscripción, solo de que
+  // exista — eso se valida después), así que no hace falta pagar la
+  // latencia de cada viaje a la base uno atrás del otro.
+  const [tieneAccesoExtra, { data: inscripcion }, { data: honorario }] =
+    await Promise.all([
+      tieneAccesoExtraDesdeEspacios(actividadSlug, email),
+      supabase
+        .from("inscripciones")
+        .select("*")
+        .eq("actividad_id", actividad.id)
+        .eq("participante_email", email)
+        .eq("estado", "activa")
+        .maybeSingle(),
+      supabase
+        .from("honorarios_participante")
+        .select("modalidad_pago")
+        .eq("actividad_id", actividad.id)
+        .eq("participante_email", email)
+        .eq("activo", true)
+        .maybeSingle(),
+    ])
+
+  if (tieneAccesoExtra) {
     const recursos = await cargarRecursosActividad(supabase, actividad.id, email)
 
     return {
@@ -482,14 +517,6 @@ export async function resolveActivityAccess(
     }
   }
 
-  const { data: inscripcion } = await supabase
-    .from("inscripciones")
-    .select("*")
-    .eq("actividad_id", actividad.id)
-    .eq("participante_email", email)
-    .eq("estado", "activa")
-    .maybeSingle()
-
   if (!inscripcion) {
     return {
       acceso: false,
@@ -498,14 +525,6 @@ export async function resolveActivityAccess(
       recursos: [],
     }
   }
-
-  const { data: honorario } = await supabase
-    .from("honorarios_participante")
-    .select("modalidad_pago")
-    .eq("actividad_id", actividad.id)
-    .eq("participante_email", email)
-    .eq("activo", true)
-    .maybeSingle()
 
   const modalidadPago = normalizarModalidadPago(
     honorario?.modalidad_pago,

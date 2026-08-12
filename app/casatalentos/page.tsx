@@ -163,6 +163,7 @@ type ProduccionCofruto = {
 type PuestoCofruto = {
   email: string
   nombre: string
+  esPropio: boolean
   pitchSignedUrl: string | null
   pitchMimeType: string | null
   producciones: ProduccionCofruto[]
@@ -428,7 +429,8 @@ export default function CasaTalentosPage() {
   const [guardandoEdicionTarea, setGuardandoEdicionTarea] = useState(false)
   const [puestosCofruto, setPuestosCofruto] = useState<PuestoCofruto[]>([])
   const [cargandoCofruto, setCargandoCofruto] = useState(false)
-  const [puestoAbiertoEmail, setPuestoAbiertoEmail] = useState<string | null>(null)
+  const [puestoAmpliadoEmail, setPuestoAmpliadoEmail] = useState<string | null>(null)
+  const [imagenAmpliada, setImagenAmpliada] = useState<{ url: string; titulo: string } | null>(null)
 
   const tareasCompletadas = tareas.filter((t) => t.completada).length
   const porcentajeRitmo =
@@ -1272,6 +1274,50 @@ export default function CasaTalentosPage() {
     }
   }
 
+  const handleEliminarPitch = async () => {
+    if (!window.confirm("¿Eliminar tu pitch? Vas a quedar sin pitch hasta que grabes uno nuevo.")) {
+      return
+    }
+
+    setMensajePitch("")
+
+    try {
+      setSubiendoPitch(true)
+      setEstadoSubidaPitch("Eliminando pitch...")
+
+      const res = await fetch("/api/entusiasmo/pitch/confirmar", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      })
+      const data = await leerRespuestaJson<{ error?: string }>(res)
+
+      if (!res.ok) {
+        setMensajePitch(data.error || "No se pudo eliminar el pitch.")
+        return
+      }
+
+      setProyecto((prev) =>
+        prev
+          ? {
+              ...prev,
+              pitch_storage_path: null,
+              pitch_mime_type: null,
+              pitch_actualizado_at: null,
+            }
+          : prev
+      )
+      setPitchSignedUrl(null)
+      setArchivoPitch(null)
+      setMensajePitch("Pitch eliminado.")
+    } catch {
+      setMensajePitch("Error eliminando el pitch.")
+    } finally {
+      setSubiendoPitch(false)
+      setEstadoSubidaPitch("")
+    }
+  }
+
   useEffect(() => {
     if (!mounted || !esAdmin) return
 
@@ -1852,6 +1898,11 @@ export default function CasaTalentosPage() {
     }
   }
 
+  const nombrePitchMostrado = viendoEmail
+    ? participantesActivosCasaTalentos.find((p) => p.email === viendoEmail)?.nombre ||
+      viendoEmail
+    : nombre
+
   if (!mounted || !sesionLista) {
     return (
       <main className="workspace-page space-y-6">
@@ -2426,60 +2477,102 @@ export default function CasaTalentosPage() {
                       <p className="text-sm text-gray-600">Cargando tu proyecto...</p>
                     )}
 
-                    <div className="space-y-3 rounded-[2rem] border-[3px] border-[var(--accent)] bg-gradient-to-br from-white to-[rgba(207,145,48,0.06)] p-5 shadow-[0_8px_0_0_rgba(207,145,48,0.18)]">
+                    <div className="space-y-3">
                       <div className="space-y-1">
                         <p className="workspace-eyebrow">✦ Siempre visible</p>
                         <h3 className="text-2xl font-bold tracking-tight">
                           {viendoEmail ? "Su pitch" : "Tu pitch"}
                         </h3>
-                        <p className="workspace-inline-note">
-                          Así te ven en la mesa
-                        </p>
                       </div>
 
-                      {pitchSignedUrl && (
-                        <div className="mx-auto max-w-[220px]">
-                          {proyecto?.pitch_mime_type?.startsWith("image/") ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={pitchSignedUrl}
-                              alt="Pitch"
-                              className="w-full rounded-xl border border-[var(--line)]"
-                            />
-                          ) : (
-                            <VideoEmbed src={pitchSignedUrl} title="Pitch" />
-                          )}
+                      <div className="flex flex-col items-start gap-5 md:flex-row">
+                        <div className="relative mx-auto aspect-[9/16] w-full max-w-[220px] shrink-0 overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#f9d976] via-[#c98b1b] to-[#8a5b0f] p-[3px] shadow-[0_10px_28px_rgba(154,98,24,0.3)] md:mx-0">
+                          <div className="relative h-full w-full overflow-hidden rounded-[1.75rem] bg-black">
+                            {pitchSignedUrl ? (
+                              proyecto?.pitch_mime_type?.startsWith("image/") ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={pitchSignedUrl}
+                                  alt="Pitch"
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <VideoEmbed
+                                  src={pitchSignedUrl}
+                                  title="Pitch"
+                                  className="h-full w-full object-cover"
+                                />
+                              )
+                            ) : (
+                              <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-[#2a2a2a] to-[#0f0f0f] px-6 text-center">
+                                <span className="text-4xl">✦</span>
+                                <p className="text-xs text-white/70">
+                                  {viendoEmail
+                                    ? "Todavía no subió su pitch."
+                                    : "Todavía no grabaste tu pitch."}
+                                </p>
+                              </div>
+                            )}
+
+                            <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center gap-2 bg-gradient-to-b from-black/70 to-transparent p-3">
+                              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#f9d976] via-[#c98b1b] to-[#8a5b0f] p-[2px]">
+                                <span className="flex h-full w-full items-center justify-center rounded-full bg-black text-xs font-bold text-white">
+                                  {(nombrePitchMostrado || "?").trim().charAt(0).toUpperCase()}
+                                </span>
+                              </span>
+                              <span className="truncate text-sm font-semibold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">
+                                {nombrePitchMostrado}
+                              </span>
+                            </div>
+
+                            <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+                              <p className="text-xs font-medium text-white/90">
+                                ✦ Así te ven en la mesa
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                      )}
 
-                      {!viendoEmail && (
-                        <>
-                          <GrabadorVideo
-                            onVideoListo={handleArchivoPitch}
-                            disabled={subiendoPitch}
-                            maxSegundos={90}
-                          />
-
-                          {mensajePitch && (
-                            <p className="text-sm text-gray-700">{mensajePitch}</p>
-                          )}
-
-                          {archivoPitch && (
-                            <button
-                              type="button"
+                        {!viendoEmail && (
+                          <div className="w-full flex-1 space-y-2">
+                            <GrabadorVideo
+                              onVideoListo={handleArchivoPitch}
                               disabled={subiendoPitch}
-                              onClick={() => void handleSubirPitch()}
-                              className="workspace-button"
-                            >
-                              {subiendoPitch
-                                ? estadoSubidaPitch || "Subiendo..."
-                                : proyecto?.pitch_storage_path
-                                  ? "Volver a grabarlo"
-                                  : "Guardar pitch"}
-                            </button>
-                          )}
-                        </>
-                      )}
+                              maxSegundos={90}
+                            />
+
+                            {mensajePitch && (
+                              <p className="text-sm text-gray-700">{mensajePitch}</p>
+                            )}
+
+                            {archivoPitch && (
+                              <button
+                                type="button"
+                                disabled={subiendoPitch}
+                                onClick={() => void handleSubirPitch()}
+                                className="workspace-button w-full"
+                              >
+                                {subiendoPitch
+                                  ? estadoSubidaPitch || "Subiendo..."
+                                  : proyecto?.pitch_storage_path
+                                    ? "Volver a grabarlo"
+                                    : "Guardar pitch"}
+                              </button>
+                            )}
+
+                            {proyecto?.pitch_storage_path && (
+                              <button
+                                type="button"
+                                disabled={subiendoPitch}
+                                onClick={() => void handleEliminarPitch()}
+                                className="text-sm text-red-600 underline disabled:opacity-60"
+                              >
+                                Eliminar pitch
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {aportesRecibidos.filter((a) => !a.campo).length > 0 && (
@@ -2955,117 +3048,242 @@ export default function CasaTalentosPage() {
                       </p>
                     )}
 
-                    <div className="space-y-3">
-                      {puestosCofruto.map((puesto) => {
-                        const abierto = puestoAbiertoEmail === puesto.email
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {puestosCofruto.map((puesto) => (
+                        <button
+                          type="button"
+                          key={puesto.email}
+                          onClick={() => setPuestoAmpliadoEmail(puesto.email)}
+                          className={`space-y-3 rounded-2xl border-2 p-3 text-left transition hover:shadow-[0_6px_20px_rgba(16,185,129,0.15)] ${
+                            puesto.esPropio
+                              ? "border-[var(--accent)] bg-[rgba(207,145,48,0.06)]"
+                              : "border-emerald-200 bg-white/70"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-emerald-300 bg-emerald-50 text-sm">
+                              🌿
+                            </span>
+                            <span className="truncate text-sm font-bold tracking-tight text-emerald-900">
+                              {puesto.nombre}
+                              {puesto.esPropio && (
+                                <span className="ml-1 text-xs font-semibold text-[var(--accent-strong)]">
+                                  (vos)
+                                </span>
+                              )}
+                            </span>
+                          </div>
 
-                        return (
+                          <div className="flex gap-2">
+                            {puesto.pitchSignedUrl && (
+                              <div className="relative aspect-[9/16] w-[92px] shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-[#f9d976] via-[#c98b1b] to-[#8a5b0f] p-[2px]">
+                                <div className="relative h-full w-full overflow-hidden rounded-[0.6rem] bg-black">
+                                  {puesto.pitchMimeType?.startsWith("image/") ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={puesto.pitchSignedUrl}
+                                      alt={`Pitch de ${puesto.nombre}`}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  ) : (
+                                    <VideoEmbed
+                                      src={puesto.pitchSignedUrl}
+                                      title={`Pitch de ${puesto.nombre}`}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  )}
+                                  <span className="pointer-events-none absolute bottom-1 left-1 text-[10px] text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]">
+                                    ✦
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+
+                            {puesto.producciones.length > 0 && (
+                              <div className="grid flex-1 grid-cols-2 gap-1.5">
+                                {puesto.producciones.map((item) => (
+                                  <div
+                                    key={item.id}
+                                    className="flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-emerald-100 bg-emerald-50/60 p-1 text-center"
+                                    title={item.titulo || undefined}
+                                  >
+                                    {item.tipo === "imagen" && item.signedUrl ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img
+                                        src={item.signedUrl}
+                                        alt={item.titulo || "Producción"}
+                                        className="h-full w-full object-cover"
+                                      />
+                                    ) : item.tipo === "audio" ? (
+                                      <span className="text-lg" aria-hidden>
+                                        🎵
+                                      </span>
+                                    ) : (
+                                      <p className="line-clamp-4 text-[10px] leading-tight text-gray-700">
+                                        {item.contenido || item.titulo}
+                                      </p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+
+                    {puestoAmpliadoEmail && (() => {
+                      const puesto = puestosCofruto.find((p) => p.email === puestoAmpliadoEmail)
+                      if (!puesto) return null
+                      return (
+                        <div
+                          className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(24,32,42,0.55)] p-4"
+                          onClick={() => setPuestoAmpliadoEmail(null)}
+                        >
                           <div
-                            key={puesto.email}
-                            className="rounded-2xl border-2 border-emerald-200 bg-white/70 p-4"
+                            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[1.8rem] border border-emerald-200 bg-white p-6 shadow-[0_20px_60px_rgba(16,60,40,0.25)]"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setPuestoAbiertoEmail((prev) =>
-                                  prev === puesto.email ? null : puesto.email
-                                )
-                              }
-                              className="flex w-full items-center justify-between gap-3 text-left"
-                            >
-                              <span className="flex items-center gap-3">
+                            <div className="mb-4 flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2">
                                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-300 bg-emerald-50 text-base">
                                   🌿
                                 </span>
-                                <span>
-                                  <span className="block text-base font-bold tracking-tight text-emerald-900">
-                                    {puesto.nombre}
-                                  </span>
-                                  <span className="text-xs text-emerald-700">
-                                    {puesto.producciones.length > 0
-                                      ? `${puesto.producciones.length} producción${
-                                          puesto.producciones.length === 1 ? "" : "es"
-                                        }`
-                                      : "Pitch"}
-                                  </span>
-                                </span>
-                              </span>
-                              <span aria-hidden className="text-emerald-500">
-                                {abierto ? "▲" : "▼"}
-                              </span>
-                            </button>
+                                <h3 className="text-lg font-bold tracking-tight text-emerald-900">
+                                  {puesto.nombre}
+                                  {puesto.esPropio && (
+                                    <span className="ml-1 text-sm font-semibold text-[var(--accent-strong)]">
+                                      (vos)
+                                    </span>
+                                  )}
+                                </h3>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setPuestoAmpliadoEmail(null)}
+                                className="rounded-full border border-gray-300 px-3 py-1 text-sm text-gray-600 hover:bg-gray-50"
+                              >
+                                Cerrar
+                              </button>
+                            </div>
 
-                            {abierto && (
-                              <div className="mt-4 space-y-4">
-                                {puesto.pitchSignedUrl && (
-                                  <div className="mx-auto max-w-[220px]">
+                            <div className="flex flex-col gap-6 sm:flex-row">
+                              {puesto.pitchSignedUrl && (
+                                <div className="relative aspect-[9/16] w-full max-w-[260px] shrink-0 self-center overflow-hidden rounded-2xl bg-gradient-to-br from-[#f9d976] via-[#c98b1b] to-[#8a5b0f] p-[3px] sm:self-start sm:mx-0 mx-auto">
+                                  <div className="relative h-full w-full overflow-hidden rounded-[1rem] bg-black">
                                     {puesto.pitchMimeType?.startsWith("image/") ? (
                                       // eslint-disable-next-line @next/next/no-img-element
                                       <img
                                         src={puesto.pitchSignedUrl}
                                         alt={`Pitch de ${puesto.nombre}`}
-                                        className="w-full rounded-xl border border-[var(--line)]"
+                                        className="h-full w-full object-cover"
                                       />
                                     ) : (
                                       <VideoEmbed
                                         src={puesto.pitchSignedUrl}
                                         title={`Pitch de ${puesto.nombre}`}
+                                        className="h-full w-full object-cover"
                                       />
                                     )}
+                                    <span className="pointer-events-none absolute bottom-2 left-2 text-sm text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]">
+                                      ✦ Pitch
+                                    </span>
                                   </div>
-                                )}
+                                </div>
+                              )}
 
-                                {puesto.producciones.length > 0 && (
-                                  <div className="space-y-2">
-                                    {puesto.producciones.map((item) => (
-                                      <div
-                                        key={item.id}
-                                        className="space-y-2 rounded-xl border border-emerald-100 bg-emerald-50/40 p-3"
-                                      >
-                                        <div className="flex items-center gap-2">
-                                          <span aria-hidden>
-                                            {item.tipo === "imagen"
-                                              ? "🖼️"
-                                              : item.tipo === "audio"
-                                                ? "🎵"
-                                                : "📝"}
-                                          </span>
-                                          <span className="text-sm font-medium">
-                                            {item.titulo ||
-                                              (item.tipo === "texto" ? "" : item.tipo)}
-                                          </span>
-                                        </div>
-
-                                        {item.tipo === "imagen" && item.signedUrl && (
-                                          // eslint-disable-next-line @next/next/no-img-element
+                              {puesto.producciones.length > 0 && (
+                                <div className="grid flex-1 content-start grid-cols-2 gap-3 self-start">
+                                  {puesto.producciones.map((item) => (
+                                    <div
+                                      key={item.id}
+                                      className={`flex flex-col items-center justify-center overflow-hidden rounded-xl border border-emerald-100 bg-emerald-50/60 p-2 text-center ${
+                                        item.tipo === "imagen" ? "aspect-square" : "min-h-[140px]"
+                                      }`}
+                                    >
+                                      {item.tipo === "imagen" && item.signedUrl ? (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            setImagenAmpliada({
+                                              url: item.signedUrl!,
+                                              titulo: item.titulo || "Producción",
+                                            })
+                                          }}
+                                          className="group relative h-full w-full cursor-zoom-in"
+                                        >
+                                          {/* eslint-disable-next-line @next/next/no-img-element */}
                                           <img
                                             src={item.signedUrl}
                                             alt={item.titulo || "Producción"}
-                                            className="max-h-48 rounded-lg border border-emerald-100 object-contain"
+                                            className="h-full w-full rounded-lg object-cover"
                                           />
-                                        )}
-
-                                        {item.tipo === "audio" && item.signedUrl && (
-                                          <audio controls src={item.signedUrl} className="w-full">
-                                            Tu navegador no soporta audio.
-                                          </audio>
-                                        )}
-
-                                        {item.tipo === "texto" && item.contenido && (
-                                          <p className="whitespace-pre-wrap text-sm text-gray-700">
+                                          <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg bg-black/0 text-transparent transition group-hover:bg-black/30 group-hover:text-white">
+                                            🔍 Ampliar
+                                          </span>
+                                        </button>
+                                      ) : item.tipo === "audio" && item.signedUrl ? (
+                                        <div className="flex w-full flex-col items-center gap-2 p-2">
+                                          <span className="text-2xl" aria-hidden>
+                                            🎵
+                                          </span>
+                                          {item.titulo && (
+                                            <p className="text-xs font-semibold text-gray-700">
+                                              {item.titulo}
+                                            </p>
+                                          )}
+                                          <audio controls src={item.signedUrl} className="w-full" />
+                                        </div>
+                                      ) : (
+                                        <div className="p-2">
+                                          {item.titulo && (
+                                            <p className="mb-1 text-xs font-semibold text-gray-700">
+                                              {item.titulo}
+                                            </p>
+                                          )}
+                                          <p className="text-sm leading-snug text-gray-700">
                                             {item.contenido}
                                           </p>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {!puesto.pitchSignedUrl && puesto.producciones.length === 0 && (
+                                <p className="workspace-inline-note">
+                                  Todavía no mostró nada en la mesa.
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        )
-                      })}
-                    </div>
+                        </div>
+                      )
+                    })()}
+
+                    {imagenAmpliada && (
+                      <div
+                        className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4"
+                        onClick={() => setImagenAmpliada(null)}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setImagenAmpliada(null)}
+                          className="absolute right-4 top-4 rounded-full border border-white/40 px-3 py-1 text-sm text-white hover:bg-white/10"
+                        >
+                          Cerrar
+                        </button>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={imagenAmpliada.url}
+                          alt={imagenAmpliada.titulo}
+                          className="max-h-[85vh] max-w-full rounded-lg object-contain"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                    )}
 
             {esAdmin && (esAdmin || recursosSolapa.length > 0) && (
               <SeccionDesplegable

@@ -4,6 +4,7 @@ import { listarParticipantesActividad } from "@/lib/espacios"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
 const BUCKET = process.env.SUPABASE_ENTUSIASMO_BUCKET || "entusiasmo-producciones"
+const MAX_PRODUCCIONES_POR_PUESTO = 4
 
 type ProyectoRow = {
   id: number
@@ -57,7 +58,9 @@ export async function GET() {
 
       for (const item of (producciones as ProduccionRow[]) || []) {
         const lista = produccionesPorProyecto.get(item.proyecto_id) || []
-        lista.push(item)
+        if (lista.length < MAX_PRODUCCIONES_POR_PUESTO) {
+          lista.push(item)
+        }
         produccionesPorProyecto.set(item.proyecto_id, lista)
       }
     }
@@ -89,7 +92,6 @@ export async function GET() {
     const emailPropio = auth.actor.email
 
     const puestos = participantes
-      .filter((p) => p.email !== emailPropio)
       .map((p) => {
         const proyecto = proyectoPorEmail.get(p.email)
         const producciones = proyecto
@@ -99,6 +101,7 @@ export async function GET() {
         return {
           email: p.email,
           nombre: p.nombre,
+          esPropio: p.email === emailPropio,
           pitchSignedUrl: proyecto?.pitch_storage_path
             ? signedUrls.get(proyecto.pitch_storage_path) || null
             : null,
@@ -115,6 +118,7 @@ export async function GET() {
         }
       })
       .filter((p) => p.pitchSignedUrl || p.producciones.length > 0)
+      .sort((a, b) => (a.esPropio === b.esPropio ? 0 : a.esPropio ? -1 : 1))
 
     return NextResponse.json({ ok: true, puestos })
   } catch (error) {
