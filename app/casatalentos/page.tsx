@@ -12,7 +12,6 @@ import CasaTalentosAdminPanel from "@/components/casatalentos/CasaTalentosAdminP
 import EditorMensajeAdmin from "@/components/espacios/EditorMensajeAdmin"
 import type { EditorMensajeAdminHandle } from "@/components/espacios/EditorMensajeAdmin"
 import { isDevelopmentPreviewEnabled } from "@/lib/dev-flags"
-import { obtenerPartesArgentina } from "@/lib/fechas"
 import { supabase } from "@/lib/supabase"
 import WorkspaceHero from "@/components/ui/WorkspaceHero"
 import Hora24Input from "@/components/ui/Hora24Input"
@@ -44,53 +43,6 @@ type RecursoGestion = {
   visible: boolean
 }
 
-type VideoItem = {
-  id: number
-  participante_nombre: string
-  participante_email?: string | null
-  titulo: string
-  dia?: string | null
-  dia_clave?: string | null
-  fecha_semana?: string | null
-  video_url?: string | null
-  storage_path?: string | null
-  mime_type?: string | null
-  file_size?: number | null
-  created_at?: string
-}
-
-type VotoItem = {
-  id: number
-  video_id: number
-  votante_nombre: string
-  votante_email?: string | null
-  votante_rol?: string | null
-  fecha_semana?: string | null
-  created_at?: string
-}
-
-type ComentarioItem = {
-  id: number
-  video_id: number
-  autor_nombre: string
-  autor_email?: string | null
-  contenido: string
-  created_at?: string
-}
-
-type ReferentesGenerales = {
-  id: number
-  contenido: string
-}
-
-type ReferenteSemanal = {
-  id: number
-  fecha_semana: string
-  titulo: string
-  descripcion?: string | null
-  video_url?: string | null
-}
-
 type MensajeGeneral = {
   id: number
   parent_id?: number | null
@@ -102,18 +54,6 @@ type MensajeGeneral = {
   contenido_html?: string | null
   created_at?: string
   updated_at?: string
-}
-
-type PrepararUploadResponse = {
-  ok?: boolean
-  error?: string
-  bucket?: string
-  storagePath?: string
-  signedToken?: string
-  signedUrl?: string
-  diaClave?: string
-  fechaSemana?: string
-  maxBytes?: number
 }
 
 type ProyectoEntusiasmo = {
@@ -347,10 +287,6 @@ function textoPlanoAHtmlSeguro(texto: string) {
   return escaparHtml(texto).replaceAll("\n", "<br />")
 }
 
-function contieneHtml(valor?: string | null) {
-  return /<\/?[a-z][\s\S]*>/i.test(String(valor || ""))
-}
-
 function htmlATextoPlano(html: string) {
   if (typeof window === "undefined") {
     return html.replace(/<[^>]+>/g, " ").trim()
@@ -386,132 +322,6 @@ function formatearFechaHora(fecha?: string | null) {
     minute: "2-digit",
     hourCycle: "h23",
   })
-}
-
-function claveParticipante(video: {
-  participante_email?: string | null
-  participante_nombre: string
-}) {
-  return (video.participante_email || video.participante_nombre || "")
-    .trim()
-    .toLowerCase()
-}
-
-function claveVotante(voto: {
-  votante_email?: string | null
-  votante_nombre: string
-}) {
-  return (voto.votante_email || voto.votante_nombre || "")
-    .trim()
-    .toLowerCase()
-}
-
-function normalizarClaveDia(dia?: string | null) {
-  return (dia || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-}
-
-function pesoEvaluacion(voto: VotoItem) {
-  return String(voto.votante_rol || "").trim().toLowerCase() === "admin" ? 2 : 1
-}
-
-function ordenDia(dia?: string | null) {
-  switch (normalizarClaveDia(dia)) {
-    case "lunes":
-      return 1
-    case "miercoles":
-      return 2
-    default:
-      return 99
-  }
-}
-
-function ordenarVideosPorProceso(videos: VideoItem[]) {
-  return [...videos].sort((a, b) => {
-    const orden = ordenDia(a.dia_clave || a.dia) - ordenDia(b.dia_clave || b.dia)
-    if (orden !== 0) return orden
-
-    return String(a.created_at || "").localeCompare(String(b.created_at || ""))
-  })
-}
-
-function obtenerVideoRepresentativo(videos: VideoItem[]) {
-  const ordenados = ordenarVideosPorProceso(videos)
-  const miercoles = [...ordenados]
-    .reverse()
-    .find((video) => normalizarClaveDia(video.dia_clave || video.dia) === "miercoles")
-
-  if (miercoles) {
-    return miercoles
-  }
-
-  return ordenados[ordenados.length - 1] || ordenados[0] || null
-}
-
-function normalizarFechaSemana(fecha?: string | null) {
-  if (!fecha) return ""
-
-  const base = new Date(`${fecha}T00:00:00`)
-  if (Number.isNaN(base.getTime())) {
-    return fecha
-  }
-
-  const dia = base.getDay()
-  const desplazamiento = dia === 0 ? -6 : 1 - dia
-  base.setDate(base.getDate() + desplazamiento)
-
-  const year = base.getFullYear()
-  const month = String(base.getMonth() + 1).padStart(2, "0")
-  const day = String(base.getDate()).padStart(2, "0")
-  return `${year}-${month}-${day}`
-}
-
-function obtenerAhoraArgentinaCliente() {
-  const ahora = obtenerPartesArgentina()
-  const weekday = ahora.weekdayShort
-
-  const numeroDia =
-    weekday === "Sun"
-      ? 0
-      : weekday === "Mon"
-        ? 1
-        : weekday === "Tue"
-          ? 2
-          : weekday === "Wed"
-            ? 3
-            : weekday === "Thu"
-              ? 4
-              : weekday === "Fri"
-                ? 5
-                : weekday === "Sat"
-                  ? 6
-                  : 0
-
-  return {
-    weekday,
-    year: ahora.year,
-    month: ahora.month,
-    day: ahora.day,
-    hour: ahora.hour,
-    minute: ahora.minute,
-    numeroDia,
-    fechaIso: `${String(ahora.year).padStart(4, "0")}-${String(ahora.month).padStart(
-      2,
-      "0"
-    )}-${String(ahora.day).padStart(2, "0")}`,
-  }
-}
-
-function resultadosDisponiblesSegunAhora(ahora: ReturnType<typeof obtenerAhoraArgentinaCliente>) {
-  if (ahora.weekday === "Thu") {
-    const minutosActuales = ahora.hour * 60 + ahora.minute
-    return minutosActuales > 17 * 60
-  }
-
-  return ahora.numeroDia >= 5 || ahora.numeroDia === 0
 }
 
 async function leerRespuestaJson<T>(res: Response): Promise<T> {
@@ -552,22 +362,11 @@ export default function CasaTalentosPage() {
 
   const [mounted, setMounted] = useState(false)
 
-  const [videos, setVideos] = useState<VideoItem[]>([])
-  const [votos, setVotos] = useState<VotoItem[]>([])
-  const [comentarios, setComentarios] = useState<ComentarioItem[]>([])
-  const [referentesGenerales, setReferentesGenerales] = useState<ReferentesGenerales | null>(null)
-  const [referentesSemanales, setReferentesSemanales] = useState<ReferenteSemanal[]>([])
   const [mensajesGenerales, setMensajesGenerales] = useState<MensajeGeneral[]>([])
   const [participantesActivosCasaTalentos, setParticipantesActivosCasaTalentos] = useState<
     { email: string; nombre: string }[]
   >([])
 
-  const [archivo, setArchivo] = useState<File | null>(null)
-  const [titulo, setTitulo] = useState("")
-  const [nombreParticipante, setNombreParticipante] = useState("")
-  const [videoAbierto, setVideoAbierto] = useState<string | null>(null)
-  const [elegidoSeleccionado, setElegidoSeleccionado] = useState<number | null>(null)
-  const [eliminandoVideoId, setEliminandoVideoId] = useState<number | null>(null)
   const esAdmin = session?.user?.role === "admin"
   const storageEmail = (email || session?.user?.email || "")
     .trim()
@@ -578,16 +377,6 @@ export default function CasaTalentosPage() {
     : ""
   const uiKey = (campo: string) =>
     uiStoragePrefix ? `${uiStoragePrefix}:${campo}` : ""
-  const [subsolapaDispositivo, setSubsolapaDispositivo] = usePersistentState<
-    "referentes" | "videos" | "evaluacion"
-  >(uiKey("dispositivo:subtab"), "referentes", {
-    enabled: Boolean(uiStoragePrefix),
-  })
-  const [numeroDia, setNumeroDia] = useState<number>(0)
-  const [ahoraArgentina, setAhoraArgentina] = useState(() =>
-    obtenerAhoraArgentinaCliente()
-  )
-
   const [proyecto, setProyecto] = useState<ProyectoEntusiasmo | null>(null)
   const [pitchSignedUrl, setPitchSignedUrl] = useState<string | null>(null)
   const [cargandoProyecto, setCargandoProyecto] = useState(false)
@@ -643,9 +432,6 @@ export default function CasaTalentosPage() {
 
   const [mensajeExito, setMensajeExito] = useState("")
   const [mensajeError, setMensajeError] = useState("")
-  const [subiendoVideo, setSubiendoVideo] = useState(false)
-  const [estadoSubidaVideo, setEstadoSubidaVideo] = useState("")
-  const [eligiendo, setEligiendo] = useState(false)
   const [recursoTitulo, setRecursoTitulo] = useState("")
   const [recursoDescripcion, setRecursoDescripcion] = useState("")
   const [recursoTipo, setRecursoTipo] = useState("enlace")
@@ -670,8 +456,6 @@ export default function CasaTalentosPage() {
   const recordVacio = (value: Record<number, string>) =>
     Object.values(value).every((item) => !String(item || "").trim())
 
-  const [comentariosDraft, setComentariosDraft] = useState<Record<number, string>>({})
-  const [comentandoVideoId, setComentandoVideoId] = useState<number | null>(null)
   const {
     value: mensajeGeneralDraft,
     setValue: setMensajeGeneralDraft,
@@ -725,43 +509,6 @@ export default function CasaTalentosPage() {
   const editorRespuestaRef = useRef<Record<number, EditorMensajeAdminHandle | null>>({})
   useEffect(() => {
     setMounted(true)
-    let timeoutId: number | null = null
-
-    const actualizarTiempo = () => {
-      const ahora = obtenerAhoraArgentinaCliente()
-      setAhoraArgentina(ahora)
-      setNumeroDia(ahora.numeroDia)
-    }
-
-    const programarProximaActualizacion = () => {
-      const ahora = new Date()
-      const msHastaProximoMinuto =
-        (60 - ahora.getSeconds()) * 1000 - ahora.getMilliseconds() + 250
-
-      timeoutId = window.setTimeout(() => {
-        actualizarTiempo()
-        programarProximaActualizacion()
-      }, Math.max(msHastaProximoMinuto, 1000))
-    }
-
-    const actualizarSiVuelveLaPestana = () => {
-      if (document.visibilityState === "visible") {
-        actualizarTiempo()
-      }
-    }
-
-    actualizarTiempo()
-    programarProximaActualizacion()
-    window.addEventListener("focus", actualizarTiempo)
-    document.addEventListener("visibilitychange", actualizarSiVuelveLaPestana)
-
-    return () => {
-      if (timeoutId !== null) {
-        window.clearTimeout(timeoutId)
-      }
-      window.removeEventListener("focus", actualizarTiempo)
-      document.removeEventListener("visibilitychange", actualizarSiVuelveLaPestana)
-    }
   }, [])
 
   useEffect(() => {
@@ -792,11 +539,6 @@ export default function CasaTalentosPage() {
         MODO_PRUEBA ? "/api/casatalentos/listar?preview=1" : "/api/casatalentos/listar"
       )
       const data = await leerRespuestaJson<{
-        videos?: VideoItem[]
-        votos?: VotoItem[]
-        comentarios?: ComentarioItem[]
-        referentesGenerales?: ReferentesGenerales | null
-        referentesSemanales?: ReferenteSemanal[]
         mensajesGenerales?: MensajeGeneral[]
         error?: string
       }>(res)
@@ -806,11 +548,6 @@ export default function CasaTalentosPage() {
         return
       }
 
-      setVideos(data.videos || [])
-      setVotos(data.votos || [])
-      setComentarios(data.comentarios || [])
-      setReferentesGenerales(data.referentesGenerales || null)
-      setReferentesSemanales(data.referentesSemanales || [])
       setMensajesGenerales(data.mensajesGenerales || [])
     } catch {
       setMensajeError("Error cargando datos de CasaTalentos.")
@@ -1527,23 +1264,6 @@ export default function CasaTalentosPage() {
     }
   }, [esAdmin, mounted])
 
-  const nombreDiaActual = useMemo(() => {
-    const dias = [
-      "Domingo",
-      "Lunes",
-      "Martes",
-      "Miércoles",
-      "Jueves",
-      "Viernes",
-      "Sábado",
-    ]
-    return dias[numeroDia] || "Día"
-  }, [numeroDia])
-
-  const tieneRecurso = (slug: string) => {
-    return recursos.some((r) => r.slug === slug)
-  }
-
   const recursosCasaTalentos = useMemo(() => {
     return recursos.filter(esRecursoSolapaCasaTalentos)
   }, [recursos])
@@ -1563,345 +1283,6 @@ export default function CasaTalentosPage() {
   }, [recursosAdminGestion])
 
   const recursosSolapa = esAdmin ? recursosAdminCasaTalentos : recursosCasaTalentos
-
-  const semanaActual = useMemo(() => {
-    return normalizarFechaSemana(ahoraArgentina.fechaIso)
-  }, [ahoraArgentina.fechaIso])
-
-  const semanaEnUso = semanaActual
-
-  const videosSemana = useMemo(() => {
-    if (!semanaEnUso) return videos
-    return videos.filter(
-      (v) => normalizarFechaSemana(v.fecha_semana) === semanaEnUso
-    )
-  }, [semanaEnUso, videos])
-
-  const idsVideosSemana = useMemo(() => {
-    return new Set(videosSemana.map((v) => v.id))
-  }, [videosSemana])
-
-  const votosSemana = useMemo(() => {
-    return votos.filter(
-      (v) => normalizarFechaSemana(v.fecha_semana) === semanaEnUso && idsVideosSemana.has(v.video_id)
-    )
-  }, [votos, idsVideosSemana, semanaEnUso])
-
-  const comentariosSemana = useMemo(() => {
-    return comentarios.filter((c) => idsVideosSemana.has(c.video_id))
-  }, [comentarios, idsVideosSemana])
-
-  const comentariosPorVideo = useMemo(() => {
-    const mapa = new Map<number, ComentarioItem[]>()
-
-    for (const comentario of comentariosSemana) {
-      const actuales = mapa.get(comentario.video_id) || []
-      actuales.push(comentario)
-      mapa.set(comentario.video_id, actuales)
-    }
-
-    return mapa
-  }, [comentariosSemana])
-
-  const votosPorVideo = useMemo(() => {
-    const mapa = new Map<number, number>()
-    for (const voto of votosSemana) {
-      mapa.set(voto.video_id, (mapa.get(voto.video_id) || 0) + pesoEvaluacion(voto))
-    }
-    return mapa
-  }, [votosSemana])
-
-  const eleccionesPorParticipante = useMemo(() => {
-    const participantePorVideo = new Map<number, { clave: string; nombre: string }>()
-    const mapa = new Map<
-      string,
-      {
-        id: number
-        nombre: string
-        email?: string | null
-        rol?: string | null
-        peso: number
-      }[]
-    >()
-
-    for (const video of videosSemana) {
-      participantePorVideo.set(video.id, {
-        clave: claveParticipante(video),
-        nombre: video.participante_nombre,
-      })
-    }
-
-    for (const voto of votosSemana) {
-      const participante = participantePorVideo.get(voto.video_id)
-      if (!participante) continue
-
-      const elecciones = mapa.get(participante.clave) || []
-      elecciones.push({
-        id: voto.id,
-        nombre: voto.votante_nombre,
-        email: voto.votante_email || null,
-        rol: voto.votante_rol || null,
-        peso: pesoEvaluacion(voto),
-      })
-      mapa.set(participante.clave, elecciones)
-    }
-
-    for (const elecciones of mapa.values()) {
-      elecciones.sort((a, b) => {
-        if (b.peso !== a.peso) return b.peso - a.peso
-        return a.nombre.localeCompare(b.nombre)
-      })
-    }
-
-    return mapa
-  }, [videosSemana, votosSemana])
-
-  const referenteSemanalActual = useMemo(() => {
-    return (
-      referentesSemanales.find(
-        (r) => normalizarFechaSemana(r.fecha_semana) === semanaEnUso
-      ) || null
-    )
-  }, [referentesSemanales, semanaEnUso])
-
-  const rankingParticipantes = useMemo(() => {
-    const mapa = new Map<
-      string,
-      {
-        clave: string
-        nombre: string
-        email?: string | null
-        dias: Set<string>
-        totalVotos: number
-        bonusAportes: number
-        puntajeTotal: number
-        aportesRecibidos: number
-        participoEligiendo: boolean
-        subioLunes: boolean
-        subioMiercoles: boolean
-        videos: VideoItem[]
-      }
-    >()
-
-    for (const video of videosSemana) {
-      const clave = claveParticipante(video)
-      const actual =
-        mapa.get(clave) ||
-        {
-          clave,
-          nombre: video.participante_nombre,
-          email: video.participante_email || null,
-          dias: new Set<string>(),
-          totalVotos: 0,
-          bonusAportes: 0,
-          puntajeTotal: 0,
-          aportesRecibidos: 0,
-          participoEligiendo: false,
-          subioLunes: false,
-          subioMiercoles: false,
-          videos: [],
-      }
-
-      const diaNormalizado = normalizarClaveDia(video.dia_clave)
-      if (diaNormalizado) {
-        actual.dias.add(diaNormalizado)
-        if (diaNormalizado === "lunes") actual.subioLunes = true
-        if (diaNormalizado === "miercoles") actual.subioMiercoles = true
-      }
-
-      actual.totalVotos += votosPorVideo.get(video.id) || 0
-      actual.videos.push(video)
-      mapa.set(clave, actual)
-    }
-
-    const participantesQueEligieron = new Set(votosSemana.map((v) => claveVotante(v)))
-    const maxAportesRecibidos = Array.from(mapa.values()).reduce((maximo, participante) => {
-      const idsVideosParticipante = new Set(
-        participante.videos.map((video) => video.id)
-      )
-      const aportesRecibidos = comentariosSemana.filter((comentario) =>
-        idsVideosParticipante.has(comentario.video_id)
-      ).length
-      participante.aportesRecibidos = aportesRecibidos
-      return Math.max(maximo, aportesRecibidos)
-    }, 0)
-
-    const lista = Array.from(mapa.values()).map((item) => {
-      const participoEligiendo = participantesQueEligieron.has(item.clave)
-      const elegible = item.subioLunes && item.subioMiercoles && participoEligiendo
-      const bonusAportes =
-        item.aportesRecibidos > 0 && item.aportesRecibidos === maxAportesRecibidos ? 1 : 0
-      const puntajeTotal = item.totalVotos + bonusAportes
-
-      return {
-        ...item,
-        bonusAportes,
-        puntajeTotal,
-        participoEligiendo,
-        elegible,
-      }
-    })
-
-    lista.sort((a, b) => {
-      if (a.elegible !== b.elegible) return a.elegible ? -1 : 1
-      if (b.puntajeTotal !== a.puntajeTotal) return b.puntajeTotal - a.puntajeTotal
-      if (b.totalVotos !== a.totalVotos) return b.totalVotos - a.totalVotos
-      if (b.aportesRecibidos !== a.aportesRecibidos) return b.aportesRecibidos - a.aportesRecibidos
-      return a.nombre.localeCompare(b.nombre)
-    })
-
-    return lista
-  }, [comentariosSemana, videosSemana, votosSemana, votosPorVideo])
-
-  const top3 = useMemo(() => rankingParticipantes.slice(0, 3), [rankingParticipantes])
-
-  const ganadorSemana = useMemo(() => {
-    const elegibles = rankingParticipantes.filter((p) => p.elegible)
-    if (elegibles.length === 0) return null
-
-    const maxPuntaje = elegibles[0].puntajeTotal
-    const empatados = elegibles.filter((p) => p.puntajeTotal === maxPuntaje)
-
-    if (empatados.length > 1) {
-      return { empate: true as const, puntaje: maxPuntaje, participantes: empatados }
-    }
-
-    return { empate: false as const, participante: empatados[0] }
-  }, [rankingParticipantes])
-
-  const opcionesEvaluacionProceso = useMemo(() => {
-    return rankingParticipantes
-      .map((participante) => {
-        const videoRepresentativo = obtenerVideoRepresentativo(participante.videos)
-        const idsVideosParticipante = new Set(
-          participante.videos.map((video) => video.id)
-        )
-        const aportesRealizados = comentariosSemana.filter(
-          (comentario) => claveVotante({
-            votante_email: comentario.autor_email || null,
-            votante_nombre: comentario.autor_nombre,
-          }) === participante.clave
-        ).length
-
-        return {
-          ...participante,
-          videoRepresentativo,
-          aportesRealizados,
-        }
-      })
-      .filter((participante) => Boolean(participante.videoRepresentativo))
-      .sort((a, b) => a.nombre.localeCompare(b.nombre))
-  }, [comentariosSemana, rankingParticipantes])
-
-  const resumenSemana = useMemo(() => {
-    return {
-      videos: videosSemana.length,
-      participantes: rankingParticipantes.length,
-      comentarios: comentariosSemana.length,
-      top: top3.length,
-    }
-  }, [comentariosSemana.length, rankingParticipantes.length, top3.length, videosSemana.length])
-
-  const resultadosVotacionVisibles = useMemo(() => {
-    if (esAdmin) return true
-    if (!semanaEnUso || semanaEnUso !== semanaActual) return true
-    if (MODO_PRUEBA) return true
-
-    return resultadosDisponiblesSegunAhora(ahoraArgentina)
-  }, [
-    ahoraArgentina.hour,
-    ahoraArgentina.minute,
-    ahoraArgentina.numeroDia,
-    ahoraArgentina.weekday,
-    esAdmin,
-    semanaActual,
-    semanaEnUso,
-  ])
-
-  const evaluacionCerrada = useMemo(() => {
-    if (!semanaEnUso || semanaEnUso !== semanaActual) return true
-
-    return resultadosDisponiblesSegunAhora(ahoraArgentina)
-  }, [
-    ahoraArgentina.hour,
-    ahoraArgentina.minute,
-    ahoraArgentina.numeroDia,
-    ahoraArgentina.weekday,
-    semanaActual,
-    semanaEnUso,
-  ])
-
-  const diaActualClave = useMemo(() => {
-    switch (numeroDia) {
-      case 1:
-        return "lunes"
-      case 3:
-        return "miercoles"
-      default:
-        return ""
-    }
-  }, [numeroDia])
-
-  const esMartesAportes = numeroDia === 2
-  const eleccionesHabilitadas = useMemo(() => {
-    if (MODO_PRUEBA) return true
-    if (semanaEnUso !== semanaActual) return false
-    if (ahoraArgentina.weekday !== "Thu") return false
-
-    const minutosActuales = ahoraArgentina.hour * 60 + ahoraArgentina.minute
-    return minutosActuales <= 17 * 60
-  }, [
-    ahoraArgentina.hour,
-    ahoraArgentina.minute,
-    ahoraArgentina.weekday,
-    semanaActual,
-    semanaEnUso,
-  ])
-  const mostrarControlesEvaluacion = esAdmin || eleccionesHabilitadas
-
-  const claveActorEvaluacion = useMemo(() => {
-    return (email || nombre || "").trim().toLowerCase()
-  }, [email, nombre])
-
-  const yaParticipoEvaluacionSemana = useMemo(() => {
-    if (!claveActorEvaluacion) return false
-
-    return votosSemana.some((voto) => claveVotante(voto) === claveActorEvaluacion)
-  }, [claveActorEvaluacion, votosSemana])
-
-  const bloquearNuevaEvaluacion = yaParticipoEvaluacionSemana && !esAdmin
-  const mostrarEncuestaEvaluacion =
-    mostrarControlesEvaluacion && !bloquearNuevaEvaluacion
-
-  const nombreGanadorEntusiasmo = useMemo(() => {
-    if (!evaluacionCerrada || !ganadorSemana) return ""
-
-    if (ganadorSemana.empate) {
-      return ganadorSemana.participantes.map((participante) => participante.nombre).join(" y ")
-    }
-
-    return ganadorSemana.participante.nombre
-  }, [evaluacionCerrada, ganadorSemana])
-
-  const participantesSinVideoLunes = useMemo(() => {
-    if (
-      !esAdmin ||
-      semanaEnUso !== semanaActual ||
-      participantesActivosCasaTalentos.length === 0
-    ) {
-      return []
-    }
-
-    const participantesConLunes = new Set(
-      videosSemana
-        .filter((video) => normalizarClaveDia(video.dia_clave || video.dia) === "lunes")
-        .map((video) => claveParticipante(video))
-    )
-
-    return participantesActivosCasaTalentos.filter((participante) => {
-      return !participantesConLunes.has(String(participante.email || "").trim().toLowerCase())
-    })
-  }, [esAdmin, participantesActivosCasaTalentos, semanaActual, semanaEnUso, videosSemana])
 
   const mensajesRaiz = useMemo(() => {
     return mensajesGenerales.filter((mensaje) => !mensaje.parent_id)
@@ -1951,42 +1332,6 @@ export default function CasaTalentosPage() {
       [mensaje.id]: firmaHiloMensaje(mensaje),
     }))
   }
-
-  const yaSubioVideoHoy = useMemo(() => {
-    const claveActual = (email || nombre || "").trim().toLowerCase()
-    if (!claveActual || !diaActualClave) {
-      return false
-    }
-
-    return videosSemana.some((video) => {
-      const claveVideo = claveParticipante(video)
-      const diaVideo = normalizarClaveDia(video.dia_clave || video.dia)
-      return claveVideo === claveActual && diaVideo === diaActualClave
-    })
-  }, [diaActualClave, email, nombre, videosSemana])
-
-  const mostrarBloqueSubida =
-    semanaEnUso === semanaActual &&
-    Boolean(diaActualClave) &&
-    !yaSubioVideoHoy
-
-  const resumenAdmin = useMemo(() => {
-    const anfitrion =
-      top3.length > 0
-        ? {
-            participante_nombre: top3[0].nombre,
-            titulo: top3[0].videos[0]?.titulo || "Sin título",
-            votos: top3[0].puntajeTotal,
-          }
-        : null
-
-    return {
-      videos: videos.length,
-      votos: votos.length,
-      comentarios: comentarios.length,
-      anfitrion,
-    }
-  }, [comentarios.length, top3, videos.length, votos.length])
 
   useEffect(() => {
     if (!esAdmin) {
@@ -2457,13 +1802,6 @@ export default function CasaTalentosPage() {
       setGuardandoMensajeGeneral(false)
     }
   }
-
-  const textoReferentesGenerales =
-    referentesGenerales?.contenido?.trim() ||
-    `Para ser ganador/a de la semana:
-+ Subir y participar con tus videos semanales de 1 min.: lunes y miércoles
-+ El martes es día de aportes escritos para acompañar el proceso
-+ Participar de la elección/evaluación del jueves hasta las 17:00 hs`
 
   if (!mounted || !sesionLista) {
     return (

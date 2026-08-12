@@ -721,5 +721,28 @@ Pedido de Nicolás, transversal a toda la plataforma (no específico de un módu
 - `typecheck`/`lint` limpios en ambas fases, sin warnings nuevos.
 
 ## 5. Pendiente
-- **No se hizo commit todavía** — a la espera de confirmación de Nicolás. Este trabajo quedó en paralelo al de privacidad de `espacios-archivos` (sección anterior), también sin commitear — a definir con Nicolás si van en un commit conjunto o separados.
 - Los mails de sesión con hora local no se probaron con un envío real (no hay una forma segura de disparar `enviarConfirmacionSesionIndividual` sin una reserva real de por medio) — la lógica reutiliza la misma función de conversión ya verificada en vivo para la UI, pero queda pendiente una verificación real la próxima vez que se cree/edite/cancele una sesión real de Mentorías o Terapia para alguien con `zona_horaria` distinta de Argentina.
+
+Commiteado y pusheado (`145095e`), junto con la privacidad de `espacios-archivos`.
+
+---
+
+# Sesión de trabajo 2026-08-12 — Limpieza de código muerto del Dispositivo CasaTalentos viejo
+
+## 1. Objetivo
+Sacar los ~45 warnings de lint que quedaron en `app/casatalentos/page.tsx` desde que se retiró el "Dispositivo CasaTalentos" (ranking/votación/comentarios por video) en la Fase A2 del reemplazo por Entusiasmento (sesión 2026-08-11) — el JSX se había sacado en su momento, pero todo el cálculo (`useMemo`/`useState`) que solo alimentaba esa UI había quedado sin usar.
+
+## 2. Qué se hizo
+Limpieza en cascada, no mecánica de una sola pasada: se fue sacando cada variable/función marcada como no usada y, después de cada tanda, se volvía a correr `lint` para detectar qué quedaba huérfano recién ahí (por ejemplo, sacar `rankingParticipantes` dejó sin uso a `votosPorVideo`, que a su vez dejó sin uso a `pesoEvaluacion`, y así con varias cadenas más). Se sacaron por completo:
+- Todo el cálculo de ranking/ganador/empate semanal (`rankingParticipantes`, `top3`, `ganadorSemana`, `evaluacionCerrada`, `resumenSemana`, `resultadosVotacionVisibles`, `nombreGanadorEntusiasmo`, `mostrarEncuestaEvaluacion`, `mostrarControlesEvaluacion`, `eleccionesHabilitadas`, `eleccionesPorParticipante`, `bloquearNuevaEvaluacion`, `yaParticipoEvaluacionSemana`, `claveActorEvaluacion`).
+- Los estados de video/carga/comentario del Dispositivo viejo (`archivo`, `titulo`, `nombreParticipante`, `videoAbierto`, `elegidoSeleccionado`, `eliminandoVideoId`, `subiendoVideo`, `estadoSubidaVideo`, `eligiendo`, `comentariosDraft`, `comentandoVideoId`, `subsolapaDispositivo`) y los datos que ya no se cargan (`videos`, `votos`, `comentarios`, `referentesGenerales`, `referentesSemanales`, junto con sus tipos `VideoItem`, `VotoItem`, `ComentarioItem`, `ReferentesGenerales`, `ReferenteSemanal` y los campos correspondientes en la respuesta de `cargarDatosCasaTalentos`).
+- Funciones puras que solo alimentaban lo anterior: `claveParticipante`, `claveVotante`, `normalizarClaveDia`, `ordenDia`, `ordenarVideosPorProceso`, `obtenerVideoRepresentativo`, `normalizarFechaSemana`, `resultadosDisponiblesSegunAhora`, `pesoEvaluacion`, `nombreDiaActual`, `tieneRecurso`, `participantesSinVideoLunes`, `esMartesAportes`, `textoReferentesGenerales`.
+- **El hallazgo más importante de esta limpieza**: el "reloj" que recalculaba `ahoraArgentina` cada minuto (con `setTimeout`, listener de `focus` y de `visibilitychange`) solo existía para alimentar exactamente este cálculo ya muerto — no era solo una variable sin usar, era un `useEffect` completo corriendo de fondo sin ningún consumidor real. Se simplificó ese efecto a únicamente `setMounted(true)`, que es lo único que seguía haciendo falta. Esto no es solo prolijidad: es menos trabajo de fondo real en el navegador de cada persona que tiene la página abierta.
+- `obtenerAhoraArgentinaCliente` y el import de `obtenerPartesArgentina` (`lib/fechas.ts`) también se sacaron al quedar sin ningún uso.
+
+## 3. Verificado en vivo
+`typecheck` limpio. `lint`: los warnings de `no-unused-vars` en `app/casatalentos/page.tsx` bajaron de ~45 a **0** (solo quedan 5 warnings de `react-hooks/exhaustive-deps` en ese archivo, que son el patrón intencional ya usado en todo el proyecto — dependencias de `mounted`/`viendoEmail` a propósito, no deuda). El total de problemas de lint de todo el proyecto bajó de 67 a 23, todos preexistentes y ajenos a este módulo (documentados en sesiones anteriores). Probado en vivo con Playwright: la página de Entusiasmento carga sin errores de consola, "Mi espacio"/"CoFruto"/Coordenadas/Producciones/Tareas semanales/Valoraciones/Reunión semanal siguen funcionando, y el cambio de solapa entre participantes (Fase A3b) sigue andando bien — nada de lo que quedaba en uso se vio afectado.
+
+## 4. Pendiente
+- **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
+- Resto sin cambios: Pitch estilo Instagram, edición de fecha/hora de una tarea ya cargada, agente de IA (Fase D).
