@@ -842,5 +842,56 @@ Con la grilla siempre visible (punto 8), las miniaturas quedaron chicas — Nico
 **Verificado en vivo**: mismo participante descartable, click en la imagen dentro del modal abre el lightbox a 500×500px (contra ~120×120px del tile), cierra correctamente con el botón dedicado, cero errores de consola. Datos de prueba borrados al final. `typecheck`/`lint` limpios, sin warnings nuevos.
 
 ## 10. Pendiente
-- **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
 - Resto sin cambios: agente de IA (Fase D). Si se quiere seguir optimizando velocidad, falta auditar el resto de los pedidos que dispara la página de Entusiasmento al cargar (más allá del chequeo de acceso).
+
+Commiteado y pusheado (`b24f517`).
+
+---
+
+# Sesión de trabajo 2026-08-12 (continuación) — Fase D, parte 1: auditoría de velocidad del resto de la carga de Entusiasmento
+
+## 1. Objetivo
+Nicolás pidió arrancar la Fase D (agente de IA) pero primero terminar la auditoría de velocidad que había quedado pendiente — la vez anterior solo se optimizó el chequeo de acceso (`resolveActivityAccess`); faltaba revisar el resto de los pedidos que dispara `/casatalentos` al cargar (proyecto, aportes, producciones, tareas, y el listado de "Valoraciones y agradecimientos").
+
+## 2. Hallazgo grande: `/api/casatalentos/listar` seguía cargando todo el Dispositivo viejo, aunque nadie lo usa
+Este endpoint (el que alimenta el cuadrito de "Valoraciones y agradecimientos") seguía haciendo, en cada carga de la página, 8 consultas secuenciales a Supabase: videos + firmar sus URLs, votos, roles de quienes votaron, comentarios, referentes generales, referentes semanales + firmar sus URLs, y recién al final los mensajes. Pero **ni `app/casatalentos/page.tsx` ni `CasaTalentosAdminPanel.tsx`** (los dos únicos consumidores de este endpoint) leen `videos`, `votos` ni `comentarios` de la respuesta — quedaron huérfanos desde que se retiró el Dispositivo viejo en la Fase A2 (2026-08-11). Es la misma clase de deuda que ya se había limpiado del lado del frontend (sesión "Limpieza de código muerto del Dispositivo CasaTalentos viejo") pero nadie había vuelto a mirar el endpoint que sigue alimentando esos datos para nadie.
+
+**Medido, no estimado** (con datos reales de producción: 38 videos, 12 votos, 78 comentarios ya archivados): la versión vieja tardaba **entre 4.2 y 9.5 segundos** por carga (mucho peor de lo esperado — generar 38 signed URLs de golpe para videos que ya nadie muestra explica buena parte). La nueva versión, sin esas 3 consultas muertas y con las 3 que sí se usan (referentes generales, referentes semanales, mensajes) disparadas en simultáneo con `Promise.all` en vez de una atrás de la otra, tarda **entre 340 y 430ms** — una mejora de entre 10 y 20 veces, la más grande de toda la auditoría.
+
+- **`app/api/casatalentos/listar/route.ts`**: se sacaron las consultas a `casatalentos_videos`, `casatalentos_votos` y `casatalentos_comentarios` (con su firmado de URLs y el lookup de roles de votantes) y los tipos que solo servían para eso (`VideoDB`, `VotoDB`, `UsuarioRolRow`). Las 3 consultas que sí se usan (`casatalentos_referentes_generales`, `casatalentos_referentes_semanales`, `casatalentos_mensajes`) pasaron de secuenciales a `Promise.all` (son independientes entre sí). El firmado de URLs de los referentes semanales sigue después, porque depende de esos resultados.
+- Las tablas viejas (`casatalentos_videos`, `casatalentos_votos`, `casatalentos_comentarios`) siguen archivadas en la base sin tocar — mismo criterio de siempre, esto solo saca las consultas muertas del código, no borra datos.
+
+## 3. Segundo hallazgo: mismo patrón "resolver proyecto_id y recién después consultar" en 3 endpoints de Entusiasmento
+`GET /api/entusiasmo/producciones`, `.../aportes` y `.../tareas` hacían, cada uno, 2 consultas secuenciales: primero resolver el `id` de `entusiasmo_proyectos` a partir del email, y recién con ese id consultar la tabla hija. Se reemplazó por un solo viaje con join (`.select("*, entusiasmo_proyectos!inner(participante_email)").eq("entusiasmo_proyectos.participante_email", email)`) — mismo patrón de embed que ya se usaba en el PATCH/DELETE de producciones, así que no era una sintaxis nueva para el proyecto. `resolverProyectoId` se mantuvo en los archivos porque los POST (crear producción/tarea) todavía la necesitan para crear el proyecto si no existe.
+
+**Verificado en vivo, con foco en seguridad** (no solo velocidad): se crearon dos participantes descartables con datos propios en producciones/aportes/tareas, y se confirmó que cada uno ve exactamente lo suyo — nada del otro se filtra por el join. También se probó el caso de un email sin proyecto todavía (participante nuevo): devuelve lista vacía sin romper, igual que antes. Datos de prueba borrados al final.
+
+## 4. Lo que se dejó afuera, a propósito
+- `listarAgendaUnificada` (usada por `/api/agenda/por-actividad`, el próximo encuentro que se ve arriba de la página): ya está identificada como deuda aparte en la sección de "Agenda" de este documento (consulta sin límite de `reservas`) — mayor alcance porque la usan las 4 actividades, no se tocó acá para no mezclar cambios.
+- `listarParticipantesActividad` (la que arma el selector de solapas del admin): tiene 2 consultas secuenciales (inscripciones activas, después usuarios habilitados) que en teoría se podrían unir en un solo join, pero no hay certeza de que exista una foreign key declarada entre `inscripciones.participante_email` y `usuarios_plataforma.email` (varias tablas núcleo de este proyecto no tienen su `CREATE TABLE` versionado) — combinarlas a ciegas podía romper el embed sin previo aviso. Solo la usa el admin, y solo una vez por carga, así que el impacto es bajo — se dejó como está.
+- `/api/entusiasmo/cofruto` no se tocó — solo se dispara cuando se abre la solapa CoFruto (no en la carga inicial), y ya estaba razonablemente optimizado desde la Fase C (batch de signed URLs).
+
+## 5. Verificado en vivo
+`typecheck`/`lint` limpios, sin warnings nuevos. Comparación antes/después hecha con la versión vieja del archivo restaurada momentáneamente (`git stash`) contra el mismo servidor corriendo, para que la comparación sea real y no una estimación. Correctitud de los 3 endpoints de Entusiasmento confirmada con datos de dos participantes distintos en simultáneo (ver punto 3). Todo el dato de prueba se borró al terminar.
+
+## 6. Segunda pasada: el cuello de botella más grande era `listarAgendaUnificada` para participantes reales
+Nicolás pidió seguir bajando el tiempo hasta menos de 2 segundos. El primer indicio: medir el waterfall real de red de la página (no endpoint por endpoint aislado) mostró que **para un participante real** (no admin), `/api/agenda/por-actividad` — el "próximo encuentro" que se ve arriba de toda la página — tardaba **~4 segundos** ella sola.
+
+**Causa**: `listarAgendaUnificada` (`lib/agenda-unificada.ts`), que arma la agenda unificada usada por las 4 actividades, calcula el acceso a **las 4 actividades completas** (`casatalentos`, `conectando-sentidos`, `mentorias`, `terapia`) más el estado de pago de mentorías/terapia — 6 llamados en total — aunque quien pregunta solo quiera el próximo encuentro de una sola actividad. Para colmo, esos 6 llamados se hacían **uno atrás del otro** (`for` con `await` adentro), no en simultáneo. Sumado a eso, la consulta de `reservas` no tenía ningún filtro de fecha ni límite — traía **toda la tabla histórica completa** (meses de reservas ya pasadas) en cada pedido.
+
+- Los 6 llamados (4 de acceso por actividad + 2 de estado de pago) pasaron a `Promise.all` — son independientes entre sí, la decisión final no cambia, solo el orden en que se piden.
+- La consulta de `reservas` ahora se limita, con un join (`disponibilidades!inner(fecha)` + `.gte("disponibilidades.fecha", hoy)`), a reservas de encuentros futuros — que es lo único que el código termina usando (se verificó leyendo el resto de la función: solo se consulta `reservaPorDisponibilidad` para disponibilidades ya filtradas a `fecha >= hoy`, así que ninguna reserva pasada se estaba usando para nada, pese a traerse siempre).
+
+**Medido, no estimado** (con un participante real de prueba, pagado y con acceso, restaurando momentáneamente la versión vieja con `git stash` contra el mismo servidor): la versión vieja tardaba **~4.0 segundos** consistentes; la nueva, **~1.2-1.3 segundos**. Sigue siendo el endpoint más pesado de la página, pero bajó a un tercio.
+
+## 7. Límite real: la carga completa de la página, medida en producción local
+Se armó un waterfall de red real (Playwright, participante de prueba real con pago al día) para ver cuánto tarda la página entera, no un endpoint aislado. Hallazgo importante: **medir contra el servidor de desarrollo (`npm run dev`) da números poco confiables** — measurements en dev mostraron los mismos endpoints tardando 3-4 veces más que en una build de producción real (`npm run build && npm run start`) corrida en la misma máquina, y con mucha variación entre corridas — se confirmó que la máquina de desarrollo tenía poca memoria libre disponible después de una sesión larga (muchas horas, muchos procesos de prueba), lo que mete ruido en cualquier medición local que no se puede achacar al código.
+
+Con la build de producción corriendo localmente, la carga completa de `/casatalentos` para un participante real terminó en **~2.5 segundos** (contra ~3.1s en modo desarrollo, mismos datos) — más cerca del objetivo de 2 segundos pero todavía por encima. Los ~9-10 pedidos que dispara la página se ejecutan todos en paralelo desde el navegador (eso ya estaba bien), pero **local, en esta máquina, corren más lento en conjunto que cada uno por separado** — un patrón consistente con contención de recursos de esta laptop en este momento (memoria/CPU compartida entre el servidor, el navegador de prueba, y el resto de lo que tenía abierto), no necesariamente representativo de cómo se va a comportar en Vercel (cómputo dedicado, sin compartir con nada de esto).
+
+**Conclusión honesta**: se hicieron las dos optimizaciones de fondo más grandes que había para hacer sin arriesgar código (`casatalentos/listar` y `listarAgendaUnificada`, ambas con mejoras de 3x a 20x medidas de verdad) — el resto de lo que queda no son bugs de código sino la suma de ~9-10 pedidos concurrentes, cada uno ya razonablemente liviano. Para saber si ya se llegó a menos de 2 segundos de verdad hace falta medirlo contra el sitio desplegado en Vercel, no contra esta máquina — recomendado como siguiente paso antes de seguir optimizando a ciegas.
+
+## 8. Pendiente
+- Confirmar el tiempo real de carga contra producción (Vercel) una vez pusheado esto, para saber si hace falta seguir optimizando o si ya alcanza.
+- Fase D: agente de IA (recordatorio semanal por mail, diagnóstico admin on-demand) — arranca después de esto.
+- **No se hizo commit todavía** — a la espera de confirmación de Nicolás.

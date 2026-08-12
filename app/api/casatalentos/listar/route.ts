@@ -5,21 +5,6 @@ import {
   requireActivityAccess,
 } from "@/lib/authz"
 
-type VideoDB = {
-  id: number
-  participante_nombre: string
-  participante_email?: string | null
-  titulo: string
-  dia?: string | null
-  dia_clave?: string | null
-  fecha_semana?: string | null
-  video_url?: string | null
-  storage_path?: string | null
-  mime_type?: string | null
-  file_size?: number | null
-  created_at?: string
-}
-
 type ReferenteSemanalDB = {
   id: number
   fecha_semana: string
@@ -29,16 +14,6 @@ type ReferenteSemanalDB = {
   storage_path?: string | null
   mime_type?: string | null
   file_size?: number | null
-}
-
-type VotoDB = {
-  id: number
-  video_id: number
-  votante_nombre: string
-  votante_email?: string | null
-  fecha_semana?: string | null
-  created_at?: string
-  votante_rol?: string | null
 }
 
 type MensajeGeneralDB = {
@@ -52,11 +27,6 @@ type MensajeGeneralDB = {
   contenido_html?: string | null
   created_at?: string
   updated_at?: string
-}
-
-type UsuarioRolRow = {
-  email?: string | null
-  role?: string | null
 }
 
 function esStorageInterno(value?: string | null) {
@@ -84,149 +54,69 @@ export async function GET(req: Request) {
 
     const supabase = createAdminSupabaseClient()
 
-    const { data: videos, error: videosError } = await supabase
-      .from("casatalentos_videos")
-      .select("*")
-      .order("created_at", { ascending: false })
+    // Referentes generales, referentes semanales y mensajes son
+    // independientes entre sí, así que se piden en simultáneo en vez de
+    // uno atrás del otro.
+    const [referentesGeneralesResult, referentesSemanalesResult, mensajesGeneralesResult] =
+      await Promise.all([
+        supabase
+          .from("casatalentos_referentes_generales")
+          .select("*")
+          .order("updated_at", { ascending: false })
+          .order("id", { ascending: false })
+          .limit(1),
+        supabase
+          .from("casatalentos_referentes_semanales")
+          .select("*")
+          .order("fecha_semana", { ascending: false }),
+        supabase
+          .from("casatalentos_mensajes")
+          .select("*")
+          .eq("activo", true)
+          .order("created_at", { ascending: true }),
+      ])
 
-    if (videosError) {
+    if (referentesGeneralesResult.error) {
       return NextResponse.json(
-        { error: "No se pudieron cargar los videos", detalle: videosError },
+        { error: "No se pudieron cargar los referentes generales", detalle: referentesGeneralesResult.error },
         { status: 500 }
       )
     }
 
-    const videosTyped = (videos || []) as VideoDB[]
-    const storagePaths = videosTyped
-      .map((v) => v.storage_path)
-      .filter((v): v is string => Boolean(v))
-
-    const signedMap = new Map<string, string>()
-
-    if (storagePaths.length > 0) {
-      const { data: signedData, error: signedError } = await supabase.storage
-        .from("casatalentos-videos")
-        .createSignedUrls(storagePaths, 60 * 60)
-
-      if (signedError) {
-        return NextResponse.json(
-          { error: "No se pudieron firmar los videos", detalle: signedError },
-          { status: 500 }
-        )
-      }
-
-      for (let i = 0; i < storagePaths.length; i++) {
-        const path = storagePaths[i]
-        const signed = signedData?.[i]?.signedUrl || ""
-        if (path && signed) {
-          signedMap.set(path, signed)
-        }
-      }
-    }
-
-    const videosConUrl = videosTyped.map((video) => ({
-      ...video,
-      video_url:
-        video.storage_path && signedMap.has(video.storage_path)
-          ? signedMap.get(video.storage_path)
-          : video.video_url || null,
-    }))
-
-    const { data: votos, error: votosError } = await supabase
-      .from("casatalentos_votos")
-      .select("*")
-      .order("created_at", { ascending: false })
-
-    if (votosError) {
+    if (referentesSemanalesResult.error) {
       return NextResponse.json(
-        { error: "No se pudieron cargar los votos", detalle: votosError },
+        { error: "No se pudieron cargar los referentes semanales", detalle: referentesSemanalesResult.error },
         { status: 500 }
       )
     }
 
-    const votosTyped = (votos || []) as VotoDB[]
-    const emailsVotantes = Array.from(
-      new Set(
-        votosTyped
-          .map((voto) => String(voto.votante_email || "").trim().toLowerCase())
-          .filter(Boolean)
-      )
-    )
+    let mensajesGenerales = mensajesGeneralesResult.data
+    let mensajesError = mensajesGeneralesResult.error
 
-    const rolesPorEmail = new Map<string, string>()
+    if (mensajesError && faltaColumnaActivo(mensajesError)) {
+      const retry = await supabase
+        .from("casatalentos_mensajes")
+        .select("*")
+        .order("created_at", { ascending: true })
 
-    if (emailsVotantes.length > 0) {
-      const { data: usuariosRoles, error: usuariosRolesError } = await supabase
-        .from("usuarios_plataforma")
-        .select("email, role")
-        .in("email", emailsVotantes)
-
-      if (usuariosRolesError) {
-        return NextResponse.json(
-          { error: "No se pudieron cargar los roles de quienes evaluaron", detalle: usuariosRolesError },
-          { status: 500 }
-        )
-      }
-
-      for (const usuario of (usuariosRoles || []) as UsuarioRolRow[]) {
-        const email = String(usuario.email || "").trim().toLowerCase()
-        if (email) {
-          rolesPorEmail.set(email, String(usuario.role || "").trim().toLowerCase())
-        }
-      }
+      mensajesGenerales = retry.data
+      mensajesError = retry.error
     }
 
-    const votosConRol = votosTyped.map((voto) => {
-      const email = String(voto.votante_email || "").trim().toLowerCase()
-      return {
-        ...voto,
-        votante_rol: email ? rolesPorEmail.get(email) || null : null,
-      }
-    })
-
-    const { data: comentarios, error: comentariosError } = await supabase
-      .from("casatalentos_comentarios")
-      .select("*")
-      .order("created_at", { ascending: true })
-
-    if (comentariosError) {
+    if (mensajesError) {
       return NextResponse.json(
-        { error: "No se pudieron cargar los comentarios", detalle: comentariosError },
-        { status: 500 }
-      )
-    }
-
-    const { data: referentesGenerales, error: generalesError } = await supabase
-      .from("casatalentos_referentes_generales")
-      .select("*")
-      .order("updated_at", { ascending: false })
-      .order("id", { ascending: false })
-      .limit(1)
-
-    if (generalesError) {
-      return NextResponse.json(
-        { error: "No se pudieron cargar los referentes generales", detalle: generalesError },
-        { status: 500 }
-      )
-    }
-
-    const { data: referentesSemanales, error: semanalesError } = await supabase
-      .from("casatalentos_referentes_semanales")
-      .select("*")
-      .order("fecha_semana", { ascending: false })
-
-    if (semanalesError) {
-      return NextResponse.json(
-        { error: "No se pudieron cargar los referentes semanales", detalle: semanalesError },
+        { error: "No se pudieron cargar los mensajes", detalle: mensajesError },
         { status: 500 }
       )
     }
 
     const referentesSemanalesTyped =
-      (referentesSemanales || []) as ReferenteSemanalDB[]
+      (referentesSemanalesResult.data || []) as ReferenteSemanalDB[]
     const storagePathsReferentes = referentesSemanalesTyped
       .map((item) => item.storage_path || (esStorageInterno(item.video_url) ? item.video_url : null))
       .filter((item): item is string => Boolean(item))
+
+    const signedMap = new Map<string, string>()
 
     if (storagePathsReferentes.length > 0) {
       const { data: signedData, error: signedError } = await supabase.storage
@@ -259,35 +149,9 @@ export async function GET(req: Request) {
             : item.video_url || null,
     }))
 
-    let { data: mensajesGenerales, error: mensajesError } = await supabase
-      .from("casatalentos_mensajes")
-      .select("*")
-      .eq("activo", true)
-      .order("created_at", { ascending: true })
-
-    if (mensajesError && faltaColumnaActivo(mensajesError)) {
-      const retry = await supabase
-        .from("casatalentos_mensajes")
-        .select("*")
-        .order("created_at", { ascending: true })
-
-      mensajesGenerales = retry.data
-      mensajesError = retry.error
-    }
-
-    if (mensajesError) {
-      return NextResponse.json(
-        { error: "No se pudieron cargar los mensajes", detalle: mensajesError },
-        { status: 500 }
-      )
-    }
-
     return NextResponse.json({
       ok: true,
-      videos: videosConUrl,
-      votos: votosConRol,
-      comentarios: comentarios || [],
-      referentesGenerales: referentesGenerales?.[0] || null,
+      referentesGenerales: referentesGeneralesResult.data?.[0] || null,
       referentesSemanales: referentesSemanalesConUrl,
       mensajesGenerales: (mensajesGenerales || []) as MensajeGeneralDB[],
     })

@@ -81,16 +81,13 @@ export async function GET(req: Request) {
 
     const emailObjetivo = emailConsultado || auth.actor.email
     const supabase = createAdminSupabaseClient()
-    const proyectoId = await resolverProyectoId(supabase, emailObjetivo)
 
-    if (!proyectoId) {
-      return NextResponse.json({ ok: true, producciones: [] })
-    }
-
+    // Un solo viaje a la base (join + filtro por email) en vez de resolver
+    // primero el proyecto_id y recién después pedir las producciones.
     const { data, error } = await supabase
       .from("entusiasmo_producciones")
-      .select("*")
-      .eq("proyecto_id", proyectoId)
+      .select("*, entusiasmo_proyectos!inner(participante_email)")
+      .eq("entusiasmo_proyectos.participante_email", emailObjetivo)
       .order("created_at", { ascending: false })
 
     if (error) {

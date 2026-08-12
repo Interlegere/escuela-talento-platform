@@ -215,7 +215,8 @@ export async function listarAgendaUnificada(params: {
         .order("hora", { ascending: true }),
       supabase
         .from("reservas")
-        .select("*, disponibilidades(*)")
+        .select("*, disponibilidades!inner(fecha)")
+        .gte("disponibilidades.fecha", hoy)
         .order("created_at", { ascending: false }),
     ])
 
@@ -235,21 +236,27 @@ export async function listarAgendaUnificada(params: {
   const notasPorEmail = new Map<string, DocumentoNota[]>()
 
   if (!esAdmin) {
-    for (const slug of [
+    const activitySlugs = [
       "casatalentos",
       "conectando-sentidos",
       "mentorias",
       "terapia",
-    ] as const) {
-      accessByActivity.set(slug, await resolveActivityAccess(slug, actor.email))
-    }
+    ] as const
+    const espacioSlugs = ["mentorias", "terapia"] as const
 
-    for (const slug of ["mentorias", "terapia"] as const) {
-      pagoEspaciosByActivity.set(
-        slug,
-        await obtenerEstadoPagoActividadActual(slug, actor.email)
-      )
-    }
+    // Cada actividad/espacio se resuelve de forma independiente, así que se
+    // piden todas en simultáneo en vez de una atrás de la otra.
+    const [accesosResueltos, pagosResueltos] = await Promise.all([
+      Promise.all(
+        activitySlugs.map((slug) => resolveActivityAccess(slug, actor.email))
+      ),
+      Promise.all(
+        espacioSlugs.map((slug) => obtenerEstadoPagoActividadActual(slug, actor.email))
+      ),
+    ])
+
+    activitySlugs.forEach((slug, i) => accessByActivity.set(slug, accesosResueltos[i]))
+    espacioSlugs.forEach((slug, i) => pagoEspaciosByActivity.set(slug, pagosResueltos[i]))
   }
 
   if (esAdmin) {
