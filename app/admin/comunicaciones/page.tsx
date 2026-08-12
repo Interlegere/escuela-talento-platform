@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
+import Hora24Input from "@/components/ui/Hora24Input"
 
 type Segmento =
   | "todos_activos"
@@ -357,6 +358,7 @@ function fechaHoraLegible(iso?: string | null) {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    hourCycle: "h23",
   })
 }
 
@@ -1769,11 +1771,9 @@ export default function AdminComunicacionesPage() {
                   <span className="text-sm font-medium text-gray-700">
                     Hora (Argentina)
                   </span>
-                  <input
-                    type="time"
-                    className="workspace-field"
+                  <Hora24Input
                     value={horaProgramada}
-                    onChange={(e) => setHoraProgramada(e.target.value)}
+                    onChange={setHoraProgramada}
                   />
                 </label>
               </div>

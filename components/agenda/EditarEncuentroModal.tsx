@@ -8,6 +8,7 @@ import {
   type DocumentoNota,
 } from "@/lib/documentos-notas"
 import { normalizarMeetLink } from "@/lib/meet-links"
+import Hora24Input from "@/components/ui/Hora24Input"
 
 export type EditarEncuentroModalItem = {
   disponibilidadId?: number | null
@@ -242,12 +243,7 @@ export default function EditarEncuentroModal({
               <span className="text-sm font-medium text-[var(--foreground)]">
                 Hora
               </span>
-              <input
-                className="workspace-field"
-                type="time"
-                value={hora}
-                onChange={(event) => setHora(event.target.value)}
-              />
+              <Hora24Input value={hora} onChange={setHora} />
             </label>
 
             <label className="space-y-2">

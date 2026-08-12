@@ -104,6 +104,30 @@ export function AppSessionProvider({
     return () => document.removeEventListener("visibilitychange", onVisible)
   }, [runRefresh])
 
+  const zonaSincronizadaRef = useRef(false)
+
+  useEffect(() => {
+    if (status !== "authenticated" || zonaSincronizadaRef.current) {
+      return
+    }
+
+    zonaSincronizadaRef.current = true
+
+    try {
+      const zonaHoraria = Intl.DateTimeFormat().resolvedOptions().timeZone
+
+      if (zonaHoraria) {
+        void fetch("/api/me/zona-horaria", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ zonaHoraria }),
+        }).catch(() => {})
+      }
+    } catch {
+      // Sin soporte de Intl.DateTimeFormat: no bloquea el resto de la app.
+    }
+  }, [status])
+
   const value = useMemo(
     () => ({
       data,

@@ -647,6 +647,79 @@ Agregar fecha y hora opcional a cada tarea semanal — precursor necesario para 
 Se agregó una tarea real de prueba vía la UI (con la cuenta de test `admin@escuela.com`, que generó su propio proyecto aislado, sin tocar la cuenta real de Nicolás ni la de Cuchulain) con fecha 14/08/2026 y hora 18:30 → se confirmó en la base que quedó guardada (`fecha: "2026-08-14"`, `hora: "18:30:00"`) y que la UI la mostró como "Vie 14/08 · 18:30" (día de la semana calculado correcto). Tarea y proyecto de prueba borrados al final. `typecheck`/`lint` limpios, sin warnings nuevos.
 
 ## 4. Pendiente
-- **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
 - Edición de fecha/hora de una tarea ya cargada (hoy solo se define al crearla).
 - Resto sin cambios: Pitch estilo Instagram, agente de IA (Fase D, va a usar esta fecha/hora para los recordatorios), limpieza de código muerto del Dispositivo viejo, privacidad de `espacios-archivos`.
+
+Commiteado y pusheado (`523c12e`).
+
+---
+
+# Sesión de trabajo 2026-08-11 (continuación 10) — Privacidad de espacios-archivos
+
+## 1. Objetivo
+Corregir la deuda de seguridad marcada hace varias sesiones (sesión del 2026-08-11, Fase 0 de Entusiasmento): el bucket `espacios-archivos` (adjuntos de mensajes y recursos de Mentorías/Terapia) estaba público, sin signed URLs — mismo patrón de bug que se había corregido en `entusiasmo-producciones`, pero acá con uso real activo. A diferencia de Entusiasmento, esta vez el riesgo era mayor porque el link se guarda de dos formas: como campo estructurado (`url` de un recurso) y **embebido directo dentro del HTML enriquecido de un mensaje** (`contenido_html`, insertado por el editor de texto enriquecido al insertar una imagen o adjuntar un archivo) — no se puede simplemente "regenerar una signed URL al leer" como en Entusiasmento, porque el HTML guardado ya tiene la URL final escrita adentro, y una signed URL vencería a la hora.
+
+## 2. Relevamiento antes de tocar nada (bajó mucho el riesgo real)
+Antes de escribir código se chequeó el estado real de producción: de 18 mensajes con `contenido_html`, **ninguno** tenía un adjunto de `espacios-archivos` embebido — la función existe en el editor pero nadie la había usado todavía para mensajes. De 6 recursos con `url` cargada, **solo 1** apuntaba al bucket (una imagen de WhatsApp subida por Nicolás para Alexis Alexandroff en Mentorías) — el resto son links externos (Drive, Google). El bucket en sí solo tenía **1 archivo real**. Esto redujo el alcance de "corregir código + migrar datos reales en producción" a algo mucho más chico y seguro de lo que sugería la nota pendiente.
+
+## 3. Diseño elegido: proxy autenticado, no signed URL directa
+En vez de reemplazar la URL guardada por una signed URL (que vence), se armó un endpoint propio que actúa de intermediario y nunca vence:
+- **`app/api/espacios/archivo/route.ts`** (nuevo): recibe `path`, `actividadSlug`, `participanteEmail` por query string. Reutiliza `resolverContextoEspacio` (el mismo gate de acceso que ya usan mensajes/recursos) para autenticar y autorizar — si sos admin podés pedir el archivo de cualquier participante del espacio; si sos participante, tu propio email se fuerza igual que en el resto del código (no podés pedir el archivo de otra persona cambiando el parámetro). Verifica además que el `path` pedido efectivamente empiece con `actividadSlug/<email normalizado>/` antes de generar una signed URL de 1 hora y redirigir (302) a ella.
+- **`app/api/espacios/preparar-upload/route.ts`**: `asegurarBucketEspacios` ahora crea/mantiene el bucket **privado** (`public: false`) en vez de forzarlo público. La respuesta ya no devuelve `publicUrl` (permanente, sin auth) sino `viewUrl` — la URL estable de este proxy nuevo, que es la que se guarda en `contenido_html`/`url` en vez de la URL directa de Supabase. Como el proxy nunca vence (resuelve una signed URL fresca en cada visita), no hace falta ningún mecanismo especial para el caso "mensaje con imagen embebida" — el `<img src="...">` guardado sigue funcionando para siempre, autenticado.
+- **`components/espacios/EspacioAcompanamiento.tsx`**: `subirArchivoEspacio` ahora arma la URL a embeber/guardar a partir de `preparacion.viewUrl` en vez de `preparacion.publicUrl`.
+- **`lib/espacios.ts`**: se extrajo `limpiarNombreArchivo` (antes duplicada dentro de `preparar-upload/route.ts`) como función compartida y exportada, para que el proxy nuevo use exactamente la misma normalización de email que el upload — si divergieran, el chequeo de autorización por prefijo de path podría fallar en falso positivo o falso negativo.
+- **Nota al pasar**: al escribir `limpiarNombreArchivo` de nuevo se repitió, por segunda vez en el proyecto, el bug ya documentado de tipear los caracteres Unicode combinantes literales en vez del rango escapado `̀-ͯ` — detectado y corregido en el momento, antes de seguir.
+
+## 4. Migración de datos (un solo archivo real)
+El bucket se pasó a privado en producción, y se actualizó el único recurso real (`espacios_recursos.id = 6`, Alexis Alexandroff / Mentorías) para que su `url` apunte al proxy nuevo en vez de a la URL pública vieja de Supabase.
+
+## 5. Verificado en vivo
+- Proxy autenticado: con sesión admin devuelve 307 hacia una signed URL válida (confirmado que el archivo descarga con `content-type: image/jpeg` real); sin sesión devuelve 401; con una cuenta sin acceso a ese espacio (`colaborador@escuela.com`) devuelve 403. La URL pública vieja de Supabase ahora devuelve 400 (bucket privado).
+- UI real (Playwright, admin seleccionando a Alexis Alexandroff en `/mentorias` → Recursos): el recurso migrado se ve con su imagen cargando correctamente (`naturalWidth` real, no rota), sin errores de consola.
+- **Subida nueva de punta a punta a través del editor enriquecido real** (el camino de mayor riesgo, el de mensajes): se subió una imagen de prueba vía "Insertar imagen" en un recurso nuevo, quedó embebida en `contenido_html` con la URL del proxy nuevo, y se confirmó que renderiza (`naturalWidth` correcto). Recurso y archivo de prueba borrados al final — el bucket quedó con el único archivo real que ya tenía antes.
+- `typecheck`/`lint` limpios, sin warnings nuevos (el único warning de `EspacioAcompanamiento.tsx` es preexistente y no relacionado, documentado en sesiones anteriores).
+
+## 6. Pendiente
+- **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
+- Resto sin cambios: Pitch estilo Instagram, Tareas semanales con edición de fecha/hora, agente de IA (Fase D), limpieza de código muerto del Dispositivo viejo.
+
+---
+
+# Sesión de trabajo 2026-08-11 (continuación 11) — Formato 24hs en toda la plataforma + hora local por persona
+
+## 1. Objetivo
+Pedido de Nicolás, transversal a toda la plataforma (no específico de un módulo): (a) sacar el AM/PM de todos lados, dejar todo en 24hs; (b) que cada persona vea (en la plataforma) y reciba (por mail) los horarios de sus encuentros convertidos a su propia hora local, no solo en hora Argentina.
+
+## 2. Fase 1 — Formato 24hs
+
+**Causa real del AM/PM**: se relevaron los 10 lugares del código que formatean fecha+hora con `Intl`/`toLocaleString`. 9 ya usaban configuración regional argentina (`"es-AR"`, que normalmente cae en 24hs) pero sin fijarlo de forma explícita — riesgoso porque depende del comportamiento por default de la librería ICU del entorno. El décimo (`app/campus/page.tsx`, el recordatorio del dashboard) usaba directamente la configuración regional del **navegador** (`toLocaleString(undefined, ...)`) — ese es el que efectivamente mostraba AM/PM si el navegador/SO de quien mira está en inglés. Se agregó `hourCycle: "h23"` explícito en los 10 lugares (defensivo, no depende más de configuración implícita de nadie).
+
+**El problema real de fondo — inputs nativos**: los 4 campos `<input type="time">` de la plataforma (agenda, comunicaciones programadas, tareas semanales de Entusiasmento) son controles nativos del navegador — su formato visual (AM/PM o 24hs) lo decide el navegador/SO de quien los usa, no el código de la app, así que ningún cambio de `Intl` los afecta. Se armó **`components/ui/Hora24Input.tsx`** (nuevo, reutilizable): dos `<select>` (hora 00–23, minuto 00–59) en vez del input nativo, mismo contrato `value`/`onChange` como string `"HH:MM"` que ya usaba todo el código, sin tocar la lógica de guardado en ningún lado. Reemplazó los 4 usos nativos.
+
+**Verificado en vivo**: con el navegador forzado a `en-US` (para simular el caso que reportaba Nicolás), se confirmó que el recordatorio de campus ya no muestra AM/PM, y que los selects de hora/minuto nuevos funcionan y actualizan el estado correctamente.
+
+## 3. Fase 2 — Hora local por persona
+
+**Decisión de origen del dato** (pregunta directa a Nicolás antes de tocar nada): el huso horario de cada persona se **detecta solo del navegador** al entrar a la plataforma (`Intl.DateTimeFormat().resolvedOptions().timeZone`), sin pedirle nada a nadie ni tener que cargarlo Nicolás a mano.
+
+**Modelo de datos**: `fecha`/`hora` en `disponibilidades` ya se guardaban como hora de pared de Argentina, sin zona adjunta — como Argentina tiene offset fijo (UTC-3 todo el año, sin horario de verano desde 2009), convertir a cualquier otra zona es directo: se arma el instante absoluto asumiendo `-03:00` y se re-formatea en la zona destino.
+
+**Qué se hizo**:
+- **`sql/2026-08-13_usuarios_zona_horaria.sql`** (corrido por Nicolás): agrega `zona_horaria` (text, nullable) a `usuarios_plataforma`.
+- **`lib/fechas.ts`**: nuevas funciones puras — `esZonaHorariaValida`, `nombreCortoZona`, `convertirFechaHoraArgentinaAZona` (fecha Argentina + hora Argentina + zona destino → fecha/hora en esa zona).
+- **`app/api/me/zona-horaria/route.ts`** (nuevo, POST): guarda la zona horaria detectada del usuario autenticado. Endpoint chico y separado del formulario de perfil (`/api/me/perfil`) a propósito, para no arrastrar validaciones de nombre/apellido a un simple sync silencioso en segundo plano.
+- **`components/auth/AppSessionProvider.tsx`**: al autenticarse, detecta la zona del navegador y la sincroniza una sola vez por sesión (con un `ref` de guarda) — en segundo plano, sin bloquear nada si falla.
+- **`components/ui/HoraEnZonaLocal.tsx`** (nuevo): componente de solo lectura que muestra un horario Argentina convertido a la zona detectada del navegador de quien lo está viendo — si coincide con Argentina no convierte nada (`"19:30 hs (Argentina)"`), si difiere muestra ambas (`"17:30 hs tu hora (Bogota) (19:30 hs Argentina)"`).
+- **Dónde se aplicó** (solo vistas de **lectura** de horarios ya agendados — nunca en los formularios donde Nicolás carga/edita un encuentro, que siguen 100% en hora Argentina a propósito, para no arriesgar una carga mal hecha por confundir husos): `app/agenda/page.tsx` ("Tu agenda", vista participante), `components/agenda/AgendaActividad.tsx` (Conectando Sentidos), `app/casatalentos/page.tsx` (botón "Reunión semanal" de Entusiasmento), `components/espacios/EspacioAcompanamiento.tsx` (Mentorías/Terapia, ambas vistas de "reuniones agendadas").
+- **Mails de sesión** (`lib/comunicaciones.ts`): `enviarConfirmacionSesionIndividual`, `enviarActualizacionSesionIndividual` y `enviarCancelacionSesionIndividual` ahora buscan la `zona_horaria` guardada del destinatario y, si existe y es distinta de Argentina, agregan la hora local como aclaración junto a la hora Argentina (que sigue siendo la referencia principal del mail). Nueva función compartida `obtenerHoraLocalDestinatario`.
+
+## 4. Verificado en vivo
+- Auto-detección: usuario de prueba descartable, navegador con huso `America/Bogota` → confirmado en base que `zona_horaria` quedó guardada como `"America/Bogota"` tras loguearse, sin errores de consola.
+- Conversión real end-to-end: mismo usuario de prueba, inscripto temporalmente a Conectando Sentidos con pago al día (datos 100% descartables), vio el próximo encuentro grupal (19:30 hs Argentina real) mostrado como **"17:30 hs tu hora (Bogota) (19:30 hs Argentina)"** — matemática correcta (Bogotá está 2 horas detrás de Argentina). Todo el usuario/inscripción/honorario/pago de prueba se borró al final, sin dejar residuo.
+- **Incidente durante la prueba, no relacionado con el código**: la primera ronda de pruebas de esta fase se quedó colgada en "Cargando..." pese a que la API devolvía los datos correctamente — mismo patrón ya documentado antes en esta sesión (server de desarrollo con estado de compilación viejo tras muchas ediciones seguidas). Se reinició `npm run dev` y quedó resuelto — confirmado con la prueba de conversión real inmediatamente después, sin tocar código.
+- La app no se rompe si el SQL de esta fase no está corrido todavía (probado antes de que Nicolás lo corriera): el sync de zona horaria falla en silencio sin afectar nada visible.
+- `typecheck`/`lint` limpios en ambas fases, sin warnings nuevos.
+
+## 5. Pendiente
+- **No se hizo commit todavía** — a la espera de confirmación de Nicolás. Este trabajo quedó en paralelo al de privacidad de `espacios-archivos` (sección anterior), también sin commitear — a definir con Nicolás si van en un commit conjunto o separados.
+- Los mails de sesión con hora local no se probaron con un envío real (no hay una forma segura de disparar `enviarConfirmacionSesionIndividual` sin una reserva real de por medio) — la lógica reutiliza la misma función de conversión ya verificada en vivo para la UI, pero queda pendiente una verificación real la próxima vez que se cree/edite/cancele una sesión real de Mentorías o Terapia para alguien con `zona_horaria` distinta de Argentina.

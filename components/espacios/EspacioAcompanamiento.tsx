@@ -14,6 +14,7 @@ import RecursoCard from "@/components/recursos/RecursoCard"
 import type { EspacioActividadSlug } from "@/lib/espacios"
 import { supabase } from "@/lib/supabase"
 import WorkspaceHero from "@/components/ui/WorkspaceHero"
+import HoraEnZonaLocal from "@/components/ui/HoraEnZonaLocal"
 import type { DocumentoNota } from "@/lib/documentos-notas"
 import { tieneContenidoRecurso } from "@/lib/recursos"
 
@@ -75,7 +76,7 @@ type UploadPreparado = {
   bucket: string
   storagePath: string
   signedToken: string
-  publicUrl: string
+  viewUrl: string
 }
 
 type Props = {
@@ -130,19 +131,17 @@ function formatearFecha(fecha?: string | null) {
   })
 }
 
-function formatearDiaYHora(fecha?: string | null, hora?: string | null) {
-  if (!fecha) return hora || ""
+function formatearDiaSolo(fecha?: string | null) {
+  if (!fecha) return ""
 
   const d = new Date(`${fecha}T00:00:00`)
-  if (Number.isNaN(d.getTime())) {
-    return `${fecha}${hora ? ` · ${hora}` : ""}`
-  }
+  if (Number.isNaN(d.getTime())) return fecha
 
   const dia = d.toLocaleDateString("es-AR", {
     weekday: "long",
   })
 
-  return `${dia.charAt(0).toUpperCase()}${dia.slice(1)}${hora ? ` · ${hora}` : ""}`
+  return `${dia.charAt(0).toUpperCase()}${dia.slice(1)}`
 }
 
 function formatearFechaHora(fecha?: string | null) {
@@ -157,6 +156,7 @@ function formatearFechaHora(fecha?: string | null) {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    hourCycle: "h23",
   })
 }
 
@@ -672,7 +672,7 @@ export default function EspacioAcompanamiento({
       }
 
       return {
-        url: preparacion.publicUrl,
+        url: preparacion.viewUrl,
         name: file.name,
         mimeType: file.type,
       }
@@ -1670,7 +1670,8 @@ export default function EspacioAcompanamiento({
                           >
                             <div className="space-y-1">
                               <p className="font-medium">
-                                {formatearDiaYHora(item.fecha, item.hora)}
+                                {formatearDiaSolo(item.fecha)} ·{" "}
+                                <HoraEnZonaLocal fecha={item.fecha} hora={item.hora} />
                               </p>
                               <p className="workspace-inline-note">
                                 {item.titulo} · {item.duracion} min
@@ -1715,7 +1716,8 @@ export default function EspacioAcompanamiento({
                       <div key={item.id} className="workspace-card-link !rounded-[1.4rem] !p-4 space-y-2">
                         <p className="font-medium">{item.titulo}</p>
                         <p className="workspace-inline-note">
-                          {formatearFecha(item.fecha)} · {item.hora}
+                          {formatearFecha(item.fecha)} ·{" "}
+                          <HoraEnZonaLocal fecha={item.fecha} hora={item.hora} />
                         </p>
                         <p className="workspace-inline-note">
                           Duración: {item.duracion} min

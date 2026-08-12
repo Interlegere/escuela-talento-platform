@@ -5,6 +5,11 @@ import {
 } from "@/lib/economy-engine"
 import { normalizarMeetLink } from "@/lib/meet-links"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
+import {
+  convertirFechaHoraArgentinaAZona,
+  nombreCortoZona,
+  ZONA_ARGENTINA,
+} from "@/lib/fechas"
 
 export type VariablesComunicacion = {
   nombre?: string | null
@@ -301,6 +306,7 @@ function formatearFechaSesionCorta(fecha?: string | null, hora?: string | null) 
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    hourCycle: "h23",
   })
 }
 
@@ -398,6 +404,37 @@ function formatearFechaSesion(fecha: string) {
 function formatearHoraSesion(hora: string) {
   const [horas = "00", minutos = "00"] = String(hora || "").split(":")
   return `${horas.padStart(2, "0")}:${minutos.padStart(2, "0")}`
+}
+
+async function obtenerHoraLocalDestinatario(
+  destinatarioEmail: string,
+  fecha: string,
+  hora: string
+) {
+  try {
+    const supabase = createAdminSupabaseClient()
+    const { data } = await supabase
+      .from("usuarios_plataforma")
+      .select("zona_horaria")
+      .eq("email", destinatarioEmail)
+      .maybeSingle()
+
+    const zonaHoraria = data?.zona_horaria
+
+    if (!zonaHoraria || zonaHoraria === ZONA_ARGENTINA) {
+      return null
+    }
+
+    const convertido = convertirFechaHoraArgentinaAZona(fecha, hora, zonaHoraria)
+
+    if (!convertido) {
+      return null
+    }
+
+    return `${formatearHoraSesion(convertido.hora)} (${nombreCortoZona(zonaHoraria)})`
+  } catch {
+    return null
+  }
 }
 
 function limpiarTextoIcs(value?: string | null) {
@@ -1659,6 +1696,11 @@ export async function enviarConfirmacionSesionIndividual(
   const nombre = String(params.destinatarioNombre || "").trim() || "bienvenida/o"
   const fechaTexto = formatearFechaSesion(params.fecha)
   const horaTexto = formatearHoraSesion(params.hora)
+  const horaLocalTexto = await obtenerHoraLocalDestinatario(
+    destinatarioEmail,
+    params.fecha,
+    params.hora
+  )
   const duracionTexto = String(params.duracion || "60")
   const meetLink = normalizarMeetLink(params.meetLink)
   const linkPlataforma = `${appUrl()}${rutaActividadSesion(params.actividadSlug)}`
@@ -1673,7 +1715,7 @@ export async function enviarConfirmacionSesionIndividual(
     `Tu encuentro de ${actividad} quedó programado para:`,
     "",
     `Día: ${fechaTexto}`,
-    `Hora: ${horaTexto} Argentina`,
+    `Hora: ${horaTexto} Argentina${horaLocalTexto ? ` (${horaLocalTexto} tu hora)` : ""}`,
     `Duración: ${duracionTexto} minutos`,
     "",
     meetTexto,
@@ -1711,7 +1753,11 @@ export async function enviarConfirmacionSesionIndividual(
             )}</p>
             <p style="margin: 0 0 10px;"><strong>Hora:</strong> ${escapeHtml(
               horaTexto
-            )} Argentina</p>
+            )} Argentina${
+              horaLocalTexto
+                ? ` (${escapeHtml(horaLocalTexto)} tu hora)`
+                : ""
+            }</p>
             <p style="margin: 0;"><strong>Duración:</strong> ${escapeHtml(
               duracionTexto
             )} minutos</p>
@@ -1774,6 +1820,11 @@ export async function enviarActualizacionSesionIndividual(
   const nombre = String(params.destinatarioNombre || "").trim() || "bienvenida/o"
   const fechaTexto = formatearFechaSesion(params.fecha)
   const horaTexto = formatearHoraSesion(params.hora)
+  const horaLocalTexto = await obtenerHoraLocalDestinatario(
+    destinatarioEmail,
+    params.fecha,
+    params.hora
+  )
   const duracionTexto = String(params.duracion || "60")
   const meetLink = normalizarMeetLink(params.meetLink)
   const linkPlataforma = `${appUrl()}${rutaActividadSesion(params.actividadSlug)}`
@@ -1788,7 +1839,7 @@ export async function enviarActualizacionSesionIndividual(
     `Tu encuentro de ${actividad} fue actualizado.`,
     "",
     `Día: ${fechaTexto}`,
-    `Hora: ${horaTexto} Argentina`,
+    `Hora: ${horaTexto} Argentina${horaLocalTexto ? ` (${horaLocalTexto} tu hora)` : ""}`,
     `Duración: ${duracionTexto} minutos`,
     "",
     meetTexto,
@@ -1822,7 +1873,11 @@ export async function enviarActualizacionSesionIndividual(
             )}</p>
             <p style="margin: 0 0 10px;"><strong>Hora:</strong> ${escapeHtml(
               horaTexto
-            )} Argentina</p>
+            )} Argentina${
+              horaLocalTexto
+                ? ` (${escapeHtml(horaLocalTexto)} tu hora)`
+                : ""
+            }</p>
             <p style="margin: 0;"><strong>Duración:</strong> ${escapeHtml(
               duracionTexto
             )} minutos</p>
@@ -1884,6 +1939,11 @@ export async function enviarCancelacionSesionIndividual(
   const nombre = String(params.destinatarioNombre || "").trim() || "bienvenida/o"
   const fechaTexto = formatearFechaSesion(params.fecha)
   const horaTexto = formatearHoraSesion(params.hora)
+  const horaLocalTexto = await obtenerHoraLocalDestinatario(
+    destinatarioEmail,
+    params.fecha,
+    params.hora
+  )
   const duracionTexto = String(params.duracion || "60")
   const linkPlataforma = `${appUrl()}${rutaActividadSesion(params.actividadSlug)}`
 
@@ -1893,7 +1953,7 @@ export async function enviarCancelacionSesionIndividual(
     `Tu encuentro de ${actividad} fue cancelado.`,
     "",
     `Día: ${fechaTexto}`,
-    `Hora: ${horaTexto} Argentina`,
+    `Hora: ${horaTexto} Argentina${horaLocalTexto ? ` (${horaLocalTexto} tu hora)` : ""}`,
     `Duración: ${duracionTexto} minutos`,
     "",
     "Si necesitás reprogramarlo, podés revisar tu espacio en la plataforma o responder este correo.",
@@ -1921,7 +1981,11 @@ export async function enviarCancelacionSesionIndividual(
             )}</p>
             <p style="margin: 0 0 10px;"><strong>Hora:</strong> ${escapeHtml(
               horaTexto
-            )} Argentina</p>
+            )} Argentina${
+              horaLocalTexto
+                ? ` (${escapeHtml(horaLocalTexto)} tu hora)`
+                : ""
+            }</p>
             <p style="margin: 0;"><strong>Duración:</strong> ${escapeHtml(
               duracionTexto
             )} minutos</p>

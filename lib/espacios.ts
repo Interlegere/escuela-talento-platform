@@ -103,6 +103,16 @@ export function esErrorConfiguracionEspacios(detalle: unknown) {
   return esTablaFaltante(detalle)
 }
 
+export function limpiarNombreArchivo(nombre: string) {
+  return nombre
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase()
+}
+
 export function esActividadEspacio(
   actividadSlug: string
 ): actividadSlug is EspacioActividadSlug {

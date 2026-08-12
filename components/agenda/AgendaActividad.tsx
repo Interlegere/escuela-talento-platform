@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import ConsentimientoMeetButton from "@/components/consentimientos/ConsentimientoMeetButton"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
+import HoraEnZonaLocal from "@/components/ui/HoraEnZonaLocal"
 import type { DocumentoNota } from "@/lib/documentos-notas"
 
 type ItemAgenda = {
@@ -174,7 +175,8 @@ export default function AgendaActividad({
             </div>
             <p className="text-lg font-semibold tracking-[-0.03em]">{item.titulo}</p>
             <p className="workspace-inline-note">
-              {formatearFecha(item.fecha)} · {item.hora}
+              {formatearFecha(item.fecha)} ·{" "}
+              <HoraEnZonaLocal fecha={item.fecha} hora={item.hora} />
             </p>
             <p className="workspace-inline-note">Duración: {item.duracion} min</p>
 

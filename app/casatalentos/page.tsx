@@ -15,6 +15,8 @@ import { isDevelopmentPreviewEnabled } from "@/lib/dev-flags"
 import { obtenerPartesArgentina } from "@/lib/fechas"
 import { supabase } from "@/lib/supabase"
 import WorkspaceHero from "@/components/ui/WorkspaceHero"
+import Hora24Input from "@/components/ui/Hora24Input"
+import HoraEnZonaLocal from "@/components/ui/HoraEnZonaLocal"
 import { usePersistentState } from "@/hooks/usePersistentState"
 import { useSessionDraft } from "@/hooks/useSessionDraft"
 import RecursoCard from "@/components/recursos/RecursoCard"
@@ -382,6 +384,7 @@ function formatearFechaHora(fecha?: string | null) {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    hourCycle: "h23",
   })
 }
 
@@ -2511,7 +2514,11 @@ export default function CasaTalentosPage() {
           {proximoEncuentro && (
             <div className="inline-flex items-center gap-3 rounded-full border border-[var(--accent)] bg-white/90 px-4 py-2 shadow-sm">
               <span className="text-xs text-gray-600">
-                {formatearFecha(proximoEncuentro.fecha)} · {proximoEncuentro.hora}
+                {formatearFecha(proximoEncuentro.fecha)} ·{" "}
+                <HoraEnZonaLocal
+                  fecha={proximoEncuentro.fecha}
+                  hora={proximoEncuentro.hora}
+                />
               </span>
               {proximoEncuentro.meetLink && proximoEncuentro.puedeIngresar ? (
                 <ConsentimientoMeetButton
@@ -3457,11 +3464,9 @@ export default function CasaTalentosPage() {
                               value={nuevaTareaFecha}
                               onChange={(e) => setNuevaTareaFecha(e.target.value)}
                             />
-                            <input
-                              type="time"
-                              className="workspace-field flex-1"
+                            <Hora24Input
                               value={nuevaTareaHora}
-                              onChange={(e) => setNuevaTareaHora(e.target.value)}
+                              onChange={setNuevaTareaHora}
                             />
                             <button
                               type="button"

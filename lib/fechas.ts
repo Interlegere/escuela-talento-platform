@@ -66,6 +66,56 @@ export function obtenerRangoDiaArgentinaUTC(date: Date = new Date()) {
   }
 }
 
+export function esZonaHorariaValida(zona?: string | null): zona is string {
+  if (!zona) return false
+
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: zona })
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function nombreCortoZona(zona: string) {
+  return zona.split("/").pop()?.replace(/_/g, " ") || zona
+}
+
+export function convertirFechaHoraArgentinaAZona(
+  fecha: string,
+  hora: string,
+  zonaDestino: string
+) {
+  if (!fecha || !hora || !esZonaHorariaValida(zonaDestino)) {
+    return null
+  }
+
+  const horaCompleta = hora.length === 5 ? `${hora}:00` : hora
+  const instante = new Date(`${fecha}T${horaCompleta}-03:00`)
+
+  if (Number.isNaN(instante.getTime())) {
+    return null
+  }
+
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: zonaDestino,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(instante)
+
+  const get = (type: string) => partes.find((p) => p.type === type)?.value || ""
+
+  return {
+    fecha: `${get("year")}-${get("month")}-${get("day")}`,
+    hora: `${get("hour")}:${get("minute")}`,
+    date: instante,
+  }
+}
+
 export function mismaFechaArgentina(
   fechaA?: string | Date | null,
   fechaB?: string | Date | null

@@ -5,6 +5,8 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
 import WorkspaceHero from "@/components/ui/WorkspaceHero"
+import Hora24Input from "@/components/ui/Hora24Input"
+import HoraEnZonaLocal from "@/components/ui/HoraEnZonaLocal"
 import ConsentimientoMeetButton from "@/components/consentimientos/ConsentimientoMeetButton"
 import AdminAgendaCalendar from "@/components/agenda/AdminAgendaCalendar"
 import { ACTIVITY_RULES, type AgendaStrategy } from "@/lib/activity-rules"
@@ -668,12 +670,7 @@ export default function AgendaPage() {
               />
             )}
 
-            <input
-              className="workspace-field"
-              type="time"
-              value={hora}
-              onChange={(e) => setHora(e.target.value)}
-            />
+            <Hora24Input value={hora} onChange={setHora} />
 
             {requiereParticipante && (
               <select
@@ -903,7 +900,8 @@ export default function AgendaPage() {
                           {item.titulo}
                         </h4>
                         <p className="workspace-inline-note">
-                          {item.hora} · {item.duracion} min
+                          <HoraEnZonaLocal fecha={item.fecha} hora={item.hora} /> ·{" "}
+                          {item.duracion} min
                         </p>
                         {item.participanteNombre && (
                           <p className="workspace-inline-note">

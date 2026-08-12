@@ -77,12 +77,13 @@ function siguienteSemanaDiaHora(diaSemana: number, hora: number, minuto: number)
 }
 
 function formatearRecordatorio(fecha: Date) {
-  return fecha.toLocaleString(undefined, {
+  return fecha.toLocaleString("es-AR", {
     weekday: "long",
     day: "2-digit",
     month: "long",
     hour: "2-digit",
     minute: "2-digit",
+    hourCycle: "h23",
   })
 }
 

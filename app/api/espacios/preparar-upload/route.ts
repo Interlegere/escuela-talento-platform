@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import {
   esErrorConfiguracionEspacios,
+  limpiarNombreArchivo,
   resolverContextoEspacio,
 } from "@/lib/espacios"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
@@ -15,16 +16,6 @@ type Body = {
   mimeType?: string
   fileSize?: number
   destino?: "mensaje" | "recurso"
-}
-
-function limpiarNombreArchivo(nombre: string) {
-  return nombre
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9._-]/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .toLowerCase()
 }
 
 function mimePermitido(mimeType: string) {
@@ -73,11 +64,11 @@ async function asegurarBucketEspacios(
   const bucketExistente = buckets.find((bucket) => bucket.name === BUCKET)
 
   if (bucketExistente) {
-    if (!bucketExistente.public) {
+    if (bucketExistente.public) {
       const { error: actualizarError } = await supabase.storage.updateBucket(
         BUCKET,
         {
-          public: true,
+          public: false,
           fileSizeLimit: MAX_BYTES,
         }
       )
@@ -91,7 +82,7 @@ async function asegurarBucketEspacios(
   }
 
   const { error: crearError } = await supabase.storage.createBucket(BUCKET, {
-    public: true,
+    public: false,
     fileSizeLimit: MAX_BYTES,
   })
 
@@ -188,7 +179,11 @@ export async function POST(req: Request) {
       )
     }
 
-    const { data: publicData } = supabase.storage.from(BUCKET).getPublicUrl(storagePath)
+    const viewUrl = `/api/espacios/archivo?${new URLSearchParams({
+      path: storagePath,
+      actividadSlug: body.actividadSlug,
+      participanteEmail: contexto.participanteEmail,
+    }).toString()}`
 
     return NextResponse.json({
       ok: true,
@@ -196,7 +191,7 @@ export async function POST(req: Request) {
       storagePath,
       signedToken: signedUpload.token,
       signedUrl: signedUpload.signedUrl,
-      publicUrl: publicData.publicUrl,
+      viewUrl,
       maxBytes: MAX_BYTES,
     })
   } catch (error) {
