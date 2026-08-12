@@ -422,6 +422,10 @@ export default function CasaTalentosPage() {
   const [nuevaTareaHora, setNuevaTareaHora] = useState("")
   const [guardandoTarea, setGuardandoTarea] = useState(false)
   const [mensajeTarea, setMensajeTarea] = useState("")
+  const [editandoTareaId, setEditandoTareaId] = useState<number | null>(null)
+  const [edicionTareaFecha, setEdicionTareaFecha] = useState("")
+  const [edicionTareaHora, setEdicionTareaHora] = useState("")
+  const [guardandoEdicionTarea, setGuardandoEdicionTarea] = useState(false)
   const [puestosCofruto, setPuestosCofruto] = useState<PuestoCofruto[]>([])
   const [cargandoCofruto, setCargandoCofruto] = useState(false)
   const [puestoAbiertoEmail, setPuestoAbiertoEmail] = useState<string | null>(null)
@@ -865,6 +869,51 @@ export default function CasaTalentosPage() {
       await cargarTareas()
     } catch {
       setMensajeTarea("No se pudo actualizar la tarea.")
+    }
+  }
+
+  const abrirEdicionFechaHoraTarea = (tarea: TareaItem) => {
+    setEditandoTareaId(tarea.id)
+    setEdicionTareaFecha(tarea.fecha || "")
+    setEdicionTareaHora(tarea.hora || "")
+    setMensajeTarea("")
+  }
+
+  const cancelarEdicionFechaHoraTarea = () => {
+    setEditandoTareaId(null)
+    setEdicionTareaFecha("")
+    setEdicionTareaHora("")
+  }
+
+  const guardarEdicionFechaHoraTarea = async (id: number) => {
+    try {
+      setGuardandoEdicionTarea(true)
+      setMensajeTarea("")
+
+      const res = await fetch("/api/entusiasmo/tareas", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          fecha: edicionTareaFecha,
+          hora: edicionTareaHora,
+        }),
+      })
+
+      if (!res.ok) {
+        const data = await leerRespuestaJson<{ error?: string }>(res)
+        setMensajeTarea(data.error || "No se pudo actualizar la tarea.")
+        return
+      }
+
+      setEditandoTareaId(null)
+      setEdicionTareaFecha("")
+      setEdicionTareaHora("")
+      await cargarTareas()
+    } catch {
+      setMensajeTarea("Error actualizando la tarea.")
+    } finally {
+      setGuardandoEdicionTarea(false)
     }
   }
 
@@ -2750,34 +2799,81 @@ export default function CasaTalentosPage() {
                             tarea.fecha,
                             tarea.hora
                           )
+                          const editando = editandoTareaId === tarea.id
 
                           return (
-                            <label
+                            <div
                               key={tarea.id}
-                              className="flex items-center gap-3 rounded-xl border border-amber-200 bg-white/80 px-3 py-2"
+                              className="space-y-2 rounded-xl border border-amber-200 bg-white/80 px-3 py-2"
                             >
-                              <input
-                                type="checkbox"
-                                checked={tarea.completada}
-                                onChange={() =>
-                                  void alternarTareaCompletada(tarea.id, tarea.completada)
-                                }
-                              />
-                              <span
-                                className={`flex-1 text-sm ${
-                                  tarea.completada
-                                    ? "text-gray-400 line-through"
-                                    : "text-gray-800"
-                                }`}
-                              >
-                                {tarea.contenido}
-                              </span>
-                              {fechaHoraTexto && (
-                                <span className="shrink-0 text-xs text-amber-700">
-                                  {fechaHoraTexto}
-                                </span>
+                              <div className="flex items-center gap-3">
+                                <label className="flex flex-1 items-center gap-3">
+                                  <input
+                                    type="checkbox"
+                                    checked={tarea.completada}
+                                    onChange={() =>
+                                      void alternarTareaCompletada(tarea.id, tarea.completada)
+                                    }
+                                  />
+                                  <span
+                                    className={`text-sm ${
+                                      tarea.completada
+                                        ? "text-gray-400 line-through"
+                                        : "text-gray-800"
+                                    }`}
+                                  >
+                                    {tarea.contenido}
+                                  </span>
+                                </label>
+
+                                {!editando && (
+                                  <>
+                                    {fechaHoraTexto && (
+                                      <span className="shrink-0 text-xs text-amber-700">
+                                        {fechaHoraTexto}
+                                      </span>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => abrirEdicionFechaHoraTarea(tarea)}
+                                      className="shrink-0 text-xs text-amber-600 underline"
+                                    >
+                                      {fechaHoraTexto ? "Editar" : "+ Fecha"}
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+
+                              {editando && (
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <input
+                                    type="date"
+                                    className="workspace-field flex-1"
+                                    value={edicionTareaFecha}
+                                    onChange={(e) => setEdicionTareaFecha(e.target.value)}
+                                  />
+                                  <Hora24Input
+                                    value={edicionTareaHora}
+                                    onChange={setEdicionTareaHora}
+                                  />
+                                  <button
+                                    type="button"
+                                    disabled={guardandoEdicionTarea}
+                                    onClick={() => void guardarEdicionFechaHoraTarea(tarea.id)}
+                                    className="workspace-button-secondary text-xs"
+                                  >
+                                    {guardandoEdicionTarea ? "..." : "Guardar"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelarEdicionFechaHoraTarea}
+                                    className="text-xs text-gray-500 underline"
+                                  >
+                                    Cancelar
+                                  </button>
+                                </div>
                               )}
-                            </label>
+                            </div>
                           )
                         })}
                         {tareas.length === 0 && (

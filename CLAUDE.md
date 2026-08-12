@@ -744,5 +744,24 @@ Limpieza en cascada, no mecánica de una sola pasada: se fue sacando cada variab
 `typecheck` limpio. `lint`: los warnings de `no-unused-vars` en `app/casatalentos/page.tsx` bajaron de ~45 a **0** (solo quedan 5 warnings de `react-hooks/exhaustive-deps` en ese archivo, que son el patrón intencional ya usado en todo el proyecto — dependencias de `mounted`/`viendoEmail` a propósito, no deuda). El total de problemas de lint de todo el proyecto bajó de 67 a 23, todos preexistentes y ajenos a este módulo (documentados en sesiones anteriores). Probado en vivo con Playwright: la página de Entusiasmento carga sin errores de consola, "Mi espacio"/"CoFruto"/Coordenadas/Producciones/Tareas semanales/Valoraciones/Reunión semanal siguen funcionando, y el cambio de solapa entre participantes (Fase A3b) sigue andando bien — nada de lo que quedaba en uso se vio afectado.
 
 ## 4. Pendiente
-- **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
 - Resto sin cambios: Pitch estilo Instagram, edición de fecha/hora de una tarea ya cargada, agente de IA (Fase D).
+
+Commiteado y pusheado (`227cb0d`).
+
+---
+
+# Sesión de trabajo 2026-08-12 (continuación) — Editar fecha/hora de una tarea ya cargada
+
+## 1. Objetivo
+Hasta ahora la fecha/hora de una tarea semanal solo se podía definir al crearla (Fase de "Tareas semanales con fecha y hora", sesión anterior). Se agregó poder editarla después sin borrar y recrear la tarea.
+
+## 2. Qué se hizo
+- El backend (`PATCH /api/entusiasmo/tareas`) ya soportaba `fecha`/`hora` opcionales desde la fase anterior — no hizo falta tocarlo.
+- **`app/casatalentos/page.tsx`**: cada tarea de la lista ahora tiene un botón junto a la fecha/hora — "+ Fecha" si todavía no tiene, "Editar" si ya tiene algo cargado. Al tocarlo se abre un formulario chico inline (mismo `Hora24Input` reutilizado + un input de fecha) con Guardar/Cancelar, sin afectar el resto de la tarea (el texto y el estado completada/pendiente). Se reestructuró la fila de cada tarea (de `<label>` a un `<div>` con un `<label>` interno solo para el check+texto) para poder agregar el botón de editar sin que el click le dispare el toggle del checkbox por accidente (herencia de click de `<label>`).
+
+## 3. Verificado en vivo
+Con la cuenta de test `admin@escuela.com` (que genera su propio proyecto aislado): se creó una tarea sin fecha, se confirmó que muestra "+ Fecha", se editó a 20/08/2026 09:15 y se confirmó tanto en pantalla ("Jue 20/08 · 09:15", con el botón pasando a decir "Editar") como en la base (`fecha: "2026-08-20"`, `hora: "09:15:00"`). Tarea y proyecto de prueba borrados al final. `typecheck`/`lint` limpios, sin warnings nuevos.
+
+## 4. Pendiente
+- **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
+- Resto sin cambios: Pitch estilo Instagram, agente de IA (Fase D).
