@@ -12,6 +12,7 @@ import CasaTalentosAdminPanel from "@/components/casatalentos/CasaTalentosAdminP
 import EditorMensajeAdmin from "@/components/espacios/EditorMensajeAdmin"
 import type { EditorMensajeAdminHandle } from "@/components/espacios/EditorMensajeAdmin"
 import { isDevelopmentPreviewEnabled } from "@/lib/dev-flags"
+import { tieneAccesoEntusiasmento } from "@/lib/entusiasmo-acceso"
 import { supabase } from "@/lib/supabase"
 import WorkspaceHero from "@/components/ui/WorkspaceHero"
 import Hora24Input from "@/components/ui/Hora24Input"
@@ -73,6 +74,8 @@ type ProyectoEntusiasmo = {
   pitch_storage_path: string | null
   pitch_mime_type: string | null
   pitch_actualizado_at: string | null
+  agente_recordatorio_texto: string | null
+  agente_recordatorio_generado_at: string | null
 }
 
 type CoordenadasForm = {
@@ -149,6 +152,7 @@ type TareaItem = {
   completada: boolean
   fecha: string | null
   hora: string | null
+  prioridad: string | null
   created_at: string
 }
 
@@ -181,15 +185,8 @@ type PrepararUploadProduccionResponse = {
 }
 
 const MODO_PRUEBA = isDevelopmentPreviewEnabled()
-// Flag temporal: Entusiasmento (Mi espacio/CoFruto) todavía se está
-// terminando de armar. Cambiar a `true` cuando esté listo para que lo
-// usen los participantes — hasta entonces solo admin lo ve completo.
-const ENTUSIASMENTO_ABIERTO_A_PARTICIPANTES = false
-// Excepción puntual mientras el flag de arriba sigue en false: emails que
-// igual pueden entrar a probarlo como participante (ej. para probar un
-// bug reportado). Sacar de acá cuando ya no haga falta.
-const ENTUSIASMENTO_BETA_EMAILS = ["consultasbpe@gmail.com"]
 const STORAGE_MENSAJES_LEIDOS_CASATALENTOS = "casatalentos_mensajes_leidos"
+const STORAGE_RECORDATORIO_AGENTE_VISTO = "entusiasmo_recordatorio_agente_visto"
 const CAMPOS_COORDENADAS: Array<keyof CoordenadasForm> = [
   "que",
   "paraQue",
@@ -510,6 +507,7 @@ export default function CasaTalentosPage() {
   const [guardandoMensajeGeneral, setGuardandoMensajeGeneral] = useState(false)
   const [mensajesAbiertos, setMensajesAbiertos] = useState<Record<number, boolean>>({})
   const [mensajesLeidos, setMensajesLeidos] = useState<Record<number, string>>({})
+  const [recordatorioAgenteVisto, setRecordatorioAgenteVisto] = useState<Record<string, string>>({})
   const editorNuevoMensajeRef = useRef<EditorMensajeAdminHandle | null>(null)
   const editorEdicionMensajeRef = useRef<EditorMensajeAdminHandle | null>(null)
   const editorRespuestaRef = useRef<Record<number, EditorMensajeAdminHandle | null>>({})
@@ -538,6 +536,27 @@ export default function CasaTalentosPage() {
       return
     }
   }, [mensajesLeidos])
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_RECORDATORIO_AGENTE_VISTO)
+      if (!raw) return
+      setRecordatorioAgenteVisto(JSON.parse(raw) as Record<string, string>)
+    } catch {
+      return
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        STORAGE_RECORDATORIO_AGENTE_VISTO,
+        JSON.stringify(recordatorioAgenteVisto)
+      )
+    } catch {
+      return
+    }
+  }, [recordatorioAgenteVisto])
 
   const cargarDatosCasaTalentos = async () => {
     try {
@@ -871,6 +890,33 @@ export default function CasaTalentosPage() {
       await cargarTareas()
     } catch {
       setMensajeTarea("No se pudo actualizar la tarea.")
+    }
+  }
+
+  const cambiarPrioridadTarea = async (id: number, prioridadActual: string | null, prioridad: string) => {
+    const nuevaPrioridad = prioridadActual === prioridad ? null : prioridad
+
+    // Optimista: se ve el cambio al toque, sin esperar la vuelta del servidor.
+    setTareas((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, prioridad: nuevaPrioridad } : t))
+    )
+
+    try {
+      const res = await fetch("/api/entusiasmo/tareas", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, prioridad: nuevaPrioridad }),
+      })
+
+      if (!res.ok) {
+        throw new Error("No se pudo actualizar la prioridad.")
+      }
+    } catch {
+      // Revierte el cambio optimista si falló de verdad.
+      setTareas((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, prioridad: prioridadActual } : t))
+      )
+      setMensajeTarea("No se pudo actualizar la prioridad.")
     }
   }
 
@@ -1425,6 +1471,22 @@ export default function CasaTalentosPage() {
     setMensajesLeidos((prev) => ({
       ...prev,
       [mensaje.id]: firmaHiloMensaje(mensaje),
+    }))
+  }
+
+  const claveRecordatorioAgente = viendoEmail || storageEmail
+  const recordatorioAgenteNoLeido = Boolean(
+    proyecto?.agente_recordatorio_texto &&
+      proyecto?.agente_recordatorio_generado_at &&
+      recordatorioAgenteVisto[claveRecordatorioAgente] !==
+        proyecto.agente_recordatorio_generado_at
+  )
+
+  const marcarRecordatorioAgenteComoVisto = () => {
+    if (!proyecto?.agente_recordatorio_generado_at) return
+    setRecordatorioAgenteVisto((prev) => ({
+      ...prev,
+      [claveRecordatorioAgente]: proyecto.agente_recordatorio_generado_at as string,
     }))
   }
 
@@ -1995,6 +2057,24 @@ export default function CasaTalentosPage() {
               <span className="workspace-badge-unread">{cantidadMensajesNoLeidos}</span>
             )}
           </button>
+
+          {recordatorioAgenteNoLeido && (
+            <button
+              type="button"
+              onClick={() => {
+                document
+                  .getElementById("tareas-semanales-seccion")
+                  ?.scrollIntoView({ behavior: "smooth", block: "center" })
+              }}
+              className="inline-flex items-center gap-2 rounded-full border-2 border-[var(--accent)] bg-[rgba(255,247,225,0.9)] px-4 py-2 shadow-[0_0_16px_rgba(207,145,48,0.45)] transition hover:shadow-[0_0_22px_rgba(207,145,48,0.6)]"
+            >
+              <span aria-hidden style={{ fontSize: "1.2rem" }}>✨</span>
+              <span className="text-xs font-semibold text-[var(--accent-strong)]">
+                Tenés un destello nuevo
+              </span>
+              <span className="workspace-badge-unread">1</span>
+            </button>
+          )}
         </div>
 
         {valoracionesAbiertas && (
@@ -2400,9 +2480,7 @@ export default function CasaTalentosPage() {
         {!cargandoAcceso && (acceso || MODO_PRUEBA) && (
           <div className="space-y-4">
 
-            {esAdmin ||
-            ENTUSIASMENTO_ABIERTO_A_PARTICIPANTES ||
-            ENTUSIASMENTO_BETA_EMAILS.includes(storageEmail) ? (
+            {tieneAccesoEntusiasmento(storageEmail, esAdmin) ? (
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-3">
                   <button
@@ -2858,13 +2936,34 @@ export default function CasaTalentosPage() {
                       )}
                     </div>
 
-                    <div className="space-y-3 rounded-[1.75rem] border-2 border-amber-200 bg-amber-50/50 p-4">
+                    <div
+                      id="tareas-semanales-seccion"
+                      className="space-y-3 rounded-[1.75rem] border-2 border-amber-200 bg-amber-50/50 p-4"
+                    >
                       <div className="space-y-1">
                         <p className="workspace-eyebrow text-amber-600">📋 Tareas semanales</p>
                         <h3 className="text-lg font-bold tracking-tight text-amber-900">
                           Lo que te proponés esta semana
                         </h3>
                       </div>
+
+                      {proyecto?.agente_recordatorio_texto && (
+                        <div className="flex items-start justify-between gap-3 rounded-2xl border-2 border-[var(--accent)] bg-[rgba(255,247,225,0.9)] p-4 shadow-[0_0_16px_rgba(207,145,48,0.3)]">
+                          <div className="space-y-1">
+                            <p className="workspace-eyebrow text-[var(--accent-strong)]">✨ Destello de la semana</p>
+                            <p className="text-sm text-gray-800">{proyecto.agente_recordatorio_texto}</p>
+                          </div>
+                          {!viendoEmail && (
+                            <button
+                              type="button"
+                              onClick={marcarRecordatorioAgenteComoVisto}
+                              className="shrink-0 text-xs text-gray-500 underline"
+                            >
+                              Ya lo vi
+                            </button>
+                          )}
+                        </div>
+                      )}
 
                       {tareas.length > 0 && (
                         <div className="space-y-1">
@@ -2935,6 +3034,32 @@ export default function CasaTalentosPage() {
                                     </button>
                                   </>
                                 )}
+
+                                <div className="flex shrink-0 items-center gap-1">
+                                  {(["verde", "amarillo", "rojo"] as const).map((color) => (
+                                    <button
+                                      key={color}
+                                      type="button"
+                                      disabled={Boolean(viendoEmail)}
+                                      onClick={() =>
+                                        void cambiarPrioridadTarea(tarea.id, tarea.prioridad, color)
+                                      }
+                                      className={`h-4 w-4 rounded-full border transition disabled:cursor-default ${
+                                        tarea.prioridad === color
+                                          ? {
+                                              verde: "border-emerald-600 bg-emerald-500",
+                                              amarillo: "border-amber-500 bg-amber-400",
+                                              rojo: "border-red-600 bg-red-500",
+                                            }[color]
+                                          : {
+                                              verde: "border-emerald-300 bg-transparent hover:bg-emerald-100",
+                                              amarillo: "border-amber-300 bg-transparent hover:bg-amber-100",
+                                              rojo: "border-red-300 bg-transparent hover:bg-red-100",
+                                            }[color]
+                                      }`}
+                                    />
+                                  ))}
+                                </div>
                               </div>
 
                               {editando && (

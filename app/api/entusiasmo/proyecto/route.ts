@@ -25,6 +25,8 @@ type ProyectoRow = {
   pitch_storage_path: string | null
   pitch_mime_type: string | null
   pitch_actualizado_at: string | null
+  agente_recordatorio_texto: string | null
+  agente_recordatorio_generado_at: string | null
   created_at: string
   updated_at: string
 }

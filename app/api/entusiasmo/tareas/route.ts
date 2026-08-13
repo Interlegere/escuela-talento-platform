@@ -13,6 +13,7 @@ type TareaRow = {
   completada: boolean
   fecha: string | null
   hora: string | null
+  prioridad: string | null
   created_at: string
   updated_at: string
 }
@@ -29,7 +30,10 @@ type PatchBody = {
   completada?: boolean
   fecha?: string | null
   hora?: string | null
+  prioridad?: string | null
 }
+
+const PRIORIDADES_VALIDAS = ["verde", "amarillo", "rojo"]
 
 async function resolverProyectoId(
   supabase: ReturnType<typeof createAdminSupabaseClient>,
@@ -75,6 +79,8 @@ export async function GET(req: Request) {
       .from("entusiasmo_tareas")
       .select("*, entusiasmo_proyectos!inner(participante_email)")
       .eq("entusiasmo_proyectos.participante_email", emailObjetivo)
+      .order("fecha", { ascending: true, nullsFirst: false })
+      .order("hora", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: true })
 
     if (error) {
@@ -208,6 +214,16 @@ export async function PATCH(req: Request) {
     if (body.completada !== undefined) cambios.completada = Boolean(body.completada)
     if (body.fecha !== undefined) cambios.fecha = body.fecha?.trim() || null
     if (body.hora !== undefined) cambios.hora = body.hora?.trim() || null
+
+    if (body.prioridad !== undefined) {
+      const prioridad = body.prioridad?.trim() || null
+
+      if (prioridad && !PRIORIDADES_VALIDAS.includes(prioridad)) {
+        return NextResponse.json({ error: "Prioridad inválida." }, { status: 400 })
+      }
+
+      cambios.prioridad = prioridad
+    }
 
     const { data, error } = await supabase
       .from("entusiasmo_tareas")

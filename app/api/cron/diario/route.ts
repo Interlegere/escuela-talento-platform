@@ -71,6 +71,16 @@ export async function GET(req: Request) {
       )
     }
 
+    // Agente de Entusiasmento: se llama todos los días, decide adentro si
+    // hoy corresponde enviar según el calendario alternado (ver
+    // lib/agente-entusiasmo-calendario.ts) — igual patrón que comunicaciones
+    // programadas, arriba.
+    resultados.agenteEntusiasmoDiario = await llamarInterno(
+      origin,
+      "/api/entusiasmo/agente/diario",
+      cronSecret
+    )
+
     return NextResponse.json({
       ok: true,
       fecha: ahora.toISOString(),
