@@ -1,17 +1,14 @@
-// Flag temporal: Entusiasmento (Mi espacio/CoFruto) todavía se está
-// terminando de armar. Cambiar a `true` cuando esté listo para que lo usen
-// los participantes — hasta entonces solo admin lo ve completo.
-export const ENTUSIASMENTO_ABIERTO_A_PARTICIPANTES = false
+// Entusiasmento (Mi espacio/CoFruto) ya está abierto a todos los
+// participantes activos de la actividad — no solo admin/beta. Volver a
+// `false` para cerrarlo de nuevo si hiciera falta (ej. mantenimiento).
+export const ENTUSIASMENTO_ABIERTO_A_PARTICIPANTES = true
 
-// Excepción puntual mientras el flag de arriba sigue en false: emails que
-// igual pueden entrar a probarlo como participante (ej. para probar un bug
-// reportado, o como destinatario de prueba del agente de IA durante la
-// beta). Sacar de acá cuando ya no haga falta.
-//
-// IMPORTANTE: "consultasbpe@gmail.com" (Cuchulain) está acá a propósito
-// como único destinatario real del agente semanal (lib/agente-entusiasmo.ts)
-// mientras dura la beta de tono. Cuando se abra ENTUSIASMENTO_ABIERTO_A_PARTICIPANTES
-// a todos, revisar si conviene sacarla de esta lista (Fase E).
+// Lista histórica de excepciones puntuales, ya sin efecto real ahora que
+// el flag de arriba es `true` (queda `esAdmin || true || ...`). Se
+// mantiene el array (en vez de vaciarlo) porque el agente diario
+// (lib/agente-entusiasmo.ts) también llama a tieneAccesoEntusiasmento — si
+// en el futuro se vuelve a cerrar el acceso general, esta lista permite
+// reabrirlo para casos puntuales sin tocar código en dos lugares.
 export const ENTUSIASMENTO_BETA_EMAILS = ["consultasbpe@gmail.com"]
 
 export function tieneAccesoEntusiasmento(email: string, esAdmin: boolean) {

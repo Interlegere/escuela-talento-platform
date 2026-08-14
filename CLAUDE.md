@@ -1132,5 +1132,25 @@ Al tocar "🔗 Link", React tiraba en consola: *"A component is changing an unco
 **Verificado en vivo** con un participante descartable: recorrido completo por los 5 tipos, ida y vuelta varias veces (texto → imagen → audio → video → link → texto → video → link → imagen → link) sin ningún error ni warning de consola, y confirmado que el campo de link sigue funcionando normalmente después del recorrido (se puede escribir y el valor se carga bien). `typecheck`/`lint` limpios, sin warnings nuevos.
 
 ## 5. Pendiente
+- Resto sin cambios de sesiones anteriores: agente de IA reforzado, auditoría de performance del resto de la carga de Entusiasmento.
+
+Commiteado y pusheado (`3d3aac8`).
+
+---
+
+# Sesión de trabajo 2026-08-14 (continuación 5) — Apertura de Entusiasmento a todos los participantes
+
+## 1. Objetivo
+Nicolás pidió sacar el gate: los participantes (no solo Cuchulain, la cuenta de beta) veían el cartel "se está terminando de armar" en vez de "Mi espacio"/CoFruto.
+
+## 2. Qué se hizo
+`lib/entusiasmo-acceso.ts`: `ENTUSIASMENTO_ABIERTO_A_PARTICIPANTES` pasó de `false` a `true` — el flag que existía justo para este momento (documentado desde la Fase A2). `ENTUSIASMENTO_BETA_EMAILS` se dejó tal cual (con `consultasbpe@gmail.com`) en vez de vaciarse, ya sin efecto real hoy (`esAdmin || true || ...`), pero disponible como mecanismo listo por si en el futuro hay que volver a cerrar el acceso general y reabrirlo solo para casos puntuales.
+
+**Efecto colateral a tener en cuenta**: `tieneAccesoEntusiasmento` también decide el padrón del agente de IA diario (`lib/agente-entusiasmo.ts`, recordatorio automático por mail con calendario alternado lunes/miércoles/viernes una semana, martes/jueves la otra). Con el flag en `true`, deja de ser solo Cuchulain — a partir de ahora **todos los inscriptos activos a Entusiasmento con acceso real** (verificado antes de este cambio: Florencia Varela, María Gabriela Rodríguez Luna, Pablo Tello Novella, Cristian Ruggiero, Verónica Alejandra Saracho, además de Cuchulain — 6 personas reales; se excluyen las cuentas de prueba hardcodeadas y `interlegerensa@gmail.com` como ya hacía el agente) van a empezar a recibir el mail automático del agente en el próximo día que corresponda según el calendario. No hacía falta ningún cambio de código para esto — es una consecuencia directa de compartir la misma función de acceso, tal como se había diseñado a propósito en la Fase D.
+
+## 3. Verificado en vivo
+Con un participante descartable **sin** estar en `ENTUSIASMENTO_BETA_EMAILS` ni ser admin: antes del cambio hubiera visto el cartel de "en construcción"; con el flag en `true`, entra directo a "Mi espacio" (ve Coordenadas) y tiene el botón de CoFruto disponible — confirmado con el flag ya aplicado. Cero errores de consola. `typecheck`/`lint` limpios, sin warnings nuevos.
+
+## 4. Pendiente
 - **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
 - Resto sin cambios de sesiones anteriores: agente de IA reforzado, auditoría de performance del resto de la carga de Entusiasmento.
