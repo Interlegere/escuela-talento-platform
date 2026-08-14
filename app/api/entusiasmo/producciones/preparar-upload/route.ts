@@ -34,12 +34,17 @@ function extensionDesdeNombre(nombre?: string, mimeType?: string) {
   }
 
   if (mimeType?.startsWith("audio/")) return "webm"
+  if (mimeType?.startsWith("video/")) return "webm"
   if (mimeType?.startsWith("image/")) return mimeType.split("/")[1] || "png"
   return "bin"
 }
 
 function mimePermitido(mimeType: string) {
-  return mimeType.startsWith("image/") || mimeType.startsWith("audio/")
+  return (
+    mimeType.startsWith("image/") ||
+    mimeType.startsWith("audio/") ||
+    mimeType.startsWith("video/")
+  )
 }
 
 async function asegurarBucketEntusiasmo(
@@ -114,7 +119,7 @@ export async function POST(req: Request) {
 
     if (!mimePermitido(mimeType)) {
       return NextResponse.json(
-        { error: "La producción tiene que ser una imagen o un audio." },
+        { error: "La producción tiene que ser una imagen, un audio o un video." },
         { status: 400 }
       )
     }

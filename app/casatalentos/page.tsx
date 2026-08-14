@@ -187,6 +187,7 @@ type PrepararUploadProduccionResponse = {
 const MODO_PRUEBA = isDevelopmentPreviewEnabled()
 const STORAGE_MENSAJES_LEIDOS_CASATALENTOS = "casatalentos_mensajes_leidos"
 const STORAGE_RECORDATORIO_AGENTE_VISTO = "entusiasmo_recordatorio_agente_visto"
+const MAX_TAREAS_COMPLETADAS_VISIBLES = 10
 const CAMPOS_COORDENADAS: Array<keyof CoordenadasForm> = [
   "que",
   "paraQue",
@@ -402,6 +403,7 @@ export default function CasaTalentosPage() {
   >({})
   const [versionesCargadas, setVersionesCargadas] = useState(false)
   const [versionesCampoAbierto, setVersionesCampoAbierto] = useState<Record<string, boolean>>({})
+  const [historialTareasAbierto, setHistorialTareasAbierto] = useState(false)
   const [archivoPitch, setArchivoPitch] = useState<File | null>(null)
   const [subiendoPitch, setSubiendoPitch] = useState(false)
   const [estadoSubidaPitch, setEstadoSubidaPitch] = useState("")
@@ -429,9 +431,10 @@ export default function CasaTalentosPage() {
   const [tituloProduccion, setTituloProduccion] = useState("")
   const [textoProduccion, setTextoProduccion] = useState("")
   const [archivoProduccion, setArchivoProduccion] = useState<File | null>(null)
-  const [tipoNuevaProduccion, setTipoNuevaProduccion] = useState<"texto" | "imagen" | "audio">(
-    "texto"
-  )
+  const produccionFileInputRef = useRef<HTMLInputElement | null>(null)
+  const [tipoNuevaProduccion, setTipoNuevaProduccion] = useState<
+    "texto" | "imagen" | "audio" | "video"
+  >("texto")
   const [guardandoProduccion, setGuardandoProduccion] = useState(false)
   const [mensajeProduccion, setMensajeProduccion] = useState("")
   const [tareas, setTareas] = useState<TareaItem[]>([])
@@ -452,6 +455,20 @@ export default function CasaTalentosPage() {
   const tareasCompletadas = tareas.filter((t) => t.completada).length
   const porcentajeRitmo =
     tareas.length > 0 ? Math.round((tareasCompletadas / tareas.length) * 100) : 0
+  const tareasPendientesLista = tareas.filter((t) => !t.completada)
+  // Las últimas MAX_TAREAS_COMPLETADAS_VISIBLES completadas quedan a la vista
+  // (fuera de la lista de pendientes, pero sin archivar todavía). Recién la
+  // que se convierte en la número 11 pasa al historial desplegable.
+  const tareasCompletadasOrdenadas = tareas
+    .filter((t) => t.completada)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  const tareasCompletadasVisibles = tareasCompletadasOrdenadas.slice(
+    0,
+    MAX_TAREAS_COMPLETADAS_VISIBLES
+  )
+  const tareasHistorialLista = tareasCompletadasOrdenadas.slice(
+    MAX_TAREAS_COMPLETADAS_VISIBLES
+  )
 
   const [mensajeExito, setMensajeExito] = useState("")
   const [mensajeError, setMensajeError] = useState("")
@@ -1020,6 +1037,101 @@ export default function CasaTalentosPage() {
     } finally {
       setGuardandoEdicionTarea(false)
     }
+  }
+
+  const renderizarFilaTarea = (tarea: TareaItem) => {
+    const fechaHoraTexto = formatearFechaHoraTarea(tarea.fecha, tarea.hora)
+    const editando = editandoTareaId === tarea.id
+
+    return (
+      <div
+        key={tarea.id}
+        className="space-y-2 rounded-xl border border-amber-200 bg-white/80 px-3 py-2"
+      >
+        <div className="flex items-center gap-3">
+          <label className="flex flex-1 items-center gap-3">
+            <input
+              type="checkbox"
+              checked={tarea.completada}
+              onChange={() => void alternarTareaCompletada(tarea.id, tarea.completada)}
+            />
+            <span
+              className={`text-sm ${
+                tarea.completada ? "text-gray-400 line-through" : "text-gray-800"
+              }`}
+            >
+              {tarea.contenido}
+            </span>
+          </label>
+
+          {!editando && (
+            <>
+              {fechaHoraTexto && (
+                <span className="shrink-0 text-xs text-amber-700">{fechaHoraTexto}</span>
+              )}
+              <button
+                type="button"
+                onClick={() => abrirEdicionFechaHoraTarea(tarea)}
+                className="shrink-0 text-xs text-amber-600 underline"
+              >
+                {fechaHoraTexto ? "Editar" : "+ Fecha"}
+              </button>
+            </>
+          )}
+
+          <div className="flex shrink-0 items-center gap-1">
+            {(["verde", "amarillo", "rojo"] as const).map((color) => (
+              <button
+                key={color}
+                type="button"
+                disabled={Boolean(viendoEmail)}
+                onClick={() => void cambiarPrioridadTarea(tarea.id, tarea.prioridad, color)}
+                className={`h-4 w-4 rounded-full border transition disabled:cursor-default ${
+                  tarea.prioridad === color
+                    ? {
+                        verde: "border-emerald-600 bg-emerald-500",
+                        amarillo: "border-amber-500 bg-amber-400",
+                        rojo: "border-red-600 bg-red-500",
+                      }[color]
+                    : {
+                        verde: "border-emerald-300 bg-transparent hover:bg-emerald-100",
+                        amarillo: "border-amber-300 bg-transparent hover:bg-amber-100",
+                        rojo: "border-red-300 bg-transparent hover:bg-red-100",
+                      }[color]
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        {editando && (
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="date"
+              className="workspace-field flex-1"
+              value={edicionTareaFecha}
+              onChange={(e) => setEdicionTareaFecha(e.target.value)}
+            />
+            <Hora24Input value={edicionTareaHora} onChange={setEdicionTareaHora} />
+            <button
+              type="button"
+              disabled={guardandoEdicionTarea}
+              onClick={() => void guardarEdicionFechaHoraTarea(tarea.id)}
+              className="workspace-button-secondary text-xs"
+            >
+              {guardandoEdicionTarea ? "..." : "Guardar"}
+            </button>
+            <button
+              type="button"
+              onClick={cancelarEdicionFechaHoraTarea}
+              className="text-xs text-gray-500 underline"
+            >
+              Cancelar
+            </button>
+          </div>
+        )}
+      </div>
+    )
   }
 
   const cambiarViendoEmail = (email: string | null) => {
@@ -2932,7 +3044,9 @@ export default function CasaTalentosPage() {
                                   ? "🖼️"
                                   : item.tipo === "audio"
                                     ? "🎵"
-                                    : "📝"}
+                                    : item.tipo === "video"
+                                      ? "🎬"
+                                      : "📝"}
                               </span>
                               <span className="text-sm font-medium">
                                 {item.titulo || (item.tipo === "texto" ? "" : item.tipo)}
@@ -2952,6 +3066,16 @@ export default function CasaTalentosPage() {
                               <audio controls src={item.signedUrl} className="w-full">
                                 Tu navegador no soporta audio.
                               </audio>
+                            )}
+
+                            {item.tipo === "video" && item.signedUrl && (
+                              <video
+                                controls
+                                src={item.signedUrl}
+                                className="max-h-64 w-full rounded-lg border border-violet-100"
+                              >
+                                Tu navegador no soporta video.
+                              </video>
                             )}
 
                             {item.tipo === "texto" && item.contenido && (
@@ -2988,18 +3112,27 @@ export default function CasaTalentosPage() {
                       {!viendoEmail && (
                         <div className="space-y-2 rounded-xl border border-dashed border-violet-300 bg-white/60 p-3">
                           <div className="flex flex-wrap gap-2">
-                            {(["texto", "imagen", "audio"] as const).map((t) => (
+                            {(["texto", "imagen", "audio", "video"] as const).map((t) => (
                               <button
                                 key={t}
                                 type="button"
-                                onClick={() => setTipoNuevaProduccion(t)}
+                                onClick={() => {
+                                  setTipoNuevaProduccion(t)
+                                  setArchivoProduccion(null)
+                                }}
                                 className={`rounded-full border px-3 py-1 text-xs font-semibold ${
                                   tipoNuevaProduccion === t
                                     ? "border-violet-500 bg-violet-100 text-violet-800"
                                     : "border-violet-200 bg-white text-violet-500"
                                 }`}
                               >
-                                {t === "texto" ? "📝 Texto" : t === "imagen" ? "🖼️ Imagen" : "🎵 Audio"}
+                                {t === "texto"
+                                  ? "📝 Texto"
+                                  : t === "imagen"
+                                    ? "🖼️ Imagen"
+                                    : t === "audio"
+                                      ? "🎵 Audio"
+                                      : "🎬 Video"}
                               </button>
                             ))}
                           </div>
@@ -3025,14 +3158,65 @@ export default function CasaTalentosPage() {
                                 maxSegundos={300}
                               />
                               <p className="text-xs text-gray-500">o subí un archivo ya grabado:</p>
-                              <input type="file" accept="audio/*" onChange={handleArchivoProduccion} />
+                              <input
+                                ref={produccionFileInputRef}
+                                type="file"
+                                accept="audio/*"
+                                className="hidden"
+                                onChange={handleArchivoProduccion}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => produccionFileInputRef.current?.click()}
+                                className="workspace-button-ghost text-xs"
+                              >
+                                📎 Seleccionar archivo
+                              </button>
+                              {archivoProduccion && (
+                                <p className="text-xs text-gray-500">{archivoProduccion.name}</p>
+                              )}
+                            </div>
+                          ) : tipoNuevaProduccion === "video" ? (
+                            <div className="space-y-1">
+                              <input
+                                ref={produccionFileInputRef}
+                                type="file"
+                                accept="video/*"
+                                className="hidden"
+                                onChange={handleArchivoProduccion}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => produccionFileInputRef.current?.click()}
+                                className="workspace-button-ghost text-xs"
+                              >
+                                📎 Seleccionar archivo
+                              </button>
+                              {archivoProduccion && (
+                                <p className="text-xs text-gray-500">{archivoProduccion.name}</p>
+                              )}
+                              <p className="text-xs text-gray-500">Subí un video liviano (hasta 50MB).</p>
                             </div>
                           ) : (
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={handleArchivoProduccion}
-                            />
+                            <div className="space-y-1">
+                              <input
+                                ref={produccionFileInputRef}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={handleArchivoProduccion}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => produccionFileInputRef.current?.click()}
+                                className="workspace-button-ghost text-xs"
+                              >
+                                📎 Seleccionar archivo
+                              </button>
+                              {archivoProduccion && (
+                                <p className="text-xs text-gray-500">{archivoProduccion.name}</p>
+                              )}
+                            </div>
                           )}
 
                           <button
@@ -3100,120 +3284,41 @@ export default function CasaTalentosPage() {
                       )}
 
                       <div className="space-y-2">
-                        {tareas.map((tarea) => {
-                          const fechaHoraTexto = formatearFechaHoraTarea(
-                            tarea.fecha,
-                            tarea.hora
-                          )
-                          const editando = editandoTareaId === tarea.id
-
-                          return (
-                            <div
-                              key={tarea.id}
-                              className="space-y-2 rounded-xl border border-amber-200 bg-white/80 px-3 py-2"
-                            >
-                              <div className="flex items-center gap-3">
-                                <label className="flex flex-1 items-center gap-3">
-                                  <input
-                                    type="checkbox"
-                                    checked={tarea.completada}
-                                    onChange={() =>
-                                      void alternarTareaCompletada(tarea.id, tarea.completada)
-                                    }
-                                  />
-                                  <span
-                                    className={`text-sm ${
-                                      tarea.completada
-                                        ? "text-gray-400 line-through"
-                                        : "text-gray-800"
-                                    }`}
-                                  >
-                                    {tarea.contenido}
-                                  </span>
-                                </label>
-
-                                {!editando && (
-                                  <>
-                                    {fechaHoraTexto && (
-                                      <span className="shrink-0 text-xs text-amber-700">
-                                        {fechaHoraTexto}
-                                      </span>
-                                    )}
-                                    <button
-                                      type="button"
-                                      onClick={() => abrirEdicionFechaHoraTarea(tarea)}
-                                      className="shrink-0 text-xs text-amber-600 underline"
-                                    >
-                                      {fechaHoraTexto ? "Editar" : "+ Fecha"}
-                                    </button>
-                                  </>
-                                )}
-
-                                <div className="flex shrink-0 items-center gap-1">
-                                  {(["verde", "amarillo", "rojo"] as const).map((color) => (
-                                    <button
-                                      key={color}
-                                      type="button"
-                                      disabled={Boolean(viendoEmail)}
-                                      onClick={() =>
-                                        void cambiarPrioridadTarea(tarea.id, tarea.prioridad, color)
-                                      }
-                                      className={`h-4 w-4 rounded-full border transition disabled:cursor-default ${
-                                        tarea.prioridad === color
-                                          ? {
-                                              verde: "border-emerald-600 bg-emerald-500",
-                                              amarillo: "border-amber-500 bg-amber-400",
-                                              rojo: "border-red-600 bg-red-500",
-                                            }[color]
-                                          : {
-                                              verde: "border-emerald-300 bg-transparent hover:bg-emerald-100",
-                                              amarillo: "border-amber-300 bg-transparent hover:bg-amber-100",
-                                              rojo: "border-red-300 bg-transparent hover:bg-red-100",
-                                            }[color]
-                                      }`}
-                                    />
-                                  ))}
-                                </div>
-                              </div>
-
-                              {editando && (
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <input
-                                    type="date"
-                                    className="workspace-field flex-1"
-                                    value={edicionTareaFecha}
-                                    onChange={(e) => setEdicionTareaFecha(e.target.value)}
-                                  />
-                                  <Hora24Input
-                                    value={edicionTareaHora}
-                                    onChange={setEdicionTareaHora}
-                                  />
-                                  <button
-                                    type="button"
-                                    disabled={guardandoEdicionTarea}
-                                    onClick={() => void guardarEdicionFechaHoraTarea(tarea.id)}
-                                    className="workspace-button-secondary text-xs"
-                                  >
-                                    {guardandoEdicionTarea ? "..." : "Guardar"}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={cancelarEdicionFechaHoraTarea}
-                                    className="text-xs text-gray-500 underline"
-                                  >
-                                    Cancelar
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
-                        {tareas.length === 0 && (
+                        {tareasPendientesLista.map(renderizarFilaTarea)}
+                        {tareasPendientesLista.length === 0 && (
                           <p className="text-sm text-gray-600">
-                            Todavía no cargaste tareas para esta semana.
+                            {tareas.length === 0
+                              ? "Todavía no cargaste tareas para esta semana."
+                              : "Completaste todo lo que tenías pendiente. ✨"}
                           </p>
                         )}
                       </div>
+
+                      {tareasCompletadasVisibles.length > 0 && (
+                        <div className="space-y-2 border-t border-amber-200 pt-2">
+                          <p className="workspace-eyebrow text-amber-600">Completadas</p>
+                          {tareasCompletadasVisibles.map(renderizarFilaTarea)}
+                        </div>
+                      )}
+
+                      {tareasHistorialLista.length > 0 && (
+                        <div className="space-y-2">
+                          <button
+                            type="button"
+                            onClick={() => setHistorialTareasAbierto((v) => !v)}
+                            className="text-xs text-gray-500 underline"
+                          >
+                            {historialTareasAbierto ? "Ocultar" : "Ver"} historial (
+                            {tareasHistorialLista.length})
+                          </button>
+
+                          {historialTareasAbierto && (
+                            <div className="space-y-2">
+                              {tareasHistorialLista.map(renderizarFilaTarea)}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {!viendoEmail && (
                         <div className="space-y-2">
@@ -3357,6 +3462,10 @@ export default function CasaTalentosPage() {
                                       <span className="text-lg" aria-hidden>
                                         🎵
                                       </span>
+                                    ) : item.tipo === "video" ? (
+                                      <span className="text-lg" aria-hidden>
+                                        🎬
+                                      </span>
                                     ) : (
                                       <p className="line-clamp-4 text-[10px] leading-tight text-gray-700">
                                         {item.contenido || item.titulo}
@@ -3473,6 +3582,15 @@ export default function CasaTalentosPage() {
                                             </p>
                                           )}
                                           <audio controls src={item.signedUrl} className="w-full" />
+                                        </div>
+                                      ) : item.tipo === "video" && item.signedUrl ? (
+                                        <div className="flex w-full flex-col items-center gap-2 p-2">
+                                          {item.titulo && (
+                                            <p className="text-xs font-semibold text-gray-700">
+                                              {item.titulo}
+                                            </p>
+                                          )}
+                                          <video controls src={item.signedUrl} className="w-full rounded-lg" />
                                         </div>
                                       ) : (
                                         <div className="p-2">

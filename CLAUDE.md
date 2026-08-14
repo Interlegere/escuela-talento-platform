@@ -1051,4 +1051,55 @@ Barrido de todo el texto visible al usuario, en dos capas:
 **Verificado en vivo**: `/terminos-y-condiciones` y `/admin/usuarios` ya no contienen "CasaTalentos" en ningún lado; `/agenda` se verificó y corrigió tras encontrar los 36 títulos de reunión guardados como datos. `typecheck`/`lint` limpios, sin warnings nuevos.
 
 ## 4. Pendiente
+
+Commiteado y pusheado (`104683d`).
+
+---
+
+# Sesión de trabajo 2026-08-14 (continuación 2) — Historial de tareas completadas
+
+## 1. Objetivo
+Nicolás pidió que las tareas de la semana, al tildarse como hechas, desaparezcan de la lista de pendientes (para que no se acumulen ahí) y pasen a un historial desplegable aparte.
+
+## 2. Qué se hizo
+`app/casatalentos/page.tsx`: se extrajo el renderizado de una fila de tarea a una función compartida (`renderizarFilaTarea`) para no duplicar el JSX entre las dos listas. `tareas` (el estado con todo, sin cambios) ahora se deriva en `tareasPendientesLista` (`!completada`) y `tareasHistorialLista` (`completada`):
+- La lista principal solo muestra `tareasPendientesLista`. Si no hay ninguna pendiente, el mensaje distingue dos casos: "Todavía no cargaste tareas para esta semana" (si no hay ninguna tarea en absoluto) vs. "Completaste todo lo que tenías pendiente. ✨" (si hay tareas pero todas están hechas) — antes un solo mensaje cubría mal el segundo caso.
+- Debajo, un link "Ver historial (N)" (oculto si no hay ninguna completada) despliega `tareasHistorialLista` — mismas filas, mismos controles (tildar para volver a pendiente, prioridad, fecha), nada nuevo que aprender.
+- "Tu ritmo" sigue calculándose sobre el total (`tareas`, sin filtrar) — no cambia, ya contaba completadas vs. total correctamente.
+
+## 3. Verificado en vivo
+Con datos descartables: 2 tareas pendientes + 2 completadas — las completadas no aparecen en la lista principal, el link muestra "(2)" y al abrirlo aparecen ambas. Tildar una pendiente como hecha la saca de la lista principal y sube el contador del historial en el momento (confirmado tanto por la respuesta real del `PATCH` como visualmente: "2 de 2 tareas realizadas (100%)", mensaje "Completaste todo lo que tenías pendiente", "Ver historial (2)"). `typecheck`/`lint` limpios, sin warnings nuevos.
+
+## 4. Pendiente
 - **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
+
+---
+
+# Sesión de trabajo 2026-08-14 (continuación 3) — Video en Producciones + umbral de historial de tareas
+
+## 1. Objetivo
+Dos pedidos de Nicolás: (a) poder subir un video liviano en Producciones (sin grabar, solo subir un archivo — a diferencia del Pitch, que sí tiene grabación con `MediaRecorder`); (b) afinar el historial de tareas de la sección anterior: que una tarea completada recién pase al historial desplegable cuando se convierte en la **11ª** tarea marcada como realizada, para que las primeras 10 sigan a la vista y "la barra de avance" (Tu ritmo) siga teniendo sentido visual mientras tanto.
+
+## 2. Qué se hizo
+
+**Video en Producciones**: mismo patrón ya usado para imagen/audio (`preparar-upload` → subida directa al bucket privado → confirmar por POST), sin lógica nueva de flujo — solo se sumó `video` a los tipos aceptados:
+- `app/api/entusiasmo/producciones/preparar-upload/route.ts`: `mimePermitido` acepta `video/*` (además de `image/*`/`audio/*`); mensaje de error actualizado.
+- `app/api/entusiasmo/producciones/route.ts`: `TIPOS_VALIDOS` suma `"video"`.
+- `app/casatalentos/page.tsx`: cuarto botón de tipo ("🎬 Video") junto a texto/imagen/audio; input `<input type="file" accept="video/*">` (sin grabación, como pidió Nicolás); reproductor `<video controls>` agregado en las 3 vistas donde ya se mostraban imágenes/audios de producciones (lista propia en "Mi espacio", miniatura en la grilla de CoFruto — ahí solo ícono 🎬 por espacio, y el modal ampliado de CoFruto con el reproductor completo).
+- `MAX_BYTES` se mantuvo en 50MB (mismo límite que ya usa el Pitch para video/imagen).
+
+**Umbral de historial (refina lo de la sesión anterior)**: nueva constante `MAX_TAREAS_COMPLETADAS_VISIBLES = 10`. Las tareas completadas se ordenan por `created_at` descendente (proxy de "más recientemente completada" — no existe una columna `completada_at` dedicada) y se cortan en dos: las primeras 10 quedan en una sección "Completadas" siempre visible (debajo de las pendientes, ya no en la lista de pendientes), el resto (la 11ª en adelante) va al link desplegable "Ver historial (N)" de la sesión anterior, que no cambió de comportamiento. "Tu ritmo" sigue sin tocarse — se calcula igual que siempre sobre el total de tareas (`completadas / total`), nunca estuvo roto por este cambio.
+
+## 3. Verificado en vivo
+Con un participante descartable y 11 tareas completadas + 2 pendientes sembradas con `created_at` escalonado: se confirmó que las completadas 1 a 10 aparecen bajo "Completadas" sin necesidad de abrir nada, que la 11ª no está visible hasta abrir el historial, que el contador dice "Ver historial (1)", y que "Tu ritmo" mostró "11 de 13 tareas realizadas (85%)" (correcto, sin cambios en la fórmula).
+
+Para el video, la primera corrida de prueba había arrojado un resultado confuso ("no se encontró la producción en base" pese a que la subida decía éxito) — investigado y confirmado que fue un error del *script* de prueba, no de la app: el filtro de red usado (`url().includes('/api/entusiasmo/producciones')`) matcheaba por accidente tanto el POST de `preparar-upload` como el de confirmación (la URL del primero contiene la del segundo como substring), así que el test se quedó con la respuesta equivocada y consultó la base antes de tiempo. Repetido con un filtro exacto por URL: `preparar-upload` devuelve 200 con la URL firmada, la confirmación devuelve 200 con la fila creada (`tipo: "video"`), la fila aparece en la base, el mensaje "Guardado." se muestra en pantalla, y tras recargar la página el `<video src=...>` se renderiza correctamente. Cero errores de consola en ambas corridas. Datos, usuario y archivo de prueba borrados al final — incluida la entrada temporal que se había agregado a `ENTUSIASMENTO_BETA_EMAILS` en `lib/entusiasmo-acceso.ts` para poder probar como participante (ya revertida, la lista quedó solo con `consultasbpe@gmail.com`). `typecheck`/`lint` limpios, sin warnings nuevos (mismos preexistentes documentados en sesiones anteriores).
+
+## 4. Ajuste final antes de commit: botón sutil "Seleccionar archivo"
+Los 3 tipos de Producciones con archivo (imagen/audio/video) usaban el `<input type="file">` nativo directo — con su botón por defecto del navegador, sin relación visual con el resto del formulario. Se reemplazó por el mismo patrón ya usado en `GrabadorVideo.tsx` (input oculto vía `ref` + botón propio que dispara `.click()`): un botón "📎 Seleccionar archivo" con estilo `workspace-button-ghost` (el más discreto de los 3 estilos de botón del proyecto — texto con subrayado al pasar el mouse, sin fondo), mostrando el nombre del archivo elegido debajo a modo de confirmación. Al cambiar de tipo (ej. de Imagen a Video) el archivo elegido se limpia, para no arrastrar por error un archivo del tipo anterior.
+
+**Verificado en vivo** con un participante descartable: confirmado que no queda ningún input nativo visible, que el botón sutil aparece en los 3 tipos (incluido audio, conviviendo con el botón de grabación), que el nombre del archivo se muestra tras elegirlo, y que cambiar de tipo limpia ese nombre correctamente. Cero errores de consola. `typecheck`/`lint` limpios, sin warnings nuevos.
+
+## 5. Pendiente
+- **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
+- Resto sin cambios de sesiones anteriores: Pitch estilo Instagram (ya resuelto, ver sesión "Pitch estilo Stories/Reels" más arriba — este ítem queda obsoleto, dejar de listarlo la próxima vez que se edite esta sección), agente de IA reforzado, auditoría de performance del resto de la carga de Entusiasmento.

@@ -42,7 +42,7 @@ type DeleteBody = {
   id?: number
 }
 
-const TIPOS_VALIDOS = ["imagen", "texto", "audio"]
+const TIPOS_VALIDOS = ["imagen", "texto", "audio", "video"]
 
 async function resolverProyectoId(
   supabase: ReturnType<typeof createAdminSupabaseClient>,
