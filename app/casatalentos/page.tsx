@@ -3174,13 +3174,14 @@ export default function CasaTalentosPage() {
 
                           {tipoNuevaProduccion === "texto" ? (
                             <textarea
+                              key="texto"
                               className="workspace-field min-h-20"
                               placeholder="Escribí tu producción..."
                               value={textoProduccion}
                               onChange={(e) => setTextoProduccion(e.target.value)}
                             />
                           ) : tipoNuevaProduccion === "audio" ? (
-                            <div className="space-y-2">
+                            <div key="audio" className="space-y-2">
                               <GrabadorAudio
                                 onAudioListo={setArchivoProduccion}
                                 maxSegundos={300}
@@ -3205,7 +3206,7 @@ export default function CasaTalentosPage() {
                               )}
                             </div>
                           ) : tipoNuevaProduccion === "video" ? (
-                            <div className="space-y-1">
+                            <div key="video" className="space-y-1">
                               <input
                                 ref={produccionFileInputRef}
                                 type="file"
@@ -3226,7 +3227,7 @@ export default function CasaTalentosPage() {
                               <p className="text-xs text-gray-500">Subí un video liviano (hasta 50MB).</p>
                             </div>
                           ) : tipoNuevaProduccion === "link" ? (
-                            <div className="space-y-1">
+                            <div key="link" className="space-y-1">
                               <input
                                 type="url"
                                 className="workspace-field"
@@ -3239,7 +3240,7 @@ export default function CasaTalentosPage() {
                               </p>
                             </div>
                           ) : (
-                            <div className="space-y-1">
+                            <div key="imagen" className="space-y-1">
                               <input
                                 ref={produccionFileInputRef}
                                 type="file"
