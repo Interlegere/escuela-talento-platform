@@ -42,7 +42,7 @@ type DeleteBody = {
   id?: number
 }
 
-const TIPOS_VALIDOS = ["imagen", "texto", "audio", "video"]
+const TIPOS_VALIDOS = ["imagen", "texto", "audio", "video", "link"]
 
 async function resolverProyectoId(
   supabase: ReturnType<typeof createAdminSupabaseClient>,
@@ -170,7 +170,22 @@ export async function POST(req: Request) {
       )
     }
 
-    if (tipo !== "texto" && !body.storagePath) {
+    if (tipo === "link") {
+      const link = String(body.contenido || "").trim()
+
+      if (!link) {
+        return NextResponse.json({ error: "Falta el link." }, { status: 400 })
+      }
+
+      if (!/^https?:\/\//i.test(link)) {
+        return NextResponse.json(
+          { error: "El link tiene que empezar con http:// o https://." },
+          { status: 400 }
+        )
+      }
+    }
+
+    if (tipo !== "texto" && tipo !== "link" && !body.storagePath) {
       return NextResponse.json(
         { error: "Falta el archivo de la producción." },
         { status: 400 }

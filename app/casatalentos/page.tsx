@@ -433,7 +433,7 @@ export default function CasaTalentosPage() {
   const [archivoProduccion, setArchivoProduccion] = useState<File | null>(null)
   const produccionFileInputRef = useRef<HTMLInputElement | null>(null)
   const [tipoNuevaProduccion, setTipoNuevaProduccion] = useState<
-    "texto" | "imagen" | "audio" | "video"
+    "texto" | "imagen" | "audio" | "video" | "link"
   >("texto")
   const [guardandoProduccion, setGuardandoProduccion] = useState(false)
   const [mensajeProduccion, setMensajeProduccion] = useState("")
@@ -768,19 +768,30 @@ export default function CasaTalentosPage() {
     try {
       setGuardandoProduccion(true)
 
-      if (tipoNuevaProduccion === "texto") {
-        if (!textoProduccion.trim()) {
-          setMensajeProduccion("Escribí algo antes de guardar.")
+      if (tipoNuevaProduccion === "texto" || tipoNuevaProduccion === "link") {
+        const valor = textoProduccion.trim()
+
+        if (!valor) {
+          setMensajeProduccion(
+            tipoNuevaProduccion === "link"
+              ? "Pegá un link antes de guardar."
+              : "Escribí algo antes de guardar."
+          )
           return
         }
+
+        const contenidoFinal =
+          tipoNuevaProduccion === "link" && !/^https?:\/\//i.test(valor)
+            ? `https://${valor}`
+            : valor
 
         const res = await fetch("/api/entusiasmo/producciones", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            tipo: "texto",
+            tipo: tipoNuevaProduccion,
             titulo: tituloProduccion,
-            contenido: textoProduccion,
+            contenido: contenidoFinal,
           }),
         })
         const data = await leerRespuestaJson<{ error?: string }>(res)
@@ -3046,10 +3057,13 @@ export default function CasaTalentosPage() {
                                     ? "🎵"
                                     : item.tipo === "video"
                                       ? "🎬"
-                                      : "📝"}
+                                      : item.tipo === "link"
+                                        ? "🔗"
+                                        : "📝"}
                               </span>
                               <span className="text-sm font-medium">
-                                {item.titulo || (item.tipo === "texto" ? "" : item.tipo)}
+                                {item.titulo ||
+                                  (item.tipo === "texto" ? "" : item.tipo === "link" ? "Link" : item.tipo)}
                               </span>
                             </div>
 
@@ -3076,6 +3090,17 @@ export default function CasaTalentosPage() {
                               >
                                 Tu navegador no soporta video.
                               </video>
+                            )}
+
+                            {item.tipo === "link" && item.contenido && (
+                              <a
+                                href={item.contenido}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="break-all text-sm text-[var(--accent-strong)] underline"
+                              >
+                                {item.contenido}
+                              </a>
                             )}
 
                             {item.tipo === "texto" && item.contenido && (
@@ -3112,13 +3137,14 @@ export default function CasaTalentosPage() {
                       {!viendoEmail && (
                         <div className="space-y-2 rounded-xl border border-dashed border-violet-300 bg-white/60 p-3">
                           <div className="flex flex-wrap gap-2">
-                            {(["texto", "imagen", "audio", "video"] as const).map((t) => (
+                            {(["texto", "imagen", "audio", "video", "link"] as const).map((t) => (
                               <button
                                 key={t}
                                 type="button"
                                 onClick={() => {
                                   setTipoNuevaProduccion(t)
                                   setArchivoProduccion(null)
+                                  setTextoProduccion("")
                                 }}
                                 className={`rounded-full border px-3 py-1 text-xs font-semibold ${
                                   tipoNuevaProduccion === t
@@ -3132,7 +3158,9 @@ export default function CasaTalentosPage() {
                                     ? "🖼️ Imagen"
                                     : t === "audio"
                                       ? "🎵 Audio"
-                                      : "🎬 Video"}
+                                      : t === "video"
+                                        ? "🎬 Video"
+                                        : "🔗 Link"}
                               </button>
                             ))}
                           </div>
@@ -3196,6 +3224,19 @@ export default function CasaTalentosPage() {
                                 <p className="text-xs text-gray-500">{archivoProduccion.name}</p>
                               )}
                               <p className="text-xs text-gray-500">Subí un video liviano (hasta 50MB).</p>
+                            </div>
+                          ) : tipoNuevaProduccion === "link" ? (
+                            <div className="space-y-1">
+                              <input
+                                type="url"
+                                className="workspace-field"
+                                placeholder="https://..."
+                                value={textoProduccion}
+                                onChange={(e) => setTextoProduccion(e.target.value)}
+                              />
+                              <p className="text-xs text-gray-500">
+                                Un link a tu web, Instagram, YouTube, o lo que quieras mostrar. Usá el título de arriba para aclarar de qué es (ej. &quot;Instagram&quot;).
+                              </p>
                             </div>
                           ) : (
                             <div className="space-y-1">
@@ -3466,6 +3507,10 @@ export default function CasaTalentosPage() {
                                       <span className="text-lg" aria-hidden>
                                         🎬
                                       </span>
+                                    ) : item.tipo === "link" ? (
+                                      <span className="text-lg" aria-hidden>
+                                        🔗
+                                      </span>
                                     ) : (
                                       <p className="line-clamp-4 text-[10px] leading-tight text-gray-700">
                                         {item.contenido || item.titulo}
@@ -3591,6 +3636,25 @@ export default function CasaTalentosPage() {
                                             </p>
                                           )}
                                           <video controls src={item.signedUrl} className="w-full rounded-lg" />
+                                        </div>
+                                      ) : item.tipo === "link" && item.contenido ? (
+                                        <div className="flex w-full flex-col items-center gap-2 p-2">
+                                          <span className="text-2xl" aria-hidden>
+                                            🔗
+                                          </span>
+                                          {item.titulo && (
+                                            <p className="text-xs font-semibold text-gray-700">
+                                              {item.titulo}
+                                            </p>
+                                          )}
+                                          <a
+                                            href={item.contenido}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="break-all text-xs text-[var(--accent-strong)] underline"
+                                          >
+                                            {item.contenido}
+                                          </a>
                                         </div>
                                       ) : (
                                         <div className="p-2">

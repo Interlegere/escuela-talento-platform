@@ -1101,5 +1101,29 @@ Los 3 tipos de Producciones con archivo (imagen/audio/video) usaban el `<input t
 **Verificado en vivo** con un participante descartable: confirmado que no queda ningún input nativo visible, que el botón sutil aparece en los 3 tipos (incluido audio, conviviendo con el botón de grabación), que el nombre del archivo se muestra tras elegirlo, y que cambiar de tipo limpia ese nombre correctamente. Cero errores de consola. `typecheck`/`lint` limpios, sin warnings nuevos.
 
 ## 5. Pendiente
+- Resto sin cambios de sesiones anteriores: agente de IA reforzado, auditoría de performance del resto de la carga de Entusiasmento.
+
+Commiteado y pusheado (`c4c4006`).
+
+---
+
+# Sesión de trabajo 2026-08-14 (continuación 4) — Pestaña de links en Producciones
+
+## 1. Objetivo
+Nicolás pidió sumar un quinto tipo a Producciones (junto a texto/imagen/audio/video): links — a la web del proyecto, Instagram, YouTube, u otros que sirvan para mostrarse.
+
+## 2. Qué se hizo
+Mismo patrón ya establecido para los otros tipos, sin lógica nueva de flujo — un link no sube archivo, así que reutiliza el circuito simple de "texto" (un solo POST directo, sin `preparar-upload` ni storage):
+- `app/api/entusiasmo/producciones/route.ts`: `TIPOS_VALIDOS` suma `"link"`. Validación nueva: si `tipo === "link"`, exige que `contenido` no esté vacío y empiece con `http://` o `https://` (mismo campo `contenido` que ya usa "texto", reutilizado para guardar la URL). Se excluyó `"link"` de la validación que exige `storagePath` (esa sigue aplicando solo a imagen/audio/video).
+- `app/casatalentos/page.tsx`: quinto botón de tipo ("🔗 Link"); el formulario para "link" muestra un `<input type="url">` (en vez del `<textarea>` de texto o el selector de archivo de imagen/audio/video) con placeholder `https://...` y una nota aclarando que puede ser la web del proyecto, Instagram, YouTube, u otro. Si el participante pega la URL sin protocolo (ej. `instagram.com/...`), se le antepone `https://` automáticamente antes de guardar — tanto en el cliente como validado de nuevo en el backend. Al cambiar de tipo se limpia tanto `archivoProduccion` como `textoProduccion` (antes solo se limpiaba el archivo), para no arrastrar el link tipeado si se cambia a texto o viceversa.
+- Renderizado en las 3 vistas que ya mostraban imagen/audio/video, con ícono 🔗:
+  - "Mi espacio" (lista propia): el link se muestra como `<a>` clickeable (`target="_blank"`), con el título como etiqueta arriba (o "Link" si no se puso título).
+  - CoFruto, grilla de miniaturas: solo el ícono 🔗 (mismo criterio ya usado para audio/video, que tampoco muestran preview en la miniatura chica).
+  - CoFruto, modal ampliado: ícono grande + título (si tiene) + el link completo, clickeable.
+
+## 3. Verificado en vivo
+Con dos participantes descartables (uno que crea el link, otro que lo ve en CoFruto): creación con URL sin protocolo (`instagram.com/pruebaentusiasmo`) confirmada guardada en base ya normalizada a `https://instagram.com/pruebaentusiasmo`; validación de campo vacío rechazada con el mensaje esperado ("Pegá un link antes de guardar."); el link se renderiza como `<a href="https://instagram.com/...">` clickeable en "Mi espacio"; al marcarlo visible, aparece en CoFruto tanto en la grilla (ícono 🔗, confirmado con una espera más generosa después de comprobar que el primer intento había medido antes de que la carga de la mesa común terminara — no era un bug, la respuesta de `/api/entusiasmo/cofruto` tardó más que el tiempo de espera inicial del test) como en el modal ampliado (título "Instagram" + link clickeable). Cero errores de consola/página en ninguna corrida. Datos de prueba borrados al final, incluidas las dos entradas temporales agregadas a `ENTUSIASMENTO_BETA_EMAILS` para poder probar como participante (ya revertidas, la lista quedó solo con `consultasbpe@gmail.com`). `typecheck`/`lint` limpios, sin warnings nuevos.
+
+## 4. Pendiente
 - **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
-- Resto sin cambios de sesiones anteriores: Pitch estilo Instagram (ya resuelto, ver sesión "Pitch estilo Stories/Reels" más arriba — este ítem queda obsoleto, dejar de listarlo la próxima vez que se edite esta sección), agente de IA reforzado, auditoría de performance del resto de la carga de Entusiasmento.
+- Resto sin cambios de sesiones anteriores: agente de IA reforzado, auditoría de performance del resto de la carga de Entusiasmento.
