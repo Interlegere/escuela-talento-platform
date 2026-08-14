@@ -549,7 +549,7 @@ export default function AdminAgendaCalendar({
   const resumenActividadesCards = [
     {
       key: "casatalentos",
-      titulo: "CasaTalentos",
+      titulo: "Entusiasmento",
       descripcion: "Reuniones y coworking del mes",
       valor: resumenMes.casatalentos,
       className:
@@ -793,7 +793,7 @@ export default function AdminAgendaCalendar({
                 onChange={(e) => setActividadFiltro(e.target.value as ActividadFiltro)}
               >
                 <option value="todas">Todas las actividades</option>
-                <option value="casatalentos">CasaTalentos</option>
+                <option value="casatalentos">Entusiasmento</option>
                 <option value="conectando-sentidos">Conectando Sentidos</option>
                 <option value="mentorias">Mentorías</option>
                 <option value="terapia">Terapia</option>

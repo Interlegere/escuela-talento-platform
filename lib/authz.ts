@@ -560,7 +560,12 @@ export async function resolveActivityAccess(
   }
 
   if (!pago || pago.estado !== "pagado") {
-    if (actividadSlug === "mentorias") {
+    // Mentorías ya tenía acceso incondicional sin importar el pago. A
+    // pedido de Nicolás (2026-08-14), Entusiasmento/casatalentos se suma a
+    // esa misma excepción — participantes pueden ingresar aunque el pago
+    // esté pendiente o sin aprobar. El estado de pago real (para cobrar)
+    // no cambia, solo el gate de acceso.
+    if (actividadSlug === "mentorias" || actividadSlug === "casatalentos") {
       const recursos = await cargarRecursosActividad(supabase, actividad.id, email)
 
       return {

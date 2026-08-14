@@ -90,7 +90,7 @@ function configurarDefaultsActividad(actividadSlug: ActividadGestionable) {
   switch (actividadSlug) {
     case "casatalentos":
       return {
-        titulo: "Reunión CasaTalentos",
+        titulo: "Reunión Entusiasmento",
         duracion: "60",
         esRecurrente: true,
         diaSemana: "Viernes",
@@ -610,7 +610,7 @@ export default function AgendaPage() {
         title="Agenda unificada"
         subtitle={
           esAdmin
-            ? "Acá ves en un solo lugar la programación de CasaTalentos, Conectando Sentidos, Mentorías y Terapia."
+            ? "Acá ves en un solo lugar la programación de Entusiasmento, Conectando Sentidos, Mentorías y Terapia."
             : "Acá ves la programación que te corresponde en todas tus actividades activas."
         }
       />
@@ -629,7 +629,7 @@ export default function AgendaPage() {
             <p className="workspace-eyebrow">Crear programación</p>
             <h2 className="workspace-title-sm">Programar por actividad</h2>
             <p className="workspace-inline-note">
-              Cada actividad se carga distinto: CasaTalentos y Conectando
+              Cada actividad se carga distinto: Entusiasmento y Conectando
               Sentidos como encuentros grupales fijos, Mentorías como reuniones
               individuales asignadas y Terapia como disponibilidades reservables.
             </p>
@@ -641,7 +641,7 @@ export default function AgendaPage() {
               value={actividadSlug}
               onChange={(e) => setActividadSlug(e.target.value as ActividadGestionable)}
             >
-              <option value="casatalentos">CasaTalentos</option>
+              <option value="casatalentos">Entusiasmento</option>
               <option value="conectando-sentidos">Conectando Sentidos</option>
               <option value="mentorias">Mentorías</option>
               <option value="terapia">Terapia</option>
@@ -700,7 +700,7 @@ export default function AgendaPage() {
             />
             <p className="workspace-inline-note">
               Se mostrarán sólo para admin antes de entrar al Meet. Podés cargar
-              links específicos de CasaTalentos, Conectando Sentidos, Mentoría o
+              links específicos de Entusiasmento, Conectando Sentidos, Mentoría o
               Terapia.
             </p>
           </label>
@@ -951,7 +951,7 @@ export default function AgendaPage() {
           </p>
           <div className="flex flex-wrap gap-3">
             <Link href="/casatalentos" className="workspace-button-secondary">
-              CasaTalentos
+              Entusiasmento
             </Link>
             <Link href="/conectando-sentidos" className="workspace-button-secondary">
               Conectando Sentidos

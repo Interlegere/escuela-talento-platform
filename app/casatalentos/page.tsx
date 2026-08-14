@@ -197,6 +197,21 @@ const CAMPOS_COORDENADAS: Array<keyof CoordenadasForm> = [
   "habilidadADesarrollar",
   "queTeEntusiasma",
 ]
+// Las versiones anteriores se guardan con el nombre de columna de la base
+// (snake_case), pero el formulario usa camelCase — este mapa traduce entre
+// los dos.
+const COLUMNA_POR_CAMPO_COORDENADAS: Record<keyof CoordenadasForm, string> = {
+  que: "que",
+  paraQue: "para_que",
+  problemaSolucion: "problema_solucion",
+  resultadoSemanal: "resultado_semanal",
+  resultadoMensual: "resultado_mensual",
+  resultadoTrimestral: "resultado_trimestral",
+  resultadoAnual: "resultado_anual",
+  habilidadADesarrollar: "habilidad_a_desarrollar",
+  queTeEntusiasma: "que_te_entusiasma",
+  pitchContenido: "pitch_contenido",
+}
 const CAMPOS_COORDENADAS_PRINCIPALES: Array<{
   campo: keyof CoordenadasForm
   etiqueta: string
@@ -234,7 +249,7 @@ const RECURSOS_PRUEBA_CASATALENTOS: Recurso[] = [
   {
     id: 999001,
     slug: "biblioteca_grabaciones_casatalentos",
-    nombre: "Biblioteca de grabaciones CasaTalentos",
+    nombre: "Biblioteca de grabaciones Entusiasmento",
     descripcion: "Modo prueba",
     tipo: "biblioteca",
     proveedor: "google_drive",
@@ -242,7 +257,7 @@ const RECURSOS_PRUEBA_CASATALENTOS: Recurso[] = [
   {
     id: 999002,
     slug: "dispositivo_videos_casatalentos",
-    nombre: "Dispositivo semanal de videos CasaTalentos",
+    nombre: "Dispositivo semanal de videos Entusiasmento",
     descripcion: "Modo prueba",
     tipo: "dinamica",
     proveedor: "interno",
@@ -250,7 +265,7 @@ const RECURSOS_PRUEBA_CASATALENTOS: Recurso[] = [
   {
     id: 999003,
     slug: "reunion_semanal_casatalentos",
-    nombre: "Reunión semanal CasaTalentos",
+    nombre: "Reunión semanal Entusiasmento",
     descripcion: "Modo prueba",
     tipo: "reunion",
     proveedor: "interno",
@@ -382,6 +397,11 @@ export default function CasaTalentosPage() {
   const [coordenadasAbiertas, setCoordenadasAbiertas] = useState(false)
   const [guardandoCoordenadas, setGuardandoCoordenadas] = useState(false)
   const [mensajeCoordenadas, setMensajeCoordenadas] = useState("")
+  const [versionesCoordenadas, setVersionesCoordenadas] = useState<
+    Record<string, Array<{ id: number; contenido: string; created_at: string }>>
+  >({})
+  const [versionesCargadas, setVersionesCargadas] = useState(false)
+  const [versionesCampoAbierto, setVersionesCampoAbierto] = useState<Record<string, boolean>>({})
   const [archivoPitch, setArchivoPitch] = useState<File | null>(null)
   const [subiendoPitch, setSubiendoPitch] = useState(false)
   const [estadoSubidaPitch, setEstadoSubidaPitch] = useState("")
@@ -575,7 +595,7 @@ export default function CasaTalentosPage() {
 
       setMensajesGenerales(data.mensajesGenerales || [])
     } catch {
-      setMensajeError("Error cargando datos de CasaTalentos.")
+      setMensajeError("Error cargando datos de Entusiasmento.")
     }
   }
 
@@ -665,6 +685,43 @@ export default function CasaTalentosPage() {
       void cargarAportesRecibidos()
     }
   }, [mounted, viendoEmail])
+
+  const cargarVersionesCoordenadas = async () => {
+    try {
+      const query = viendoEmail ? `?email=${encodeURIComponent(viendoEmail)}` : ""
+      const res = await fetch(`/api/entusiasmo/coordenadas-versiones${query}`)
+      const data = await leerRespuestaJson<{
+        versiones?: Array<{ id: number; campo: string; contenido: string; created_at: string }>
+      }>(res)
+
+      const agrupadas: Record<
+        string,
+        Array<{ id: number; contenido: string; created_at: string }>
+      > = {}
+
+      for (const version of data.versiones || []) {
+        if (!agrupadas[version.campo]) agrupadas[version.campo] = []
+        agrupadas[version.campo].push({
+          id: version.id,
+          contenido: version.contenido,
+          created_at: version.created_at,
+        })
+      }
+
+      setVersionesCoordenadas(agrupadas)
+    } catch {
+      setVersionesCoordenadas({})
+    } finally {
+      setVersionesCargadas(true)
+    }
+  }
+
+  useEffect(() => {
+    if (mounted && coordenadasAbiertas) {
+      setVersionesCargadas(false)
+      void cargarVersionesCoordenadas()
+    }
+  }, [mounted, coordenadasAbiertas, viendoEmail])
 
   const cargarProducciones = async () => {
     try {
@@ -1084,6 +1141,52 @@ export default function CasaTalentosPage() {
     )
   }
 
+  const renderizarVersionesCampo = (campo: keyof CoordenadasForm) => {
+    const columna = COLUMNA_POR_CAMPO_COORDENADAS[campo]
+    const versiones = versionesCoordenadas[columna] || []
+
+    if (!versionesCargadas || versiones.length === 0) return null
+
+    const abierto = Boolean(versionesCampoAbierto[columna])
+
+    return (
+      <div className="pt-1">
+        <button
+          type="button"
+          onClick={() =>
+            setVersionesCampoAbierto((prev) => ({ ...prev, [columna]: !prev[columna] }))
+          }
+          className="text-xs text-gray-500 underline"
+        >
+          {abierto ? "Ocultar" : "Ver"} versiones anteriores ({versiones.length})
+        </button>
+
+        {abierto && (
+          <div className="mt-1 space-y-1">
+            {versiones.map((v) => (
+              <div
+                key={v.id}
+                className="rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-600"
+              >
+                <p className="whitespace-pre-wrap">{v.contenido}</p>
+                <p className="mt-1 text-gray-400">
+                  {new Date(v.created_at).toLocaleString("es-AR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hourCycle: "h23",
+                  })}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const renderizarCampoLectura = (
     campo: keyof CoordenadasForm,
     etiqueta: string,
@@ -1193,6 +1296,8 @@ export default function CasaTalentosPage() {
             </div>
           </div>
         )}
+
+        {renderizarVersionesCampo(campo)}
       </div>
     )
   }
@@ -1220,6 +1325,10 @@ export default function CasaTalentosPage() {
 
       setProyecto(data.proyecto || null)
       setMensajeCoordenadas("Guardado.")
+
+      if (coordenadasAbiertas) {
+        void cargarVersionesCoordenadas()
+      }
     } catch {
       setMensajeCoordenadas("Error guardando tu proyecto.")
     } finally {
@@ -2462,7 +2571,7 @@ export default function CasaTalentosPage() {
             <section className="workspace-panel space-y-3">
               <h2 className="workspace-title-sm">Acceso no habilitado</h2>
               <p className="workspace-inline-note text-[var(--foreground)]">
-                Para usar CasaTalentos necesitás tener tu acceso activo.
+                Para usar Entusiasmento necesitás tener tu acceso activo.
               </p>
               <p className="workspace-inline-note">
                 Estado detectado: {motivo || "sin acceso"}
@@ -2628,7 +2737,7 @@ export default function CasaTalentosPage() {
                                 type="button"
                                 disabled={subiendoPitch}
                                 onClick={() => void handleSubirPitch()}
-                                className="workspace-button w-full"
+                                className="workspace-button-primary w-full"
                               >
                                 {subiendoPitch
                                   ? estadoSubidaPitch || "Subiendo..."
@@ -2751,6 +2860,7 @@ export default function CasaTalentosPage() {
                                       }
                                     />
                                     {renderizarNotasCampo(campo)}
+                                    {renderizarVersionesCampo(campo)}
                                   </label>
                                 ))}
                               </div>
@@ -2774,6 +2884,7 @@ export default function CasaTalentosPage() {
                                         }
                                       />
                                       {renderizarNotasCampo(campo)}
+                                      {renderizarVersionesCampo(campo)}
                                     </label>
                                   ))}
                                 </div>
@@ -2783,7 +2894,7 @@ export default function CasaTalentosPage() {
                                 type="button"
                                 disabled={guardandoCoordenadas}
                                 onClick={() => void guardarCoordenadas()}
-                                className="workspace-button"
+                                className="workspace-button-primary disabled:opacity-60"
                               >
                                 {guardandoCoordenadas ? "Guardando..." : "Guardar coordenadas"}
                               </button>
@@ -2953,15 +3064,18 @@ export default function CasaTalentosPage() {
                             <p className="workspace-eyebrow text-[var(--accent-strong)]">✨ Destello de la semana</p>
                             <p className="text-sm text-gray-800">{proyecto.agente_recordatorio_texto}</p>
                           </div>
-                          {!viendoEmail && (
-                            <button
-                              type="button"
-                              onClick={marcarRecordatorioAgenteComoVisto}
-                              className="shrink-0 text-xs text-gray-500 underline"
-                            >
-                              Ya lo vi
-                            </button>
-                          )}
+                          {!viendoEmail &&
+                            (recordatorioAgenteNoLeido ? (
+                              <button
+                                type="button"
+                                onClick={marcarRecordatorioAgenteComoVisto}
+                                className="shrink-0 text-xs text-gray-500 underline"
+                              >
+                                Ya lo vi
+                              </button>
+                            ) : (
+                              <span className="shrink-0 text-xs text-emerald-600">✓ Visto</span>
+                            ))}
                         </div>
                       )}
 
@@ -3485,7 +3599,7 @@ export default function CasaTalentosPage() {
 
                   {recursosSolapa.length === 0 ? (
                     <p className="text-gray-600">
-                      Todavía no hay recursos cargados para CasaTalentos.
+                      Todavía no hay recursos cargados para Entusiasmento.
                     </p>
                   ) : (
                     recursosSolapa.map((item) => {

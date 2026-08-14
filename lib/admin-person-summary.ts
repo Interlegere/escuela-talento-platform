@@ -252,7 +252,7 @@ const ACTIVIDADES_CATALOGO: Array<{
   etiqueta: string
   tipo: "individual" | "grupal" | "especial"
 }> = [
-  { slug: "casatalentos", etiqueta: "CasaTalentos", tipo: "grupal" },
+  { slug: "casatalentos", etiqueta: "Entusiasmento", tipo: "grupal" },
   {
     slug: "conectando-sentidos",
     etiqueta: "Conectando Sentidos",

@@ -52,7 +52,7 @@ export async function POST() {
   } catch (error) {
     return NextResponse.json(
       {
-        error: "Error interno limpiando CasaTalentos",
+        error: "Error interno limpiando Entusiasmento",
         detalle: String(error),
       },
       { status: 500 }

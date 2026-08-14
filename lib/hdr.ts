@@ -169,7 +169,7 @@ export type GuardarNotaPersonalGeneralInput = {
 }
 
 const ACTIVIDADES_HDR: Record<HDRActividadSlug, string> = {
-  casatalentos: "CasaTalentos",
+  casatalentos: "Entusiasmento",
   "conectando-sentidos": "Conectando Sentidos",
   mentorias: "Mentorías",
   terapia: "Terapia",

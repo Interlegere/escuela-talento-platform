@@ -6,7 +6,7 @@ const ACTIVIDADES_BASE: Record<
   { nombre: string }
 > = {
   casatalentos: {
-    nombre: "CasaTalentos",
+    nombre: "Entusiasmento",
   },
   "conectando-sentidos": {
     nombre: "Conectando Sentidos",

@@ -19,7 +19,7 @@ export default function TerminosYCondicionesPage() {
             El presente documento establece los Términos y Condiciones aplicables
             a la participación en la plataforma (en adelante, la “Escuela”), así
             como en todas las actividades, dispositivos y servicios ofrecidos
-            dentro de la misma, incluyendo, pero no limitándose a, CasaTalentos,
+            dentro de la misma, incluyendo, pero no limitándose a, Entusiasmento,
             Conectando Sentidos, Mentorías y Sesiones Terapéuticas.
           </p>
 
@@ -53,7 +53,7 @@ export default function TerminosYCondicionesPage() {
             <p>
               Entre sus espacios se incluyen dispositivos grupales de carácter
               analítico, como Conectando Sentidos, espacios de práctica aplicada,
-              como CasaTalentos, mentorías individuales, sesiones terapéuticas
+              como Entusiasmento, mentorías individuales, sesiones terapéuticas
               individuales, contenidos formativos, materiales de trabajo y
               comunidad de intercambio.
             </p>

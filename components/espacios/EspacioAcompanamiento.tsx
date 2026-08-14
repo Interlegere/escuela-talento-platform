@@ -2030,7 +2030,7 @@ export default function EspacioAcompanamiento({
                     {[
                       {
                         slug: "casatalentos" as const,
-                        nombre: "CasaTalentos",
+                        nombre: "Entusiasmento",
                       },
                       {
                         slug: "conectando-sentidos" as const,

@@ -152,7 +152,7 @@ export async function GET() {
   } catch (error) {
     return NextResponse.json(
       {
-        error: "No se pudieron cargar los recursos de CasaTalentos.",
+        error: "No se pudieron cargar los recursos de Entusiasmento.",
         detalle: String(error),
       },
       { status: 500 }

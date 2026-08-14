@@ -158,7 +158,7 @@ export async function GET(req: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        error: "Error interno cargando CasaTalentos",
+        error: "Error interno cargando Entusiasmento",
         detalle: String(error),
       },
       { status: 500 }

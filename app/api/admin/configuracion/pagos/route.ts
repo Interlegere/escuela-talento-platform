@@ -131,7 +131,7 @@ export async function POST(req: Request) {
       casatalentosHonorarioBase < 0
     ) {
       return NextResponse.json(
-        { error: "Ingresá un honorario base válido para CasaTalentos." },
+        { error: "Ingresá un honorario base válido para Entusiasmento." },
         { status: 400 }
       )
     }
@@ -160,7 +160,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            "Ingresá un honorario válido para Actividades combinadas (CasaTalentos + Conectando Sentidos).",
+            "Ingresá un honorario válido para Actividades combinadas (Entusiasmento + Conectando Sentidos).",
         },
         { status: 400 }
       )

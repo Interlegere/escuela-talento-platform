@@ -90,7 +90,7 @@ const FORM_INICIAL: FormState = {
 }
 
 const ACTIVIDADES = [
-  { slug: "casatalentos", nombre: "CasaTalentos" },
+  { slug: "casatalentos", nombre: "Entusiasmento" },
   { slug: "conectando-sentidos", nombre: "Conectando Sentidos" },
   { slug: "mentorias", nombre: "Mentorías" },
   { slug: "terapia", nombre: "Terapia" },
@@ -261,7 +261,7 @@ function formatearEncuentro(item: AgendaResumen["proximoEncuentro"]) {
 function nombreActividad(slug: string) {
   switch (slug) {
     case "casatalentos":
-      return "CasaTalentos"
+      return "Entusiasmento"
     case "conectando-sentidos":
       return "Conectando Sentidos"
     case "mentorias":
@@ -1818,7 +1818,7 @@ export default function AdminUsuariosPage() {
             <BloqueFicha titulo="Honorario de Mentoría">
               <p className="mb-3 text-xs text-gray-500">
                 El único honorario que se configura persona por persona.
-                CasaTalentos, Conectando Sentidos, Terapia y Membresía usan el
+                Entusiasmento, Conectando Sentidos, Terapia y Membresía usan el
                 precio estándar de &ldquo;Configuración de pagos&rdquo; para
                 todos.
               </p>
@@ -1953,7 +1953,7 @@ export default function AdminUsuariosPage() {
         <div className="space-y-4">
           <p className="workspace-inline-note">
             Definí el recargo de Mercado Pago y el honorario base mensual de
-            CasaTalentos, Conectando Sentidos y Terapia. El honorario es el
+            Entusiasmento, Conectando Sentidos y Terapia. El honorario es el
             mismo para todas las personas de cada actividad: al habilitarla,
             se asigna automáticamente este valor y se genera su primer cobro.
             Mentorías queda siempre fuera de esta base: es el único pago
@@ -1970,7 +1970,7 @@ export default function AdminUsuariosPage() {
           <div className="grid gap-3 md:grid-cols-4">
             <label className="space-y-2">
               <span className="text-sm font-medium text-gray-700">
-                Honorario base CasaTalentos (ARS)
+                Honorario base Entusiasmento (ARS)
               </span>
               <input
                 className="workspace-field"
@@ -2029,7 +2029,7 @@ export default function AdminUsuariosPage() {
                 Actividades combinadas y sesiones con descuento
               </h3>
               <p className="workspace-inline-note">
-                Si una persona tiene CasaTalentos Y Conectando Sentidos
+                Si una persona tiene Entusiasmento Y Conectando Sentidos
                 habilitadas al mismo tiempo, se aplica automáticamente este
                 precio combinado a las dos (repartido en partes iguales
                 entre ambas), y si también tiene Terapia, sus sesiones pasan
@@ -2042,7 +2042,7 @@ export default function AdminUsuariosPage() {
             <div className="grid gap-3 md:grid-cols-2">
               <label className="space-y-2">
                 <span className="text-sm font-medium text-gray-700">
-                  Actividades combinadas: CasaTalentos + Conectando Sentidos
+                  Actividades combinadas: Entusiasmento + Conectando Sentidos
                   (ARS/mes)
                 </span>
                 <input
@@ -2085,7 +2085,7 @@ export default function AdminUsuariosPage() {
             <div className="grid gap-3 md:grid-cols-3">
               <label className="space-y-2">
                 <span className="text-sm font-medium text-gray-700">
-                  Prórroga CasaTalentos (días)
+                  Prórroga Entusiasmento (días)
                 </span>
                 <input
                   className="workspace-field"

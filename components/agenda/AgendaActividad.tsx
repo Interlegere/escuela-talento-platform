@@ -78,7 +78,7 @@ function renderDocumentosNotas(item: ItemAgenda) {
 }
 
 function nombreActividad(actividadSlug: string) {
-  if (actividadSlug === "casatalentos") return "CasaTalentos"
+  if (actividadSlug === "casatalentos") return "Entusiasmento"
   if (actividadSlug === "conectando-sentidos") return "Conectando Sentidos"
   return actividadSlug
 }

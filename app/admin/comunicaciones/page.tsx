@@ -133,8 +133,8 @@ const SEGMENTOS: Array<{
   },
   {
     value: "casatalentos_activos",
-    label: "CasaTalentos activos",
-    descripcion: "Inscripción activa en CasaTalentos.",
+    label: "Entusiasmento activos",
+    descripcion: "Inscripción activa en Entusiasmento.",
   },
   {
     value: "conectando_sentidos_activos",
@@ -237,7 +237,7 @@ Equipo Entheos`
 
 const ACTIVIDADES = [
   { value: "", label: "Sin actividad específica" },
-  { value: "casatalentos", label: "CasaTalentos" },
+  { value: "casatalentos", label: "Entusiasmento" },
   { value: "conectando-sentidos", label: "Conectando Sentidos" },
   { value: "mentorias", label: "Mentorías" },
   { value: "terapia", label: "Terapia" },
@@ -246,7 +246,7 @@ const ACTIVIDADES = [
 function nombreActividad(slug?: string | null) {
   switch (slug) {
     case "casatalentos":
-      return "CasaTalentos"
+      return "Entusiasmento"
     case "conectando-sentidos":
       return "Conectando Sentidos"
     case "mentorias":

@@ -18,7 +18,7 @@ const ACTIVIDADES: Record<
 > = {
   casatalentos: {
     slug: "casatalentos",
-    nombre: "CasaTalentos",
+    nombre: "Entusiasmento",
   },
   "conectando-sentidos": {
     slug: "conectando-sentidos",

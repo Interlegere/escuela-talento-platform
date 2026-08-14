@@ -979,4 +979,76 @@ Medido en vivo (no estimado): LLM (Haiku) ≈1.3-2.8s, envío por Resend ≈0.3-
 ## 6. Pendiente
 - Cargar `ANTHROPIC_API_KEY` en las variables de entorno de Vercel antes del próximo despliegue (mismo lugar que `CRON_SECRET`).
 - Fase D2: panel de diagnóstico on-demand para admin + mail resumen semanal con sugerencias de mejora — sigue sin arrancar.
-- **No se hizo commit todavía** — a la espera de confirmación de Nicolás. Ojo: esta sesión ya mandó 2 mails reales de prueba (a Cuchulain y a Nicolás) como parte de la verificación en vivo — no son datos descartables para limpiar, son el comportamiento real del sistema funcionando.
+
+Commiteado y pusheado (`6f52e79`).
+
+---
+
+# Sesión de trabajo 2026-08-13/14 (continuación) — Ajustes chicos + prioridad de tareas + versiones de Coordenadas
+
+## 1. Renombre "Empujón" → "Destello"
+A pedido de Nicolás, el cartel de "Tareas semanales" y el aviso de arriba de la página pasaron de "🎯 Empujón de la semana"/"Tenés un empujón nuevo" a "✨ Destello de la semana"/"Tenés un destello nuevo" (`app/casatalentos/page.tsx`). Cambio puramente de texto/emoji, sin tocar lógica.
+
+## 2. Tareas semanales: orden por fecha + semáforo de prioridad
+- **Orden**: `GET /api/entusiasmo/tareas` ahora ordena por `fecha` (ascendente, sin fecha al final) y dentro del mismo día por `hora` (con hora antes que sin hora) — antes ordenaba por `created_at`.
+- **Prioridad**: columna nueva `entusiasmo_tareas.prioridad` (`sql/2026-08-13_entusiasmo_tareas_prioridad.sql`, corrida por Nicolás), valores `verde`/`amarillo`/`rojo` (verde = más prioritario/avanzar, rojo = menos prioritario/frenar — así lo definió Nicolás). En la UI, 3 puntitos de color por tarea, sin ningún texto explicativo (a propósito, "lo voy a explicar yo") — tocar uno lo marca, tocar el mismo de nuevo lo saca. `PATCH /api/entusiasmo/tareas` valida que `prioridad` sea uno de los 3 valores o `null`.
+- **Bug de percepción reportado y corregido**: Nicolás avisó que el semáforo se sentía lento. Causa real: `cambiarPrioridadTarea` esperaba la respuesta del `PATCH` y **después** volvía a pedir todas las tareas (`cargarTareas()`) antes de mostrar cualquier cambio — dos viajes de red seguidos antes de que el usuario viera algo. Se cambió a actualización **optimista**: el color cambia en pantalla al toque (`setTareas` local), el `PATCH` viaja en segundo plano, y solo si falla de verdad se revierte el color y se avisa. Mismo patrón podría aplicarse a otras acciones si vuelve a reportarse lentitud en algo similar.
+- **Verificado en vivo** con datos descartables: orden correcto (fecha+hora, sin fecha al final), los 3 colores se marcan/desmarcan bien, sin errores de consola. Un primer intento de prueba automatizada dio falsos negativos por recompilaciones de Next (HMR) en simultáneo con los clics — no era un bug real, se confirmó repitiendo la prueba con el archivo ya estable.
+
+## 3. Coordenadas: versiones anteriores sin perderlas
+Pedido de Nicolás: que el participante pueda reescribir sus Coordenadas después de un aporte de admin sin perder lo que había escrito antes.
+
+- **`sql/2026-08-14_entusiasmo_coordenadas_versiones.sql`** (corrida por Nicolás): tabla nueva `entusiasmo_coordenadas_versiones` (`proyecto_id`, `campo`, `contenido`, `created_at`).
+- **`PUT /api/entusiasmo/proyecto`**: antes de sobrescribir, ahora siempre lee la fila existente completa (antes solo leía `participante_nombre` en el caso de admin editando a otro). Por cada uno de los 8 campos de Coordenadas (no incluye `pitch_contenido` ni `resultado_semanal`, que ya no se editan desde acá), si el valor anterior existía y es distinto del nuevo, se archiva el valor **anterior** como una versión — automático, sin ningún botón ni paso extra para el participante. Si el campo estaba vacío o no cambió, no se archiva nada (evita versiones vacías o duplicadas).
+- **`GET /api/entusiasmo/coordenadas-versiones`** (nuevo, mismo patrón `?email=` que el resto de endpoints de Entusiasmento): devuelve todas las versiones archivadas del participante, un solo viaje con join (mismo patrón ya usado en producciones/aportes/tareas).
+- **UI**: debajo de cada campo (tanto en el modo edición propio como en el modo lectura de admin viendo a otro), un link "Ver versiones anteriores (N)" que despliega el historial con fecha — se carga solo cuando se abre la sección Coordenadas (perezoso, no en cada carga de página) y se refresca después de guardar.
+- **Verificado en vivo** con datos descartables: 3 guardados seguidos (mismo valor → no archiva; valor nuevo → archiva el anterior; valor nuevo otra vez → archiva el segundo), confirmado el orden correcto por API, y confirmado visualmente tanto en el espacio propio como en la vista de admin mirando a otro participante — en ambos casos el link aparece con el conteo correcto y despliega el texto y la fecha de cada versión.
+
+## 4. Verificado en vivo (general)
+`typecheck`/`lint` limpios en todo — el único warning nuevo es la misma clase de "dependencia faltante en useEffect" que ya existe para las otras 4 funciones `cargarX` del archivo (patrón intencional del proyecto, no un problema real).
+
+## 5. Pendiente
+- Fase D2 del agente (panel de diagnóstico admin + resumen semanal) sigue sin arrancar.
+
+## 6. Dos arreglos más antes de commitear
+
+**"Guardar coordenadas" poco visible — bug real, no de gusto**: `className="workspace-button"` (sin sufijo) **no existe** como clase en `app/globals.css` — solo existen `workspace-button-primary`, `-secondary` y `-ghost`. El botón se renderizaba sin ningún estilo (básicamente un `<button>` de HTML puro). Se cambió a `workspace-button-primary` (el mismo estilo prominente — degradé dorado, texto blanco — que ya usan otras acciones principales). De paso se encontró y corrigió el mismo problema en el botón de guardar el pitch (`app/casatalentos/page.tsx`), que tenía exactamente la misma clase inexistente.
+
+**"Ya lo vi" del Destello no daba ninguna señal al tocarlo**: el botón SÍ funcionaba (marcaba como visto en `localStorage` y hacía desaparecer el aviso de arriba de la página), pero como el aviso de arriba y el botón "Ya lo vi" están en partes distintas de la pantalla, tocar el botón no cambiaba nada visible ahí mismo — el único cambio real quedaba fuera de la vista. Se corrigió para que el propio botón desaparezca y se reemplace por "✓ Visto" en el momento del click, dando una señal inmediata en el mismo lugar donde se tocó.
+
+**Verificado en vivo** ambos: el botón de Guardar coordenadas se ve con el estilo dorado prominente (capturado visualmente); el flujo completo de Destello confirmado con datos descartables — aviso arriba visible + botón "Ya lo vi" visible → click → aviso arriba desaparece + botón se reemplaza por "✓ Visto" → recargar la página, el aviso de arriba se mantiene oculto (persistido). `typecheck`/`lint` limpios, sin warnings nuevos.
+
+---
+
+# Sesión de trabajo 2026-08-14 (continuación) — Limpieza de datos, acceso sin pago para Entusiasmento, y renombrado completo CasaTalentos→Entusiasmento
+
+## 1. Limpieza de datos de prueba
+Antes de esto se investigó a fondo qué borrar (ver la pregunta que se le hizo a Nicolás): ninguno de los 10 mensajes de "Valoraciones y agradecimientos" era de Cuchulain — eran mensajes reales de Verónica Alejandra y Agustina. Nicolás confirmó borrar de todas formas **todas** las Valoraciones actuales (no solo las de Cuchulain), para arrancar esa sección en blanco.
+
+- **Respaldo primero**: `respaldos/2026-08-14_valoraciones_y_pruebas_cuchulain.json` (carpeta nueva, agregada a `.gitignore` — nunca se sube al repo). Incluye los 10 mensajes de Valoraciones completos y todo el contenido de prueba de Cuchulain (coordenadas, producciones, tareas, aportes, versiones) tal como estaban antes de borrar.
+- **Borrado**: los 10 mensajes de `casatalentos_mensajes`; en la cuenta de Cuchulain — sus producciones (con el archivo del bucket), tareas, aportes y versiones de coordenadas; y se vació el texto de sus 8 campos de Coordenadas (sin borrar la fila del proyecto, que sigue existiendo con su pitch/destello real).
+- **A propósito no se tocó**: el `agente_recordatorio_texto`/`agente_recordatorio_generado_at` de Cuchulain ni su fila en `entusiasmo_agente_mensajes` — eso es el envío real del agente (Fase D), no una prueba.
+
+## 2. Acceso a Entusiasmento sin pago
+A pedido de Nicolás, `resolveActivityAccess` (`lib/authz.ts`) ahora trata `casatalentos` igual que ya trataba `mentorias`: acceso incondicional (`acceso: true`) aunque no haya pago o esté pendiente/rechazado. Es el mismo bloque de código que ya existía para mentorías, solo se sumó la condición — no se tocó el resto del flujo de pagos (facturación, honorarios, cobros) en absoluto, solo el *gate* de entrada.
+
+**Verificado en vivo**: participante de prueba descartable, inscripción activa a `casatalentos` **sin ningún honorario ni pago cargado** — antes hubiera dado 403 `sin_pago`, ahora entra con 200 y sin el cartel de "Acceso no habilitado".
+
+## 3. Renombrado completo CasaTalentos → Entusiasmento
+Barrido de todo el texto visible al usuario, en dos capas:
+
+**Código** (~25 lugares, en `app/`, `lib/` y `components/`): términos y condiciones, consentimientos, `/admin/usuarios` (incluidas las etiquetas de "Configuración de pagos"), `/admin/comunicaciones`, `/agenda` (subtítulo, selector de actividad, títulos), mensajes de error de varios endpoints (`configuracion/pagos`, `casatalentos/listar`, `casatalentos/limpiar`, `casatalentos/recursos`), `lib/core-activities.ts`, `lib/consentimientos.ts`, `lib/hdr.ts`, `lib/admin-person-summary.ts`, `lib/admin-activity-sync.ts`, el panel de admin de Entusiasmento, y las etiquetas de actividad en Mentorías/Terapia (`AgendaActividad`, `AdminAgendaCalendar`, `EspacioAcompanamiento`).
+
+**A propósito NO se tocaron** (son identificadores internos, invisibles para el usuario, y renombrarlos no cambia nada visible — solo suma riesgo): nombres de funciones/variables/componentes como `CasaTalentosAdminPanel`, `cargarDatosCasaTalentos`, `accesoCasaTalentos`, etc. El *slug* `"casatalentos"` (minúscula) tampoco se tocó — es el identificador real en la base y en las URLs, cambiarlo es una migración mucho más grande y riesgosa que no se pidió.
+
+**Datos reales en la base** (esto no lo cubre ningún cambio de código, hacía falta tocarlo aparte):
+- `actividades.nombre` (la fila real de la actividad, que varias pantallas leen dinámicamente en vez de un string fijo): `"CasaTalentos"` → `"Entusiasmento"`.
+- `disponibilidades.titulo`: 36 filas (reuniones semanales, pasadas y futuras) decían literalmente "Reunión CasaTalentos" — actualizadas a "Reunión Entusiasmento".
+- `recursos.nombre`/`recursos.descripcion`: 5 filas con "CasaTalentos" en el texto (Biblioteca de grabaciones, Dispositivo semanal, Reunión semanal, Chat WhatsApp, Incorporación gradual) — actualizadas.
+
+**Sobre "la descripción del link de la web"**: se revisó específicamente — el `metadata` del layout raíz (`app/layout.tsx`) es genérico y nunca mencionó CasaTalentos ("Escuela de trabajo, proceso y creación compartida"), y `/casatalentos` al ser una página 100% cliente no puede tener su propio `metadata` de Next.js (limitación del framework, no hay nada ahí para cambiar). No se encontró ningún lugar real con esa descripción — si Nicolás tenía en mente algo puntual, pedirle que indique dónde lo vio.
+
+**Verificado en vivo**: `/terminos-y-condiciones` y `/admin/usuarios` ya no contienen "CasaTalentos" en ningún lado; `/agenda` se verificó y corrigió tras encontrar los 36 títulos de reunión guardados como datos. `typecheck`/`lint` limpios, sin warnings nuevos.
+
+## 4. Pendiente
+- **No se hizo commit todavía** — a la espera de confirmación de Nicolás.

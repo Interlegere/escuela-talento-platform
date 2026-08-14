@@ -208,7 +208,7 @@ export default function CasaTalentosAdminPanel({
       }>(resCasaTalentos)
 
       if (!resCasaTalentos.ok) {
-        setMensaje(dataCasaTalentos.error || "No se pudieron cargar los datos de CasaTalentos.")
+        setMensaje(dataCasaTalentos.error || "No se pudieron cargar los datos de Entusiasmento.")
         return
       }
 
@@ -217,7 +217,7 @@ export default function CasaTalentosAdminPanel({
         paraEditorEnriquecido(dataCasaTalentos.referentesGenerales?.contenido)
       )
     } catch {
-      setMensaje("Error cargando administración de CasaTalentos.")
+      setMensaje("Error cargando administración de Entusiasmento.")
     } finally {
       setCargando(false)
     }
@@ -440,7 +440,7 @@ export default function CasaTalentosAdminPanel({
   return (
     <section className="space-y-4">
       <div className="border rounded-xl p-4 bg-blue-50 space-y-2">
-        <p className="font-medium">Administración de CasaTalentos</p>
+        <p className="font-medium">Administración de Entusiasmento</p>
         <p className="text-sm text-gray-700">
           Desde aquí administrás los referentes generales y semanales de
           Entusiasmento.

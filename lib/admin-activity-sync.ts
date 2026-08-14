@@ -257,7 +257,7 @@ export async function asegurarHonorarioYPagoAdmin(
       return {
         advertencia:
           actividadSlug === "casatalentos"
-            ? "CasaTalentos quedó habilitada, pero falta configurar su honorario base en Administración."
+            ? "Entusiasmento quedó habilitada, pero falta configurar su honorario base en Administración."
             : actividadSlug === "conectando-sentidos"
               ? "Conectando Sentidos quedó habilitada, pero falta configurar su honorario base en Administración."
               : "Terapia quedó habilitada, pero falta configurar su honorario base en Administración.",

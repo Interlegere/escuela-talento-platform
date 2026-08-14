@@ -103,6 +103,19 @@ export async function GET(req: Request) {
   }
 }
 
+// Campos de coordenadas que se versionan (no incluye pitch_contenido ni
+// resultado_semanal, que ya no se editan desde la UI de Coordenadas).
+const CAMPOS_VERSIONABLES: Array<{ campoBody: keyof Body; columna: string }> = [
+  { campoBody: "que", columna: "que" },
+  { campoBody: "paraQue", columna: "para_que" },
+  { campoBody: "problemaSolucion", columna: "problema_solucion" },
+  { campoBody: "resultadoMensual", columna: "resultado_mensual" },
+  { campoBody: "resultadoTrimestral", columna: "resultado_trimestral" },
+  { campoBody: "resultadoAnual", columna: "resultado_anual" },
+  { campoBody: "habilidadADesarrollar", columna: "habilidad_a_desarrollar" },
+  { campoBody: "queTeEntusiasma", columna: "que_te_entusiasma" },
+]
+
 export async function PUT(req: Request) {
   try {
     const auth = await requireActivityAccess(
@@ -129,19 +142,15 @@ export async function PUT(req: Request) {
     const esPropio = emailObjetivo === auth.actor.email
     const supabase = createAdminSupabaseClient()
 
-    let participanteNombre: string | null = null
+    const { data: existente } = await supabase
+      .from("entusiasmo_proyectos")
+      .select("id, participante_nombre, que, para_que, problema_solucion, resultado_mensual, resultado_trimestral, resultado_anual, habilidad_a_desarrollar, que_te_entusiasma")
+      .eq("participante_email", emailObjetivo)
+      .maybeSingle()
 
-    if (esPropio) {
-      participanteNombre = auth.actor.name || null
-    } else {
-      const { data: existente } = await supabase
-        .from("entusiasmo_proyectos")
-        .select("participante_nombre")
-        .eq("participante_email", emailObjetivo)
-        .maybeSingle()
-
-      participanteNombre = existente?.participante_nombre || null
-    }
+    const participanteNombre = esPropio
+      ? auth.actor.name || null
+      : existente?.participante_nombre || null
 
     const { data, error } = await supabase
       .from("entusiasmo_proyectos")
@@ -171,6 +180,29 @@ export async function PUT(req: Request) {
         { error: "No se pudo guardar el proyecto.", detalle: error },
         { status: 500 }
       )
+    }
+
+    // Antes de perder el valor anterior de cada campo, lo archivamos como
+    // una versión — así el participante puede reescribir sus coordenadas
+    // después de un aporte sin perder lo que había escrito antes.
+    if (existente) {
+      const versiones = CAMPOS_VERSIONABLES.filter(({ campoBody, columna }) => {
+        const valorAnterior = (existente as Record<string, unknown>)[columna] as string | null
+        const valorNuevo = body[campoBody]
+        return (
+          valorAnterior &&
+          valorAnterior.trim() &&
+          valorAnterior !== (valorNuevo ?? null)
+        )
+      }).map(({ columna }) => ({
+        proyecto_id: existente.id,
+        campo: columna,
+        contenido: (existente as Record<string, unknown>)[columna] as string,
+      }))
+
+      if (versiones.length > 0) {
+        await supabase.from("entusiasmo_coordenadas_versiones").insert(versiones)
+      }
     }
 
     return NextResponse.json({ ok: true, proyecto: data as ProyectoRow })

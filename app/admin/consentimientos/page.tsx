@@ -176,7 +176,7 @@ export default function AdminConsentimientosPage() {
             onChange={(e) => setActividad(e.target.value)}
           >
             <option value="">Todas las actividades</option>
-            <option value="casatalentos">CasaTalentos</option>
+            <option value="casatalentos">Entusiasmento</option>
             <option value="conectando-sentidos">Conectando Sentidos</option>
             <option value="mentorias">Mentoría</option>
             <option value="terapia">Terapia</option>
