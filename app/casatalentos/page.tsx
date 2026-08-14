@@ -61,6 +61,7 @@ type ProyectoEntusiasmo = {
   id: number
   participante_email: string
   participante_nombre: string | null
+  nombre: string | null
   que: string | null
   para_que: string | null
   problema_solucion: string | null
@@ -79,6 +80,7 @@ type ProyectoEntusiasmo = {
 }
 
 type CoordenadasForm = {
+  nombre: string
   que: string
   paraQue: string
   problemaSolucion: string
@@ -92,6 +94,7 @@ type CoordenadasForm = {
 }
 
 const COORDENADAS_VACIAS: CoordenadasForm = {
+  nombre: "",
   que: "",
   paraQue: "",
   problemaSolucion: "",
@@ -189,6 +192,7 @@ const STORAGE_MENSAJES_LEIDOS_CASATALENTOS = "casatalentos_mensajes_leidos"
 const STORAGE_RECORDATORIO_AGENTE_VISTO = "entusiasmo_recordatorio_agente_visto"
 const MAX_TAREAS_COMPLETADAS_VISIBLES = 10
 const CAMPOS_COORDENADAS: Array<keyof CoordenadasForm> = [
+  "nombre",
   "que",
   "paraQue",
   "problemaSolucion",
@@ -202,6 +206,7 @@ const CAMPOS_COORDENADAS: Array<keyof CoordenadasForm> = [
 // (snake_case), pero el formulario usa camelCase — este mapa traduce entre
 // los dos.
 const COLUMNA_POR_CAMPO_COORDENADAS: Record<keyof CoordenadasForm, string> = {
+  nombre: "nombre",
   que: "que",
   paraQue: "para_que",
   problemaSolucion: "problema_solucion",
@@ -218,8 +223,9 @@ const CAMPOS_COORDENADAS_PRINCIPALES: Array<{
   etiqueta: string
   colSpan?: boolean
 }> = [
-  { campo: "que", etiqueta: "Proyecto sobre el que querés trabajar (qué)" },
   { campo: "paraQue", etiqueta: "Objetivo concreto que querés alcanzar (para qué)" },
+  { campo: "nombre", etiqueta: "Nombre del proyecto" },
+  { campo: "que", etiqueta: "Proyecto sobre el que querés trabajar (qué)" },
   { campo: "problemaSolucion", etiqueta: "Problema y solución", colSpan: true },
   { campo: "habilidadADesarrollar", etiqueta: "Una habilidad que quieras desarrollar" },
   { campo: "queTeEntusiasma", etiqueta: "Algo que te entusiasme mucho en la vida" },
@@ -662,6 +668,7 @@ export default function CasaTalentosPage() {
       setProyecto(cargado)
       setPitchSignedUrl(data.pitchSignedUrl || null)
       setCoordenadas({
+        nombre: cargado?.nombre || "",
         que: cargado?.que || "",
         paraQue: cargado?.para_que || "",
         problemaSolucion: cargado?.problema_solucion || "",

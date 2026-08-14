@@ -1152,5 +1152,26 @@ Nicolás pidió sacar el gate: los participantes (no solo Cuchulain, la cuenta d
 Con un participante descartable **sin** estar en `ENTUSIASMENTO_BETA_EMAILS` ni ser admin: antes del cambio hubiera visto el cartel de "en construcción"; con el flag en `true`, entra directo a "Mi espacio" (ve Coordenadas) y tiene el botón de CoFruto disponible — confirmado con el flag ya aplicado. Cero errores de consola. `typecheck`/`lint` limpios, sin warnings nuevos.
 
 ## 4. Pendiente
+- Resto sin cambios de sesiones anteriores: agente de IA reforzado, auditoría de performance del resto de la carga de Entusiasmento.
+
+Commiteado y pusheado (`8eafceb`).
+
+---
+
+# Sesión de trabajo 2026-08-14 (continuación 6) — Cuenta admin en CoFruto + campo "Nombre del proyecto" en Coordenadas
+
+## 1. Diagnóstico: "¿por qué no veo mi producción de texto en CoFruto?"
+Nicolás había creado una producción de texto desde su cuenta admin real (`nicolasbusico.psi@gmail.com`) y no la veía reflejada en CoFruto. Investigado: la producción estaba guardada correctamente y ya marcada `visible: true` — el problema no era la producción ni el nombre de usuario (como sospechaba Nicolás), sino que **su cuenta admin nunca tuvo una inscripción activa a `casatalentos`** (es la cuenta de dueño/admin, no una cuenta de participante) — mismo hallazgo puntual que ya se había documentado para el Pitch en una sesión anterior, ahora confirmado que aplica igual a Producciones porque las dos features dependen de la misma función `listarParticipantesActividad`. Confirmado con Nicolás antes de tocar datos reales: se le dio de alta una inscripción activa a `casatalentos` (`inscripciones.id = 125`, sin afectar pagos/honorarios — Entusiasmento ya tiene acceso incondicional sin pago). Verificado en vivo con un participante descartable viendo CoFruto: su puesto ("Nicolás") ya aparece.
+
+## 2. Reordenamiento de Coordenadas + campo nuevo "Nombre del proyecto"
+Pedido de Nicolás, aclarado con una pregunta de por medio (la primera interpretación — "Nombre" de la persona — era incorrecta; la etiqueta final quedó **"Nombre del proyecto"**, un campo nuevo para que cada participante defina cómo se va a llamar su proyecto, distinto de "Qué" que describe de qué se trata):
+- **`sql/2026-08-14_entusiasmo_proyectos_nombre.sql`** (corrida por Nicolás): agrega `entusiasmo_proyectos.nombre` (text, nullable).
+- **`app/api/entusiasmo/proyecto/route.ts`**: `ProyectoRow`/`Body` suman `nombre`; se agregó a `CAMPOS_VERSIONABLES` (así que también queda con historial de versiones, igual que el resto de Coordenadas); el `select` del existente y el `upsert` lo incluyen.
+- **`app/casatalentos/page.tsx`**: `CoordenadasForm`/`COORDENADAS_VACIAS`/`CAMPOS_COORDENADAS`/`COLUMNA_POR_CAMPO_COORDENADAS` suman `nombre`. `CAMPOS_COORDENADAS_PRINCIPALES` reordenado: **Objetivo (para qué) pasa a ser el primer campo**, **Nombre del proyecto el segundo** (campo nuevo), y "Qué" (que antes era el primero) pasa a tercero — sigue estando, no se perdió. El resto de la grilla (Problema y solución, Habilidad a desarrollar, Algo que te entusiasme) y el panel "Resultados" (Mensual/Trimestral/Anual) no cambiaron de posición ni de lógica.
+
+## 3. Verificado en vivo
+Con un participante descartable: orden de etiquetas confirmado exacto (Objetivo → Nombre del proyecto → Qué → Problema y solución → Habilidad → Entusiasma → Mensual → Trimestral → Anual); guardado confirmado por la respuesta real del `PUT` (`nombre`, `que` y `para_que` los tres con su valor correcto, nada se pisó); confirmado en base con una consulta directa; confirmado que el valor persiste después de recargar la página. Cero errores de consola. `typecheck`/`lint` limpios, sin warnings nuevos.
+
+## 4. Pendiente
 - **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
 - Resto sin cambios de sesiones anteriores: agente de IA reforzado, auditoría de performance del resto de la carga de Entusiasmento.

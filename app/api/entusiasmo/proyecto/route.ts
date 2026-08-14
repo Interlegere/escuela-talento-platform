@@ -12,6 +12,7 @@ type ProyectoRow = {
   id: number
   participante_email: string
   participante_nombre: string | null
+  nombre: string | null
   que: string | null
   para_que: string | null
   problema_solucion: string | null
@@ -33,6 +34,7 @@ type ProyectoRow = {
 
 type Body = {
   participanteEmail?: string
+  nombre?: string
   que?: string
   paraQue?: string
   problemaSolucion?: string
@@ -106,6 +108,7 @@ export async function GET(req: Request) {
 // Campos de coordenadas que se versionan (no incluye pitch_contenido ni
 // resultado_semanal, que ya no se editan desde la UI de Coordenadas).
 const CAMPOS_VERSIONABLES: Array<{ campoBody: keyof Body; columna: string }> = [
+  { campoBody: "nombre", columna: "nombre" },
   { campoBody: "que", columna: "que" },
   { campoBody: "paraQue", columna: "para_que" },
   { campoBody: "problemaSolucion", columna: "problema_solucion" },
@@ -144,7 +147,7 @@ export async function PUT(req: Request) {
 
     const { data: existente } = await supabase
       .from("entusiasmo_proyectos")
-      .select("id, participante_nombre, que, para_que, problema_solucion, resultado_mensual, resultado_trimestral, resultado_anual, habilidad_a_desarrollar, que_te_entusiasma")
+      .select("id, participante_nombre, nombre, que, para_que, problema_solucion, resultado_mensual, resultado_trimestral, resultado_anual, habilidad_a_desarrollar, que_te_entusiasma")
       .eq("participante_email", emailObjetivo)
       .maybeSingle()
 
@@ -158,6 +161,7 @@ export async function PUT(req: Request) {
         {
           participante_email: emailObjetivo,
           participante_nombre: participanteNombre,
+          nombre: body.nombre ?? null,
           que: body.que ?? null,
           para_que: body.paraQue ?? null,
           problema_solucion: body.problemaSolucion ?? null,
