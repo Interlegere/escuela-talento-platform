@@ -424,6 +424,10 @@ export default function CasaTalentosPage() {
   ).length
   const [proximoEncuentro, setProximoEncuentro] = useState<ProximoEncuentro | null>(null)
   const [aportesRecibidos, setAportesRecibidos] = useState<AporteItem[]>([])
+  const [hayAportesNuevos, setHayAportesNuevos] = useState(false)
+  const [novedadesPorParticipante, setNovedadesPorParticipante] = useState<
+    Record<string, boolean>
+  >({})
   const [mensajeAporte, setMensajeAporte] = useState("")
   const [valoracionesAbiertas, setValoracionesAbiertas] = useState(false)
   const [viendoEmail, setViendoEmail] = useState<string | null>(null)
@@ -697,8 +701,12 @@ export default function CasaTalentosPage() {
     try {
       const query = viendoEmail ? `?email=${encodeURIComponent(viendoEmail)}` : ""
       const res = await fetch(`/api/entusiasmo/aportes${query}`)
-      const data = await leerRespuestaJson<{ aportes?: AporteItem[] }>(res)
+      const data = await leerRespuestaJson<{
+        aportes?: AporteItem[]
+        hayAportesNuevos?: boolean
+      }>(res)
       setAportesRecibidos(data.aportes || [])
+      setHayAportesNuevos(Boolean(data.hayAportesNuevos))
     } catch {
       setAportesRecibidos([])
     }
@@ -709,6 +717,27 @@ export default function CasaTalentosPage() {
       void cargarAportesRecibidos()
     }
   }, [mounted, viendoEmail])
+
+  // Marcar como leídos los aportes propios al ver "Mi espacio" — con un
+  // pequeño retraso, así el punto de "nuevo" alcanza a mostrarse un
+  // momento en vez de aparecer y apagarse en el mismo render (Mi espacio
+  // es la pestaña por defecto, así que sin este margen nunca se llegaría
+  // a ver).
+  useEffect(() => {
+    if (!mounted || viendoEmail || destinoEntusiasmo !== "mi-espacio" || !hayAportesNuevos) {
+      return
+    }
+
+    const timeoutId = setTimeout(() => {
+      setHayAportesNuevos(false)
+      void fetch("/api/entusiasmo/lecturas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
+    }, 3000)
+
+    return () => clearTimeout(timeoutId)
+  }, [mounted, viendoEmail, destinoEntusiasmo, hayAportesNuevos])
 
   const cargarVersionesCoordenadas = async () => {
     try {
@@ -1160,6 +1189,15 @@ export default function CasaTalentosPage() {
     setContenidoNotaAncla("")
     setAporteAbiertoId(null)
     setMensajeAporte("")
+
+    if (email) {
+      setNovedadesPorParticipante((prev) => ({ ...prev, [email]: false }))
+      void fetch("/api/entusiasmo/lecturas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ participanteEmail: email }),
+      })
+    }
   }
 
   const manejarSeleccionTexto = (campo: string) => {
@@ -1638,6 +1676,33 @@ export default function CasaTalentosPage() {
     }
 
     void cargarParticipantesActivos()
+
+    return () => {
+      cancelado = true
+    }
+  }, [esAdmin, mounted])
+
+  useEffect(() => {
+    if (!mounted || !esAdmin) return
+
+    let cancelado = false
+
+    const cargarNovedades = async () => {
+      try {
+        const res = await fetch("/api/entusiasmo/admin/novedades")
+        const data = await leerRespuestaJson<{
+          novedades?: Record<string, boolean>
+        }>(res)
+
+        if (!res.ok || cancelado) return
+
+        setNovedadesPorParticipante(data.novedades || {})
+      } catch {
+        if (!cancelado) setNovedadesPorParticipante({})
+      }
+    }
+
+    void cargarNovedades()
 
     return () => {
       cancelado = true
@@ -2725,12 +2790,19 @@ export default function CasaTalentosPage() {
                   <button
                     type="button"
                     onClick={() => setDestinoEntusiasmo("mi-espacio")}
-                    className={`rounded-[1.5rem] border-2 px-4 py-4 text-left transition ${
+                    className={`relative rounded-[1.5rem] border-2 px-4 py-4 text-left transition ${
                       destinoEntusiasmo === "mi-espacio"
                         ? "border-[var(--accent)] bg-[rgba(207,145,48,0.1)] shadow-[0_6px_0_0_rgba(207,145,48,0.25)]"
                         : "border-[var(--line)] bg-white/70"
                     }`}
                   >
+                    {hayAportesNuevos && (
+                      <span
+                        aria-label="Nuevo aporte"
+                        title="Tenés un aporte nuevo"
+                        className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-rose-500"
+                      />
+                    )}
                     <p className="text-2xl leading-none">🪴</p>
                     <p className="mt-2 text-base font-bold tracking-tight">Mi espacio</p>
                     <p className="text-xs text-gray-600">Tu proyecto, a tu ritmo</p>
@@ -2770,12 +2842,19 @@ export default function CasaTalentosPage() {
                           key={p.email}
                           type="button"
                           onClick={() => cambiarViendoEmail(p.email)}
-                          className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                          className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${
                             viendoEmail === p.email
                               ? "border-[var(--accent)] bg-[rgba(207,145,48,0.12)] text-[var(--accent-strong)]"
                               : "border-[var(--line)] bg-white/70 text-gray-600"
                           }`}
                         >
+                          {novedadesPorParticipante[p.email] && (
+                            <span
+                              aria-label="Actividad nueva"
+                              title="Avanzó algo nuevo"
+                              className="h-2 w-2 rounded-full bg-rose-500"
+                            />
+                          )}
                           {p.nombre || p.email}
                         </button>
                       ))}

@@ -1173,5 +1173,38 @@ Pedido de Nicolás, aclarado con una pregunta de por medio (la primera interpret
 Con un participante descartable: orden de etiquetas confirmado exacto (Objetivo → Nombre del proyecto → Qué → Problema y solución → Habilidad → Entusiasma → Mensual → Trimestral → Anual); guardado confirmado por la respuesta real del `PUT` (`nombre`, `que` y `para_que` los tres con su valor correcto, nada se pisó); confirmado en base con una consulta directa; confirmado que el valor persiste después de recargar la página. Cero errores de consola. `typecheck`/`lint` limpios, sin warnings nuevos.
 
 ## 4. Pendiente
+- Resto sin cambios de sesiones anteriores: agente de IA reforzado, auditoría de performance del resto de la carga de Entusiasmento.
+
+Commiteado y pusheado (`40ca333`).
+
+---
+
+# Sesión de trabajo 2026-08-15 — Indicadores de "nuevo" (actividad para admin, aportes para participante)
+
+## 1. Objetivo
+Nicolás pidió una notificación de "nuevo" en ambas direcciones: (a) que a él, como admin, le aparezca una marca en la solapa de un participante si esa persona avanzó algo en "Mi espacio" desde la última vez que la vio — así sabe a quién revisar para dejarle un aporte; (b) que al participante le aparezca "nuevo" si el admin le dejó un aporte. En los dos casos, la marca se apaga recién cuando la persona correspondiente abre y ve el contenido.
+
+## 2. Diseño
+- **`sql/2026-08-14_entusiasmo_lecturas.sql`** (nuevo, corrido por Nicolás): tabla `entusiasmo_lecturas` (`lector_email`, `participante_email`, `leido_at`, unique por el par) — un solo mecanismo genérico sirve para las dos direcciones: cuando `lector_email === participante_email` es "la propia persona leyendo sus aportes"; cuando son distintos (siempre con `lector_email` admin) es "el admin viendo la actividad de tal participante".
+- **`app/api/entusiasmo/lecturas/route.ts`** (nuevo, POST): marca `leido_at = now()` para `(lector_email: quien pide, participante_email: el objetivo)`. Si el objetivo es otra persona, exige ser admin (403 si no).
+- **`app/api/entusiasmo/admin/novedades/route.ts`** (nuevo, GET, admin-only): por cada participante activo de Entusiasmento, calcula la última actividad real (`entusiasmo_proyectos.updated_at` solo si difiere de `created_at` en más de 2 segundos — evita el falso positivo de una fila vacía autogenerada al recibir un aporte o crear una producción antes de tener proyecto propio — más el `created_at` más reciente entre sus producciones y tareas) y la compara contra la lectura registrada de ese admin para esa persona. Devuelve `{ [email]: boolean }`.
+- **`app/api/entusiasmo/aportes/route.ts`** (GET, modificado): cuando alguien pide sus propios aportes (`emailObjetivo === auth.actor.email`), suma `hayAportesNuevos` a la respuesta, comparando el aporte más reciente contra su propia lectura registrada.
+- **`app/casatalentos/page.tsx`**:
+  - Admin: nuevo estado `novedadesPorParticipante`, cargado una vez al montar (si `esAdmin`). Cada solapa de participante muestra un punto rojo (`aria-label="Actividad nueva"`) si tiene actividad sin leer. `cambiarViendoEmail(email)` marca esa persona como leída (POST + apagado optimista del punto) en el mismo click que ya cambiaba de pestaña — no hizo falta ningún paso extra.
+  - Participante (o admin en "Yo"): nuevo estado `hayAportesNuevos`, seteado desde la respuesta de `cargarAportesRecibidos`. Un punto rojo en la tarjeta "🪴 Mi espacio" (`aria-label="Nuevo aporte"`) se muestra cuando hay algo sin leer.
+
+## 3. Bug encontrado y corregido antes de dar por terminado: el punto del participante nunca llegaba a pintarse
+Primera versión: el efecto que marca como leído se disparaba en el mismo ciclo de render que activaba el punto (mismo commit de React), así que al ser "Mi espacio" la pestaña por defecto, el punto pasaba de invisible a leído sin que llegara a pintarse en pantalla — confirmado con una prueba en vivo real (Playwright, con esperas generosas): el punto nunca apareció, ni una sola vez. Se corrigió agregando un margen de 3 segundos antes de marcar como leído y apagar el punto — verificado de nuevo: ahora sí se ve al entrar, y se apaga solo un momento después.
+
+## 4. Verificado en vivo
+Batería completa contra el servidor real (login por API + llamadas directas a los 3 endpoints nuevos/modificados, con datos 100% descartables, sin pasar por la UI para poder aislar cada caso):
+- Un aporte a alguien que nunca usó Mi espacio (crea un proyecto vacío automáticamente) **no** generó novedad — confirmado `false`.
+- La primera edición real de coordenadas de un participante, hecha dentro de los 2 segundos de la creación del proyecto, **no** contó como novedad (evita el falso positivo de alta); una segunda edición más tarde sí — confirmado `true`.
+- El admin marcando como leído apagó la novedad — confirmado `false`; una producción nueva del participante la volvió a prender — confirmado `true`.
+- El flag `hayAportesNuevos` del participante: `false` sin aportes, `true` after recibir uno, `false` después de marcar como leído.
+- Seguridad: un participante intentando marcar como leído el espacio de otro, o consultar `/admin/novedades`, recibió 403 en ambos casos.
+- En la UI real (Playwright): el punto en la solapa del participante se ve para el admin y se apaga al clickearla; el punto de "Nuevo aporte" en "Mi espacio" ahora sí se pinta al entrar y se apaga ~3 segundos después (tras el fix del punto 3); el contenido del aporte sigue visible en pantalla en todo momento, solo se apaga el punto. Cero errores de consola en ninguna corrida. `typecheck`/`lint` limpios, sin warnings nuevos.
+
+## 5. Pendiente
 - **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
 - Resto sin cambios de sesiones anteriores: agente de IA reforzado, auditoría de performance del resto de la carga de Entusiasmento.

@@ -65,7 +65,27 @@ export async function GET(req: Request) {
       )
     }
 
-    return NextResponse.json({ ok: true, aportes: (data as AporteRow[]) || [] })
+    const aportes = (data as AporteRow[]) || []
+    let hayAportesNuevos = false
+
+    // Solo tiene sentido calcular "hay nuevos" cuando alguien mira sus
+    // propios aportes recibidos (no cuando el admin mira los de otro).
+    if (emailObjetivo === auth.actor.email && aportes.length > 0) {
+      const { data: lectura } = await supabase
+        .from("entusiasmo_lecturas")
+        .select("leido_at")
+        .eq("lector_email", auth.actor.email)
+        .eq("participante_email", auth.actor.email)
+        .maybeSingle()
+
+      const leidoAt = lectura?.leido_at ? new Date(lectura.leido_at as string).getTime() : null
+
+      hayAportesNuevos = aportes.some(
+        (a) => !leidoAt || new Date(a.created_at).getTime() > leidoAt
+      )
+    }
+
+    return NextResponse.json({ ok: true, aportes, hayAportesNuevos })
   } catch (error) {
     return NextResponse.json(
       { error: "Error interno cargando los aportes.", detalle: String(error) },
