@@ -209,6 +209,29 @@ export async function PUT(req: Request) {
       }
     }
 
+    // A diferencia de las versiones (que solo archivan cambios sobre un
+    // valor previo no vacío), acá se registra CUALQUIER cambio de valor,
+    // incluida la primera vez que se completa un campo — es lo que
+    // alimenta los puntitos de "nuevo" por campo que ve el admin.
+    const camposModificados = CAMPOS_VERSIONABLES.filter(({ campoBody, columna }) => {
+      const valorAnterior = existente
+        ? (((existente as Record<string, unknown>)[columna] as string | null) || "").trim()
+        : ""
+      const valorNuevo = (body[campoBody] ?? "").trim()
+      return valorNuevo !== valorAnterior
+    })
+
+    if (camposModificados.length > 0) {
+      await supabase.from("entusiasmo_campos_actividad").upsert(
+        camposModificados.map(({ columna }) => ({
+          proyecto_id: (data as ProyectoRow).id,
+          campo: columna,
+          modificado_at: new Date().toISOString(),
+        })),
+        { onConflict: "proyecto_id,campo" }
+      )
+    }
+
     return NextResponse.json({ ok: true, proyecto: data as ProyectoRow })
   } catch (error) {
     return NextResponse.json(

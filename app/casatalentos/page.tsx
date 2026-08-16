@@ -428,6 +428,11 @@ export default function CasaTalentosPage() {
   const [novedadesPorParticipante, setNovedadesPorParticipante] = useState<
     Record<string, boolean>
   >({})
+  const [camposNuevosViendo, setCamposNuevosViendo] = useState<Set<string>>(new Set())
+  const [produccionesNuevasViendo, setProduccionesNuevasViendo] = useState<Set<number>>(
+    new Set()
+  )
+  const [tareasNuevasViendo, setTareasNuevasViendo] = useState<Set<number>>(new Set())
   const [mensajeAporte, setMensajeAporte] = useState("")
   const [valoracionesAbiertas, setValoracionesAbiertas] = useState(false)
   const [viendoEmail, setViendoEmail] = useState<string | null>(null)
@@ -1109,6 +1114,13 @@ export default function CasaTalentosPage() {
             >
               {tarea.contenido}
             </span>
+            {tareasNuevasViendo.has(tarea.id) && (
+              <span
+                aria-label="Tarea nueva"
+                title="Nueva o cambió desde la última vez que la viste"
+                className="h-2 w-2 shrink-0 rounded-full bg-rose-500"
+              />
+            )}
           </label>
 
           {!editando && (
@@ -1192,11 +1204,39 @@ export default function CasaTalentosPage() {
 
     if (email) {
       setNovedadesPorParticipante((prev) => ({ ...prev, [email]: false }))
-      void fetch("/api/entusiasmo/lecturas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ participanteEmail: email }),
-      })
+
+      // Importante el orden: primero se pide QUÉ es nuevo (con la lectura
+      // vieja todavía vigente) y recién después se marca como leído — si
+      // fuera al revés, la propia marca borraría lo que se quiere mostrar.
+      void (async () => {
+        try {
+          const res = await fetch(
+            `/api/entusiasmo/admin/novedades-detalle?email=${encodeURIComponent(email)}`
+          )
+          const data = await leerRespuestaJson<{
+            campos?: string[]
+            produccionesIds?: number[]
+            tareasIds?: number[]
+          }>(res)
+          setCamposNuevosViendo(new Set(data.campos || []))
+          setProduccionesNuevasViendo(new Set(data.produccionesIds || []))
+          setTareasNuevasViendo(new Set(data.tareasIds || []))
+        } catch {
+          setCamposNuevosViendo(new Set())
+          setProduccionesNuevasViendo(new Set())
+          setTareasNuevasViendo(new Set())
+        }
+
+        void fetch("/api/entusiasmo/lecturas", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ participanteEmail: email }),
+        })
+      })()
+    } else {
+      setCamposNuevosViendo(new Set())
+      setProduccionesNuevasViendo(new Set())
+      setTareasNuevasViendo(new Set())
     }
   }
 
@@ -1363,10 +1403,20 @@ export default function CasaTalentosPage() {
     const notasDelCampo = aportesRecibidos.filter((a) => a.campo === campo && a.fragmento)
     const segmentos = construirSegmentosResaltados(valor, notasDelCampo)
     const hayTextoSeleccionadoAca = campoConSeleccion === campo && textoSeleccionado
+    const esNuevo = camposNuevosViendo.has(COLUMNA_POR_CAMPO_COORDENADAS[campo])
 
     return (
       <div className="space-y-2">
-        <span className="text-sm font-medium text-gray-700">{etiqueta}</span>
+        <span className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-700">
+          {esNuevo && (
+            <span
+              aria-label="Cambió recientemente"
+              title="Cambió desde la última vez que lo viste"
+              className="h-2 w-2 shrink-0 rounded-full bg-rose-500"
+            />
+          )}
+          {etiqueta}
+        </span>
         <p
           className="workspace-field min-h-24 cursor-text whitespace-pre-wrap"
           onMouseUp={() => manejarSeleccionTexto(campo)}
@@ -3151,6 +3201,13 @@ export default function CasaTalentosPage() {
                                 {item.titulo ||
                                   (item.tipo === "texto" ? "" : item.tipo === "link" ? "Link" : item.tipo)}
                               </span>
+                              {produccionesNuevasViendo.has(item.id) && (
+                                <span
+                                  aria-label="Producción nueva"
+                                  title="Nueva desde la última vez que la viste"
+                                  className="h-2 w-2 shrink-0 rounded-full bg-rose-500"
+                                />
+                              )}
                             </div>
 
                             {item.tipo === "imagen" && item.signedUrl && (

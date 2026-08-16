@@ -1206,5 +1206,35 @@ Batería completa contra el servidor real (login por API + llamadas directas a l
 - En la UI real (Playwright): el punto en la solapa del participante se ve para el admin y se apaga al clickearla; el punto de "Nuevo aporte" en "Mi espacio" ahora sí se pinta al entrar y se apaga ~3 segundos después (tras el fix del punto 3); el contenido del aporte sigue visible en pantalla en todo momento, solo se apaga el punto. Cero errores de consola en ninguna corrida. `typecheck`/`lint` limpios, sin warnings nuevos.
 
 ## 5. Pendiente
+- Resto sin cambios de sesiones anteriores: agente de IA reforzado, auditoría de performance del resto de la carga de Entusiasmento.
+
+Commiteado y pusheado (`dec6cec`).
+
+---
+
+# Sesión de trabajo 2026-08-15 (continuación) — Puntos de "nuevo" por campo/producción/tarea (no solo por participante)
+
+## 1. Objetivo
+El indicador de "nuevo" de la sesión anterior era por participante entero (un punto en la solapa, sin decir qué cambió). Nicolás pidió bajar un nivel: que el punto aparezca sobre la Coordenada puntual que cambió, sobre la Producción nueva, sobre la Tarea nueva/avanzada, y también sobre "Nombre del proyecto" — así no tiene que revisar todo el espacio para encontrar qué avanzó.
+
+## 2. Diseño
+- **`sql/2026-08-15_entusiasmo_campos_actividad.sql`** (nuevo, corrido por Nicolás): tabla `entusiasmo_campos_actividad` (`proyecto_id`, `campo`, `modificado_at`, unique por el par) — a diferencia de `entusiasmo_coordenadas_versiones` (que solo archiva cuando había un valor anterior no vacío), esta registra **cualquier** cambio de valor, incluida la primera vez que se completa un campo — necesario para poder marcarlo como "nuevo" también en ese caso.
+- **`app/api/entusiasmo/proyecto/route.ts`** (PUT): además de la lógica de versiones ya existente, ahora compara valor viejo vs. nuevo de cada campo de `CAMPOS_VERSIONABLES` (incluye `nombre`) y hace upsert en `entusiasmo_campos_actividad` por cada uno que cambió de verdad.
+- **`app/api/entusiasmo/admin/novedades-detalle/route.ts`** (nuevo, GET `?email=`, admin-only): para un participante puntual, devuelve `{ campos: string[], produccionesIds: number[], tareasIds: number[] }` — campos de `entusiasmo_campos_actividad` modificados después de la lectura registrada del admin para esa persona, más ids de producciones/tareas cuyo `updated_at` (o `created_at`) es posterior a esa misma lectura.
+- **`app/casatalentos/page.tsx`**: `cambiarViendoEmail` ahora, al abrir la solapa de un participante, primero pide el detalle (con la lectura *vieja* todavía vigente) y recién **después** marca como leído — el orden importa: si fuera al revés, la propia marca de lectura borraría lo que se quiere mostrar. El detalle queda en 3 sets de estado (`camposNuevosViendo`, `produccionesNuevasViendo`, `tareasNuevasViendo`) que alimentan puntitos rojos en `renderizarCampoLectura` (al lado de la etiqueta de cada Coordenada, incluida "Nombre del proyecto"), en cada ítem de la lista de Producciones, y en `renderizarFilaTarea`. Los puntos quedan visibles durante toda esa sesión de vista (no desaparecen solos) — la próxima vez que el admin abra esa solapa, si no hay nada nuevo, no van a aparecer.
+- El punto por participante de la sesión anterior (en la solapa) se mantiene igual, sin tocar — sigue siendo el indicador rápido de "hay algo" antes de entrar.
+
+## 3. Verificado en vivo
+Batería de 8 casos contra el servidor real (login por API + llamadas directas, datos descartables):
+- Sin actividad: los 3 arrays vacíos.
+- Completar "para qué" y "Nombre del proyecto" por primera vez (nunca tuvieron valor antes): ambos aparecen en `campos`, y ningún otro campo no tocado (ni "qué" ni "problema y solución").
+- Una producción y una tarea nuevas aparecen en sus respectivos ids.
+- El admin marca como leído → los 3 arrays se vacían.
+- El participante edita **solo** "qué" después de eso → aparece únicamente `"que"` en `campos` (ni "para_que" ni "nombre", que ya habían sido vistos, vuelven a aparecer) — confirma que la granularidad es real, no un "hubo algo" genérico.
+- Seguridad: un participante pidiendo el detalle de otro recibe 403.
+
+En la UI real (Playwright, con datos sembrados directamente para simular el escenario: dos campos "recientes" y uno "viejo", más una producción y una tarea nuevas): al abrir la solapa del participante y expandir Coordenadas, aparece el punto exactamente sobre "Objetivo (para qué)" y "Nombre del proyecto", **no** aparece sobre "Qué" (que no había cambiado), y aparece sobre la producción y la tarea nuevas. Cero errores de consola. `typecheck`/`lint` limpios, sin warnings nuevos.
+
+## 4. Pendiente
 - **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
 - Resto sin cambios de sesiones anteriores: agente de IA reforzado, auditoría de performance del resto de la carga de Entusiasmento.
