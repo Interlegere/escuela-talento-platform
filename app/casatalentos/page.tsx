@@ -223,20 +223,30 @@ const CAMPOS_COORDENADAS_PRINCIPALES: Array<{
   etiqueta: string
   colSpan?: boolean
 }> = [
-  { campo: "paraQue", etiqueta: "Objetivo concreto que querés alcanzar (para qué)" },
   { campo: "nombre", etiqueta: "Nombre del proyecto" },
-  { campo: "que", etiqueta: "Proyecto sobre el que querés trabajar (qué)" },
-  { campo: "problemaSolucion", etiqueta: "Problema y solución", colSpan: true },
-  { campo: "habilidadADesarrollar", etiqueta: "Una habilidad que quieras desarrollar" },
-  { campo: "queTeEntusiasma", etiqueta: "Algo que te entusiasme mucho en la vida" },
+  { campo: "que", etiqueta: "¿Qué es? Definición." },
+  {
+    campo: "paraQue",
+    etiqueta: "¿Para qué sirve? ¿Qué misión cumple en el mundo?",
+  },
+  {
+    campo: "problemaSolucion",
+    etiqueta: "Problema que resuelve (agujero). Solución que brinda (corcho).",
+    colSpan: true,
+  },
+  {
+    campo: "habilidadADesarrollar",
+    etiqueta: "Talento/s que reconocés en vos y cuáles querés desarrollar",
+  },
+  { campo: "queTeEntusiasma", etiqueta: "¿Qué te entusiasma en la vida? ¡Chispa!" },
 ]
 const CAMPOS_COORDENADAS_RESULTADOS: Array<{
   campo: keyof CoordenadasForm
   etiqueta: string
 }> = [
-  { campo: "resultadoMensual", etiqueta: "Mensual" },
-  { campo: "resultadoTrimestral", etiqueta: "Trimestral" },
   { campo: "resultadoAnual", etiqueta: "Anual" },
+  { campo: "resultadoTrimestral", etiqueta: "Trimestral" },
+  { campo: "resultadoMensual", etiqueta: "Mensual" },
 ]
 
 const DIAS_SEMANA_CORTO = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]

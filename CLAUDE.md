@@ -1273,5 +1273,29 @@ Confirmado con un segundo "Run": ya daba `200` en vez de `401`. Pero esa segunda
 
 Ningún archivo de código cambió en todo este diagnóstico (los dos problemas eran configuración faltante en Vercel, no bugs de código) — no hay nada para commitear de esta parte.
 
-## 5. Pendiente
+Commiteado y pusheado (`b6e668e`).
+
+---
+
+# Sesión de trabajo 2026-08-17 (continuación) — Reordenar y redefinir Coordenadas
+
+## 1. Objetivo
+Nicolás pidió reordenar y renombrar los campos de Coordenadas. Cambio puramente de presentación (orden + etiquetas) — ningún campo nuevo, ninguna columna nueva, mismo mapeo `campo → columna` de siempre (así que versiones, notas ancladas y aportes por campo siguen funcionando sin tocarlos).
+
+## 2. Qué se hizo
+`app/casatalentos/page.tsx`, `CAMPOS_COORDENADAS_PRINCIPALES` reordenado y reetiquetado:
+1. Nombre del proyecto (`nombre`)
+2. "¿Qué es? Definición." (`que`)
+3. "¿Para qué sirve? ¿Qué misión cumple en el mundo?" (`paraQue`, antes "Objetivo concreto...")
+4. "Problema que resuelve (agujero). Solución que brinda (corcho)." (`problemaSolucion`, sigue con `colSpan`)
+5. "Talento/s que reconocés en vos y cuáles querés desarrollar" (`habilidadADesarrollar`, antes "Una habilidad que quieras desarrollar")
+6. "¿Qué te entusiasma en la vida? ¡Chispa!" (`queTeEntusiasma`, antes "Algo que te entusiasme...")
+
+`CAMPOS_COORDENADAS_RESULTADOS` reordenado a Anual → Trimestral → Mensual (antes Mensual → Trimestral → Anual).
+
+## 3. Verificado en vivo
+Con un participante descartable: orden y texto exacto confirmados tanto en la vista de edición propia como en la vista de lectura del admin (mirando a ese participante) — las 9 etiquetas en el orden pedido en los dos casos. Cero errores de consola. `typecheck`/`lint` limpios, sin warnings nuevos.
+
+## 4. Pendiente
+- **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
 - Resto sin cambios de sesiones anteriores: auditoría de performance del resto de la carga de Entusiasmento.
