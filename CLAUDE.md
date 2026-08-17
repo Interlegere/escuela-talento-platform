@@ -1236,5 +1236,33 @@ Batería de 8 casos contra el servidor real (login por API + llamadas directas, 
 En la UI real (Playwright, con datos sembrados directamente para simular el escenario: dos campos "recientes" y uno "viejo", más una producción y una tarea nuevas): al abrir la solapa del participante y expandir Coordenadas, aparece el punto exactamente sobre "Objetivo (para qué)" y "Nombre del proyecto", **no** aparece sobre "Qué" (que no había cambiado), y aparece sobre la producción y la tarea nuevas. Cero errores de consola. `typecheck`/`lint` limpios, sin warnings nuevos.
 
 ## 4. Pendiente
-- **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
 - Resto sin cambios de sesiones anteriores: agente de IA reforzado, auditoría de performance del resto de la carga de Entusiasmento.
+
+Commiteado y pusheado (`421e1a6`).
+
+---
+
+# Sesión de trabajo 2026-08-16 — Puntos de "nuevo" en el nav y en encabezados de sección; diagnóstico del agente diario
+
+## 1. Objetivo
+Dos pedidos de Nicolás: (a) agregar el punto rojo en dos lugares más — el link "Entusiasmento" del menú de navegación, y el encabezado de cada sección (Coordenadas, Producciones, Tareas semanales) dentro de "Mi espacio"; (b) confirmar si el agente de IA ya le está mandando el mail diario a los participantes en producción.
+
+## 2. Puntos de "nuevo" — nav y encabezados de sección
+- **`lib/entusiasmo-novedades.ts`** (nuevo): se extrajo la lógica de `calcularNovedadesPorParticipante` (antes vivía inline en `/api/entusiasmo/admin/novedades`) y se agregó `calcularHayAportesNuevos`, para que las pueda reutilizar el endpoint nuevo sin duplicar las consultas.
+- **`app/api/entusiasmo/nav-resumen/route.ts`** (nuevo, GET): devuelve `{ hayAlgoQueRevisar: boolean }` — para admin, agrega (OR) las novedades de todos los participantes; para cualquier otra persona, si tiene aportes nuevos propios. Pensado para ser liviano y tolerante a fallos (nunca tira error visible, si algo falla devuelve `false` y no rompe la navegación).
+- **`components/AppNav.tsx`**: pide ese endpoint al montar (para cualquier usuario logueado) y pinta un punto rojo sobre el link "Entusiasmento" del menú si corresponde.
+- **`app/casatalentos/page.tsx`**: los 3 encabezados de sección dentro de "Mi espacio" (Coordenadas, "Lo que vas armando" / Producciones, "Lo que te proponés esta semana" / Tareas semanales) ahora muestran un punto si `camposNuevosViendo`/`produccionesNuevasViendo`/`tareasNuevasViendo` (ya calculados desde la sesión anterior) tienen algo — mismo dato, ahora también visible de un vistazo antes de desplegar cada sección, no solo sobre el ítem puntual.
+
+**Verificado en vivo**: con un participante descartable con un campo de Coordenadas, una producción y una tarea recién modificados, y con un aporte de admin sin leer: el admin ve el punto en el nav y, al entrar a la solapa del participante, los 3 encabezados de sección lo muestran correctamente; el participante ve el punto en el nav por el aporte nuevo. Cero errores de consola en ambas sesiones. `typecheck`/`lint` limpios, sin warnings nuevos.
+
+## 3. Diagnóstico: ¿el agente ya le manda el mail diario a los participantes?
+Investigado contra producción real (base de datos + Vercel, sin simular nada):
+- **La integración funciona de punta a punta cuando se la invoca** — quedó demostrado en la sesión del 13/8 con una corrida real contra producción (5 personas evaluadas, 1 mail real enviado y registrado).
+- **Pero el cron automático no parece estar disparando solo desde entonces.** El diseño del agente manda, **todos los días que corre**, un "informe diario" a `nicolasbusico@entheosescuela.com` — incluso los días que no toca escribirle a nadie (un mail de una línea). Revisando `comunicacion_envios` en la base real, el único registro de `tipo: "agente_informe_diario"` que existe es el del 13/8 a las 15:06 UTC (la corrida manual de esa sesión) — no hay ningún registro para el 14/8 ni el 15/8, pese a que el cron (`vercel.json`, `0 3 * * *`) debería haber corrido automáticamente esas dos noches y, según el diseño, debería haber generado el informe igual aunque no fuera día de escribirle a nadie.
+- Se revisaron los deploys en Vercel (todos `READY`/`production`, sin fallos) y los errores de runtime de los últimos 7 días (ninguno registrado) — no hay una causa obvia a la vista desde acá. El plan Hobby de Vercel solo guarda logs de ejecución por 1 hora, así que no se puede ver el detalle de qué pasó (o si pasó) en esas corridas de las 00:00 ARG.
+- **Conclusión**: la integración en sí funciona, pero hay indicios reales de que el disparador automático (el cron job) no se está ejecutando en producción, o se está ejecutando pero fallando en un punto temprano que ni siquiera llega a intentar mandar el informe. No se pudo confirmar la causa exacta sin acceso al panel de Vercel (Project → Settings → Cron Jobs, que muestra la última ejecución) — **queda pendiente que Nicolás lo revise ahí**, o que confirme si quiere que se dispare una prueba manual real hoy para seguir diagnosticando (no se hizo sin preguntar porque manda mails reales).
+
+## 4. Pendiente
+- **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
+- **Revisar por qué el cron automático no está corriendo** (ver punto 3) — separado de todo lo demás, no se tocó código de esto en esta sesión porque no se identificó la causa raíz.
+- Resto sin cambios de sesiones anteriores: auditoría de performance del resto de la carga de Entusiasmento.

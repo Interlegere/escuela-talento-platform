@@ -3061,10 +3061,17 @@ export default function CasaTalentosPage() {
                             🧭
                           </span>
                           <span>
-                            <span className="block text-lg font-bold tracking-tight text-sky-900">
+                            <span className="inline-flex items-center gap-1.5 text-lg font-bold tracking-tight text-sky-900">
                               Coordenadas
+                              {camposNuevosViendo.size > 0 && (
+                                <span
+                                  aria-label="Hay cambios nuevos"
+                                  title="Hay cambios nuevos"
+                                  className="h-2.5 w-2.5 rounded-full bg-rose-500"
+                                />
+                              )}
                             </span>
-                            <span className="text-sm text-sky-700">
+                            <span className="block text-sm text-sky-700">
                               {coordenadasSinDefinir} todavía sin definir
                             </span>
                           </span>
@@ -3166,8 +3173,15 @@ export default function CasaTalentosPage() {
                     <div className="space-y-3 rounded-[1.75rem] border-2 border-violet-200 bg-violet-50/50 p-4">
                       <div className="space-y-1">
                         <p className="workspace-eyebrow text-violet-500">🎨 Producciones</p>
-                        <h3 className="text-lg font-bold tracking-tight text-violet-900">
+                        <h3 className="inline-flex items-center gap-1.5 text-lg font-bold tracking-tight text-violet-900">
                           Lo que vas armando
+                          {produccionesNuevasViendo.size > 0 && (
+                            <span
+                              aria-label="Hay producciones nuevas"
+                              title="Hay producciones nuevas"
+                              className="h-2.5 w-2.5 rounded-full bg-rose-500"
+                            />
+                          )}
                         </h3>
                         <p className="workspace-inline-note">
                           Imágenes, textos, canciones — vos elegís qué mostrar
@@ -3422,8 +3436,15 @@ export default function CasaTalentosPage() {
                     >
                       <div className="space-y-1">
                         <p className="workspace-eyebrow text-amber-600">📋 Tareas semanales</p>
-                        <h3 className="text-lg font-bold tracking-tight text-amber-900">
+                        <h3 className="inline-flex items-center gap-1.5 text-lg font-bold tracking-tight text-amber-900">
                           Lo que te proponés esta semana
+                          {tareasNuevasViendo.size > 0 && (
+                            <span
+                              aria-label="Hay tareas nuevas"
+                              title="Hay tareas nuevas"
+                              className="h-2.5 w-2.5 rounded-full bg-rose-500"
+                            />
+                          )}
                         </h3>
                       </div>
 

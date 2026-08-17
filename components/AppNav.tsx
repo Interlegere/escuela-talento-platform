@@ -13,6 +13,7 @@ export default function AppNav() {
   const [campusMode, setCampusMode] = useState<"default" | "charla-only">(
     "default"
   )
+  const [hayNovedadEntusiasmo, setHayNovedadEntusiasmo] = useState(false)
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -27,6 +28,29 @@ export default function AppNav() {
   const role = session?.user?.role || "participante"
   const esAdmin = role === "admin"
   const esLandingPublica = pathname === "/landing"
+
+  useEffect(() => {
+    if (!session) return
+
+    let cancelado = false
+
+    const cargarNovedadEntusiasmo = async () => {
+      try {
+        const res = await fetch("/api/entusiasmo/nav-resumen", { cache: "no-store" })
+        if (!res.ok || cancelado) return
+        const data = (await res.json()) as { hayAlgoQueRevisar?: boolean }
+        if (!cancelado) setHayNovedadEntusiasmo(Boolean(data.hayAlgoQueRevisar))
+      } catch {
+        if (!cancelado) setHayNovedadEntusiasmo(false)
+      }
+    }
+
+    void cargarNovedadEntusiasmo()
+
+    return () => {
+      cancelado = true
+    }
+  }, [session])
 
   useEffect(() => {
     if (!session || esAdmin) {
@@ -156,13 +180,20 @@ export default function AppNav() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                className={`relative shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition ${
                   activo
                     ? "border border-[rgba(255,255,255,0.82)] bg-[rgba(255,255,255,0.58)] text-[var(--foreground)] shadow-[0_14px_28px_rgba(55,42,28,0.12)] backdrop-blur-md"
                     : "border border-[rgba(102,86,62,0.14)] bg-[rgba(255,250,242,0.62)] text-[rgba(29,35,40,0.82)] hover:border-[var(--line-strong)] hover:bg-[rgba(255,247,235,0.94)]"
                 }`}
               >
                 {link.label}
+                {link.href === "/casatalentos" && hayNovedadEntusiasmo && (
+                  <span
+                    aria-label="Hay novedades en Entusiasmento"
+                    title="Hay novedades en Entusiasmento"
+                    className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-rose-500"
+                  />
+                )}
               </Link>
             )
           })}
