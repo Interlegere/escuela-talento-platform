@@ -16,9 +16,17 @@ export async function calcularNovedadesPorParticipante(
   adminEmail: string
 ): Promise<Record<string, boolean>> {
   const participantes = await listarParticipantesActividad("casatalentos")
+  const adminEmailNormalizado = adminEmail.trim().toLowerCase()
   const emails = participantes
     .map((p) => p.email?.trim().toLowerCase())
-    .filter((email): email is string => Boolean(email))
+    // El admin nunca aparece como solapa de sí mismo (ve su propio espacio
+    // en "Yo", no como participante a revisar) — si además está inscripto
+    // como participante, excluirlo acá evita que quede un "hay novedades"
+    // fantasma que nunca se puede apagar porque no hay ninguna solapa
+    // donde marcarlo como leído.
+    .filter(
+      (email): email is string => Boolean(email) && email !== adminEmailNormalizado
+    )
 
   if (emails.length === 0) {
     return {}

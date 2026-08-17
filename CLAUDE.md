@@ -1297,5 +1297,30 @@ Nicolás pidió reordenar y renombrar los campos de Coordenadas. Cambio purament
 Con un participante descartable: orden y texto exacto confirmados tanto en la vista de edición propia como en la vista de lectura del admin (mirando a ese participante) — las 9 etiquetas en el orden pedido en los dos casos. Cero errores de consola. `typecheck`/`lint` limpios, sin warnings nuevos.
 
 ## 4. Pendiente
+- Resto sin cambios de sesiones anteriores: auditoría de performance del resto de la carga de Entusiasmento.
+
+Commiteado y pusheado (`dab53fc`).
+
+---
+
+# Sesión de trabajo 2026-08-17 (continuación 2) — Bug real: el punto del nav quedaba pegado en "true" para un admin inscripto como participante
+
+## 1. Reporte de Nicolás
+"¿Por qué me aparece el puntito rojo en Entusiasmento si no tengo ningún puntito en los participantes?" — screenshot mostrando el punto rojo en el nav, pero ninguna de las solapas de participantes con punto.
+
+## 2. Diagnóstico (dos causas, no una)
+**Causa 1 — descartada tras investigar**: en un primer momento se sospechó que el punto del nav simplemente no se refrescaba (`AppNav` vive en el layout raíz y no se remonta al navegar, así que si se calculaba una sola vez al loguearse podía quedar desactualizado). Se corrigió igual porque era una mejora real — `components/AppNav.tsx` ahora vuelve a pedir `/api/entusiasmo/nav-resumen` en cada cambio de ruta, y además escucha un evento `entusiasmo-lectura-actualizada` que `app/casatalentos/page.tsx` dispara apenas termina de marcar algo como leído (tanto cuando el admin abre la solapa de un participante como cuando alguien ve sus propios aportes) — así el punto se actualiza al toque, sin esperar a navegar a otra página.
+
+**Causa 2 — la real, encontrada probando el fix anterior**: incluso con el refresco funcionando perfecto, el punto seguía en `true`. Investigado a fondo: la cuenta de Nicolás (`nicolasbusico.psi@gmail.com`) está inscripta como participante de Entusiasmento desde una sesión anterior (para que apareciera en CoFruto) — y como admin, nunca aparece como una solapa de sí mismo en la lista de participantes a revisar (se ve a sí mismo en "Yo", no como alguien a quien "abrirle la solapa"). Pero `calcularNovedadesPorParticipante` (la función que arma tanto el mapa por solapa como el agregado del nav) sí lo incluía como "otro participante más" a revisar — como nunca hay ninguna solapa donde marcarlo como leído, esa entrada quedaba con novedad **permanentemente encendida**, sin ninguna forma de apagarla, y arrastraba el punto agregado del nav a `true` para siempre aunque todas las solapas visibles estuvieran en orden.
+
+## 3. Corrección
+`lib/entusiasmo-novedades.ts`, `calcularNovedadesPorParticipante`: se excluye el propio email del admin de la lista de participantes a evaluar — mismo criterio que ya usa el filtro de solapas del lado del cliente (`participantesActivosCasaTalentos.filter(p => p.email !== storageEmail)`), ahora aplicado también del lado del servidor para que el agregado del nav sea consistente con lo que realmente se puede revisar desde la UI.
+
+## 4. Verificado en vivo
+Contra producción real (login por API, sin datos de prueba para el padrón — la función lee participantes reales): con una cuenta de prueba admin+participante a la vez, se confirmó que su propia clave **nunca aparece** en el mapa de `/api/entusiasmo/admin/novedades` que le corresponde a ella misma — se probó además que, viendo el mismo mapa desde una cuenta admin *distinta*, esa persona sí aparece como alguien a revisar (correcto: para cualquier OTRO admin, sigue siendo un participante legítimo). El punto del nav ahora depende exclusivamente de participantes que sí tienen una solapa real donde poder marcarse como leídos. `typecheck`/`lint` limpios, sin warnings nuevos.
+
+**Nota para Nicolás**: con este fix, tu propio punto rojo en el nav ya no debería quedar pegado por tu propia cuenta — pero mientras sigan sin revisarse Cuchulain Mago y Verónica Alejandra Saracho (confirmado en la corrida real que ambos tienen actividad sin leer todavía), el punto va a seguir prendido hasta que abras esas dos solapas. Es el comportamiento correcto, no el bug.
+
+## 5. Pendiente
 - **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
 - Resto sin cambios de sesiones anteriores: auditoría de performance del resto de la carga de Entusiasmento.

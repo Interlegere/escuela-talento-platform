@@ -745,10 +745,13 @@ export default function CasaTalentosPage() {
 
     const timeoutId = setTimeout(() => {
       setHayAportesNuevos(false)
-      void fetch("/api/entusiasmo/lecturas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      })
+      void (async () => {
+        await fetch("/api/entusiasmo/lecturas", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        })
+        window.dispatchEvent(new Event("entusiasmo-lectura-actualizada"))
+      })()
     }, 3000)
 
     return () => clearTimeout(timeoutId)
@@ -1237,11 +1240,12 @@ export default function CasaTalentosPage() {
           setTareasNuevasViendo(new Set())
         }
 
-        void fetch("/api/entusiasmo/lecturas", {
+        await fetch("/api/entusiasmo/lecturas", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ participanteEmail: email }),
         })
+        window.dispatchEvent(new Event("entusiasmo-lectura-actualizada"))
       })()
     } else {
       setCamposNuevosViendo(new Set())

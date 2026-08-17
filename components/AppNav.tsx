@@ -45,12 +45,18 @@ export default function AppNav() {
       }
     }
 
+    // Se vuelve a pedir en cada cambio de ruta (además de al loguearse) —
+    // AppNav vive en el layout raíz y no se remonta al navegar, así que sin
+    // esto el punto quedaba pegado con el valor de la primera carga aunque
+    // adentro de Entusiasmento ya se hubiera marcado todo como leído.
     void cargarNovedadEntusiasmo()
+    window.addEventListener("entusiasmo-lectura-actualizada", cargarNovedadEntusiasmo)
 
     return () => {
       cancelado = true
+      window.removeEventListener("entusiasmo-lectura-actualizada", cargarNovedadEntusiasmo)
     }
-  }, [session])
+  }, [session, pathname])
 
   useEffect(() => {
     if (!session || esAdmin) {
