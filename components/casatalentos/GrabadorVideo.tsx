@@ -6,6 +6,7 @@ type Props = {
   onVideoListo: (file: File | null) => void
   disabled?: boolean
   maxSegundos?: number
+  permitirArchivo?: boolean
 }
 
 function obtenerMimeTypeSoportado() {
@@ -89,6 +90,7 @@ export default function GrabadorVideo({
   onVideoListo,
   disabled = false,
   maxSegundos = 65,
+  permitirArchivo = true,
 }: Props) {
   const [modoSeleccionado, setModoSeleccionado] = useState<"ninguno" | "grabar" | "archivo">(
     "ninguno"
@@ -505,13 +507,17 @@ export default function GrabadorVideo({
       <div className="space-y-3">
         <div className="space-y-1">
           <p className="workspace-eyebrow">Preparación</p>
-          <p className="text-lg font-semibold">Elegí cómo preparar tu video</p>
-          <p className="workspace-inline-note">
-            Elegí una opción para continuar.
+          <p className="text-lg font-semibold">
+            {permitirArchivo ? "Elegí cómo preparar tu video" : "Grabá tu video"}
           </p>
+          {permitirArchivo && (
+            <p className="workspace-inline-note">
+              Elegí una opción para continuar.
+            </p>
+          )}
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className={`grid gap-3 ${permitirArchivo ? "md:grid-cols-2" : ""}`}>
           <button
             type="button"
             onClick={() => cambiarModo("grabar")}
@@ -522,7 +528,7 @@ export default function GrabadorVideo({
                 : "bg-[rgba(255,251,244,0.88)] hover:bg-[rgba(255,246,233,0.92)]"
             } disabled:opacity-60`}
           >
-            <p className="workspace-eyebrow !text-[0.64rem]">Opción 1</p>
+            {permitirArchivo && <p className="workspace-eyebrow !text-[0.64rem]">Opción 1</p>}
             <p className="mt-1 font-medium">
               {puedeUsarGrabacionDirecta ? "Grabar ahora" : "Grabar con la cámara del dispositivo"}
             </p>
@@ -533,22 +539,24 @@ export default function GrabadorVideo({
             </p>
           </button>
 
-          <button
-            type="button"
-            onClick={() => cambiarModo("archivo")}
-            disabled={disabled}
-            className={`rounded-xl border p-4 text-left transition ${
-              modoSeleccionado === "archivo"
-                ? "border-[var(--line-strong)] bg-[rgba(47,109,115,0.1)]"
-                : "bg-[rgba(255,251,244,0.88)] hover:bg-[rgba(255,246,233,0.92)]"
-            } disabled:opacity-60`}
-          >
-            <p className="workspace-eyebrow !text-[0.64rem]">Opción 2</p>
-            <p className="mt-1 font-medium">Elegir archivo</p>
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              Seleccioná un video que ya tengas guardado en este dispositivo.
-            </p>
-          </button>
+          {permitirArchivo && (
+            <button
+              type="button"
+              onClick={() => cambiarModo("archivo")}
+              disabled={disabled}
+              className={`rounded-xl border p-4 text-left transition ${
+                modoSeleccionado === "archivo"
+                  ? "border-[var(--line-strong)] bg-[rgba(47,109,115,0.1)]"
+                  : "bg-[rgba(255,251,244,0.88)] hover:bg-[rgba(255,246,233,0.92)]"
+              } disabled:opacity-60`}
+            >
+              <p className="workspace-eyebrow !text-[0.64rem]">Opción 2</p>
+              <p className="mt-1 font-medium">Elegir archivo</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Seleccioná un video que ya tengas guardado en este dispositivo.
+              </p>
+            </button>
+          )}
         </div>
       </div>
 
@@ -556,7 +564,7 @@ export default function GrabadorVideo({
         <p className="text-sm text-red-700 font-medium">{error}</p>
       )}
 
-      {modoSeleccionado !== "ninguno" && (
+      {permitirArchivo && modoSeleccionado !== "ninguno" && (
         <div className="flex justify-end">
           <button
             type="button"

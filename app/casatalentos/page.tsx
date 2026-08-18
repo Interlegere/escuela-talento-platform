@@ -2999,6 +2999,7 @@ export default function CasaTalentosPage() {
                               onVideoListo={handleArchivoPitch}
                               disabled={subiendoPitch}
                               maxSegundos={90}
+                              permitirArchivo={false}
                             />
 
                             {mensajePitch && (

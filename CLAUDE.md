@@ -1322,5 +1322,25 @@ Contra producción real (login por API, sin datos de prueba para el padrón — 
 **Nota para Nicolás**: con este fix, tu propio punto rojo en el nav ya no debería quedar pegado por tu propia cuenta — pero mientras sigan sin revisarse Cuchulain Mago y Verónica Alejandra Saracho (confirmado en la corrida real que ambos tienen actividad sin leer todavía), el punto va a seguir prendido hasta que abras esas dos solapas. Es el comportamiento correcto, no el bug.
 
 ## 5. Pendiente
+- Resto sin cambios de sesiones anteriores: auditoría de performance del resto de la carga de Entusiasmento.
+
+Commiteado y pusheado (`75a5901`).
+
+---
+
+# Sesión de trabajo 2026-08-17 (continuación 3) — Pitch: solo grabar, sin opción de subir archivo
+
+## 1. Objetivo
+Nicolás pidió sacar la opción de subir un video ya grabado en el Pitch — que solo se pueda grabar en el momento.
+
+## 2. Qué se hizo
+`components/casatalentos/GrabadorVideo.tsx` (componente compartido, también usado en `CasaTalentosAdminPanel.tsx` para referentes semanales — no se podía sacar la opción "sin querer" para los dos usos): nueva prop `permitirArchivo` (default `true`, no rompe el otro uso). En `false`: no se renderiza el botón "Opción 2 / Elegir archivo", el grid pasa a una sola columna, se saca la numeración "Opción 1" (no tiene sentido numerar si hay una sola) y el texto "Elegí una opción para continuar." Sigue pidiendo un click explícito en "Grabar ahora" (no se auto-inicia la cámara) — los navegadores exigen un gesto del usuario para el permiso de cámara/micrófono, así que auto-iniciar no hubiera funcionado bien igual.
+
+`app/casatalentos/page.tsx`: el `<GrabadorVideo>` del Pitch pasa `permitirArchivo={false}`. El de `CasaTalentosAdminPanel.tsx` (referentes semanales) no se tocó, sigue con las dos opciones.
+
+## 3. Verificado en vivo
+Con un participante descartable: en el Pitch aparece únicamente "Grabar ahora", sin "Elegir archivo", sin "Opción 1", sin el texto "Elegí una opción para continuar." Con la cuenta admin, en "Gestión de referentes" (mismo componente, otro caso de uso) las dos opciones siguen intactas, sin cambios. Cero errores de consola en ambas pruebas. `typecheck`/`lint` limpios, sin warnings nuevos.
+
+## 4. Pendiente
 - **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
 - Resto sin cambios de sesiones anteriores: auditoría de performance del resto de la carga de Entusiasmento.
