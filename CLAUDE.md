@@ -1342,5 +1342,25 @@ Nicolás pidió sacar la opción de subir un video ya grabado en el Pitch — qu
 Con un participante descartable: en el Pitch aparece únicamente "Grabar ahora", sin "Elegir archivo", sin "Opción 1", sin el texto "Elegí una opción para continuar." Con la cuenta admin, en "Gestión de referentes" (mismo componente, otro caso de uso) las dos opciones siguen intactas, sin cambios. Cero errores de consola en ambas pruebas. `typecheck`/`lint` limpios, sin warnings nuevos.
 
 ## 4. Pendiente
+- Resto sin cambios de sesiones anteriores: auditoría de performance del resto de la carga de Entusiasmento.
+
+Commiteado y pusheado (`a0574f5`).
+
+---
+
+# Sesión de trabajo 2026-08-18 — Reordenar secciones de Mi espacio + sacar Gestión de referentes
+
+## 1. Objetivo
+Nicolás pidió dos cosas sobre "Mi espacio": (a) reordenar las secciones a Pitch → Coordenadas → Tareas → Producciones (antes Producciones iba antes que Tareas); (b) sacar la sección "Gestión de referentes" (admin-only, dentro de "Mi espacio") — "por ahora no lo voy a usar".
+
+## 2. Qué se hizo
+`app/casatalentos/page.tsx`:
+- Se movió el bloque completo de "Tareas semanales" (con todo su contenido: Destello, Tu ritmo, lista de tareas, formulario de carga) de su posición original (después de Producciones) a inmediatamente después de Coordenadas — sin tocar nada de su lógica interna, solo su ubicación en el JSX.
+- Se sacó el bloque `{esAdmin && (...)}` que renderizaba "Gestión de referentes" (`<CasaTalentosAdminPanel>`) al final de "Mi espacio", y el import ahora sin uso de `CasaTalentosAdminPanel`. El componente en sí (`components/casatalentos/CasaTalentosAdminPanel.tsx`) no se tocó — sigue en el repo, solo se dejó de renderizar acá. Fácil de volver a agregar si Nicolás lo pide más adelante.
+
+## 3. Verificado en vivo
+Con un participante descartable y con la cuenta admin: confirmado el orden Pitch → Coordenadas → Tareas → Producciones en los dos casos (comparando posiciones de texto en la página), y confirmado que "Gestión de referentes" ya no aparece en ningún lado. Cero errores de consola. `typecheck`/`lint` limpios — mismos 5 warnings preexistentes de siempre en este archivo (dependencias de `useEffect`, patrón intencional del proyecto), sin warnings nuevos ni variables sin usar (se confirmó que `draftOwner`/`cargarDatosCasaTalentos`, que antes solo se pasaban a `CasaTalentosAdminPanel`, se siguen usando en otros lugares del archivo).
+
+## 4. Pendiente
 - **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
 - Resto sin cambios de sesiones anteriores: auditoría de performance del resto de la carga de Entusiasmento.

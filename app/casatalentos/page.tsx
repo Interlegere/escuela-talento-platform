@@ -8,7 +8,6 @@ import GrabadorVideo from "@/components/casatalentos/GrabadorVideo"
 import GrabadorAudio from "@/components/casatalentos/GrabadorAudio"
 import ConsentimientoMeetButton from "@/components/consentimientos/ConsentimientoMeetButton"
 import { useActivityAccess } from "@/components/auth/useActivityAccess"
-import CasaTalentosAdminPanel from "@/components/casatalentos/CasaTalentosAdminPanel"
 import EditorMensajeAdmin from "@/components/espacios/EditorMensajeAdmin"
 import type { EditorMensajeAdminHandle } from "@/components/espacios/EditorMensajeAdmin"
 import { isDevelopmentPreviewEnabled } from "@/lib/dev-flags"
@@ -3185,6 +3184,137 @@ export default function CasaTalentosPage() {
                       )}
                     </div>
 
+                    <div
+                      id="tareas-semanales-seccion"
+                      className="space-y-3 rounded-[1.75rem] border-2 border-amber-200 bg-amber-50/50 p-4"
+                    >
+                      <div className="space-y-1">
+                        <p className="workspace-eyebrow text-amber-600">📋 Tareas semanales</p>
+                        <h3 className="inline-flex items-center gap-1.5 text-lg font-bold tracking-tight text-amber-900">
+                          Lo que te proponés esta semana
+                          {tareasNuevasViendo.size > 0 && (
+                            <span
+                              aria-label="Hay tareas nuevas"
+                              title="Hay tareas nuevas"
+                              className="h-2.5 w-2.5 rounded-full bg-rose-500"
+                            />
+                          )}
+                        </h3>
+                      </div>
+
+                      {proyecto?.agente_recordatorio_texto && (
+                        <div className="flex items-start justify-between gap-3 rounded-2xl border-2 border-[var(--accent)] bg-[rgba(255,247,225,0.9)] p-4 shadow-[0_0_16px_rgba(207,145,48,0.3)]">
+                          <div className="space-y-1">
+                            <p className="workspace-eyebrow text-[var(--accent-strong)]">✨ Destello de la semana</p>
+                            <p className="text-sm text-gray-800">{proyecto.agente_recordatorio_texto}</p>
+                          </div>
+                          {!viendoEmail &&
+                            (recordatorioAgenteNoLeido ? (
+                              <button
+                                type="button"
+                                onClick={marcarRecordatorioAgenteComoVisto}
+                                className="shrink-0 text-xs text-gray-500 underline"
+                              >
+                                Ya lo vi
+                              </button>
+                            ) : (
+                              <span className="shrink-0 text-xs text-emerald-600">✓ Visto</span>
+                            ))}
+                        </div>
+                      )}
+
+                      {tareas.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="workspace-eyebrow">♪ Tu ritmo</p>
+                          <div className="h-3 w-full overflow-hidden rounded-full bg-white/80">
+                            <div
+                              className="h-full rounded-full bg-[var(--accent)] transition-all"
+                              style={{ width: `${porcentajeRitmo}%` }}
+                            />
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            {tareasCompletadas} de {tareas.length} tareas realizadas (
+                            {porcentajeRitmo}%)
+                          </p>
+                        </div>
+                      )}
+
+                      {mensajeTarea && (
+                        <p className="text-sm text-gray-700">{mensajeTarea}</p>
+                      )}
+
+                      <div className="space-y-2">
+                        {tareasPendientesLista.map(renderizarFilaTarea)}
+                        {tareasPendientesLista.length === 0 && (
+                          <p className="text-sm text-gray-600">
+                            {tareas.length === 0
+                              ? "Todavía no cargaste tareas para esta semana."
+                              : "Completaste todo lo que tenías pendiente. ✨"}
+                          </p>
+                        )}
+                      </div>
+
+                      {tareasCompletadasVisibles.length > 0 && (
+                        <div className="space-y-2 border-t border-amber-200 pt-2">
+                          <p className="workspace-eyebrow text-amber-600">Completadas</p>
+                          {tareasCompletadasVisibles.map(renderizarFilaTarea)}
+                        </div>
+                      )}
+
+                      {tareasHistorialLista.length > 0 && (
+                        <div className="space-y-2">
+                          <button
+                            type="button"
+                            onClick={() => setHistorialTareasAbierto((v) => !v)}
+                            className="text-xs text-gray-500 underline"
+                          >
+                            {historialTareasAbierto ? "Ocultar" : "Ver"} historial (
+                            {tareasHistorialLista.length})
+                          </button>
+
+                          {historialTareasAbierto && (
+                            <div className="space-y-2">
+                              {tareasHistorialLista.map(renderizarFilaTarea)}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {!viendoEmail && (
+                        <div className="space-y-2">
+                          <input
+                            className="workspace-field"
+                            placeholder="Nueva tarea de la semana..."
+                            value={nuevaTarea}
+                            onChange={(e) => setNuevaTarea(e.target.value)}
+                          />
+                          <div className="flex flex-wrap gap-2">
+                            <input
+                              type="date"
+                              className="workspace-field flex-1"
+                              value={nuevaTareaFecha}
+                              onChange={(e) => setNuevaTareaFecha(e.target.value)}
+                            />
+                            <Hora24Input
+                              value={nuevaTareaHora}
+                              onChange={setNuevaTareaHora}
+                            />
+                            <button
+                              type="button"
+                              disabled={guardandoTarea}
+                              onClick={() => void agregarTarea()}
+                              className="workspace-button-secondary shrink-0"
+                            >
+                              {guardandoTarea ? "..." : "Agregar"}
+                            </button>
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            Fecha y hora son opcionales.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
                     <div className="space-y-3 rounded-[1.75rem] border-2 border-violet-200 bg-violet-50/50 p-4">
                       <div className="space-y-1">
                         <p className="workspace-eyebrow text-violet-500">🎨 Producciones</p>
@@ -3445,152 +3575,6 @@ export default function CasaTalentosPage() {
                       )}
                     </div>
 
-                    <div
-                      id="tareas-semanales-seccion"
-                      className="space-y-3 rounded-[1.75rem] border-2 border-amber-200 bg-amber-50/50 p-4"
-                    >
-                      <div className="space-y-1">
-                        <p className="workspace-eyebrow text-amber-600">📋 Tareas semanales</p>
-                        <h3 className="inline-flex items-center gap-1.5 text-lg font-bold tracking-tight text-amber-900">
-                          Lo que te proponés esta semana
-                          {tareasNuevasViendo.size > 0 && (
-                            <span
-                              aria-label="Hay tareas nuevas"
-                              title="Hay tareas nuevas"
-                              className="h-2.5 w-2.5 rounded-full bg-rose-500"
-                            />
-                          )}
-                        </h3>
-                      </div>
-
-                      {proyecto?.agente_recordatorio_texto && (
-                        <div className="flex items-start justify-between gap-3 rounded-2xl border-2 border-[var(--accent)] bg-[rgba(255,247,225,0.9)] p-4 shadow-[0_0_16px_rgba(207,145,48,0.3)]">
-                          <div className="space-y-1">
-                            <p className="workspace-eyebrow text-[var(--accent-strong)]">✨ Destello de la semana</p>
-                            <p className="text-sm text-gray-800">{proyecto.agente_recordatorio_texto}</p>
-                          </div>
-                          {!viendoEmail &&
-                            (recordatorioAgenteNoLeido ? (
-                              <button
-                                type="button"
-                                onClick={marcarRecordatorioAgenteComoVisto}
-                                className="shrink-0 text-xs text-gray-500 underline"
-                              >
-                                Ya lo vi
-                              </button>
-                            ) : (
-                              <span className="shrink-0 text-xs text-emerald-600">✓ Visto</span>
-                            ))}
-                        </div>
-                      )}
-
-                      {tareas.length > 0 && (
-                        <div className="space-y-1">
-                          <p className="workspace-eyebrow">♪ Tu ritmo</p>
-                          <div className="h-3 w-full overflow-hidden rounded-full bg-white/80">
-                            <div
-                              className="h-full rounded-full bg-[var(--accent)] transition-all"
-                              style={{ width: `${porcentajeRitmo}%` }}
-                            />
-                          </div>
-                          <p className="text-xs text-gray-500">
-                            {tareasCompletadas} de {tareas.length} tareas realizadas (
-                            {porcentajeRitmo}%)
-                          </p>
-                        </div>
-                      )}
-
-                      {mensajeTarea && (
-                        <p className="text-sm text-gray-700">{mensajeTarea}</p>
-                      )}
-
-                      <div className="space-y-2">
-                        {tareasPendientesLista.map(renderizarFilaTarea)}
-                        {tareasPendientesLista.length === 0 && (
-                          <p className="text-sm text-gray-600">
-                            {tareas.length === 0
-                              ? "Todavía no cargaste tareas para esta semana."
-                              : "Completaste todo lo que tenías pendiente. ✨"}
-                          </p>
-                        )}
-                      </div>
-
-                      {tareasCompletadasVisibles.length > 0 && (
-                        <div className="space-y-2 border-t border-amber-200 pt-2">
-                          <p className="workspace-eyebrow text-amber-600">Completadas</p>
-                          {tareasCompletadasVisibles.map(renderizarFilaTarea)}
-                        </div>
-                      )}
-
-                      {tareasHistorialLista.length > 0 && (
-                        <div className="space-y-2">
-                          <button
-                            type="button"
-                            onClick={() => setHistorialTareasAbierto((v) => !v)}
-                            className="text-xs text-gray-500 underline"
-                          >
-                            {historialTareasAbierto ? "Ocultar" : "Ver"} historial (
-                            {tareasHistorialLista.length})
-                          </button>
-
-                          {historialTareasAbierto && (
-                            <div className="space-y-2">
-                              {tareasHistorialLista.map(renderizarFilaTarea)}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {!viendoEmail && (
-                        <div className="space-y-2">
-                          <input
-                            className="workspace-field"
-                            placeholder="Nueva tarea de la semana..."
-                            value={nuevaTarea}
-                            onChange={(e) => setNuevaTarea(e.target.value)}
-                          />
-                          <div className="flex flex-wrap gap-2">
-                            <input
-                              type="date"
-                              className="workspace-field flex-1"
-                              value={nuevaTareaFecha}
-                              onChange={(e) => setNuevaTareaFecha(e.target.value)}
-                            />
-                            <Hora24Input
-                              value={nuevaTareaHora}
-                              onChange={setNuevaTareaHora}
-                            />
-                            <button
-                              type="button"
-                              disabled={guardandoTarea}
-                              onClick={() => void agregarTarea()}
-                              className="workspace-button-secondary shrink-0"
-                            >
-                              {guardandoTarea ? "..." : "Agregar"}
-                            </button>
-                          </div>
-                          <p className="text-xs text-gray-500">
-                            Fecha y hora son opcionales.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    {esAdmin && (
-                      <div className="space-y-3 rounded-2xl border-2 border-dashed border-[var(--accent-strong)] bg-[rgba(154,98,24,0.05)] p-4">
-                        <div className="space-y-1">
-                          <p className="workspace-eyebrow">Solo admin</p>
-                          <h3 className="text-lg font-semibold">
-                            Gestión de referentes
-                          </h3>
-                        </div>
-                        <CasaTalentosAdminPanel
-                          onActualizado={cargarDatosCasaTalentos}
-                          storageOwnerKey={draftOwner}
-                          uiStoragePrefix={uiStoragePrefix}
-                        />
-                      </div>
-                    )}
                   </div>
                 )}
 
