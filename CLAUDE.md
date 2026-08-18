@@ -1362,5 +1362,23 @@ Nicolás pidió dos cosas sobre "Mi espacio": (a) reordenar las secciones a Pitc
 Con un participante descartable y con la cuenta admin: confirmado el orden Pitch → Coordenadas → Tareas → Producciones en los dos casos (comparando posiciones de texto en la página), y confirmado que "Gestión de referentes" ya no aparece en ningún lado. Cero errores de consola. `typecheck`/`lint` limpios — mismos 5 warnings preexistentes de siempre en este archivo (dependencias de `useEffect`, patrón intencional del proyecto), sin warnings nuevos ni variables sin usar (se confirmó que `draftOwner`/`cargarDatosCasaTalentos`, que antes solo se pasaban a `CasaTalentosAdminPanel`, se siguen usando en otros lugares del archivo).
 
 ## 4. Pendiente
+- Resto sin cambios de sesiones anteriores: auditoría de performance del resto de la carga de Entusiasmento.
+
+Commiteado y pusheado (`fda367b`).
+
+---
+
+# Sesión de trabajo 2026-08-18 (continuación) — Tareas completadas: nunca se acumulan en la vista principal
+
+## 1. Objetivo
+Nicolás pidió simplificar el comportamiento de Tareas semanales: que las completadas no se acumulen nunca en la vista principal (antes las primeras 10 quedaban siempre visibles ahí, recién la 11ª pasaba a un historial desplegable) — que la lista principal muestre solo las pendientes, y todas las completadas (sin importar cuántas sean) queden en una única pestaña desplegable aparte.
+
+## 2. Qué se hizo
+`app/casatalentos/page.tsx`: se sacó la constante `MAX_TAREAS_COMPLETADAS_VISIBLES` y la lógica que dividía las completadas en "primeras 10 visibles" + "resto en historial" (`tareasCompletadasVisibles`/`tareasHistorialLista`). Ahora `tareasCompletadasOrdenadas` (todas las completadas, sin cortar) alimenta directo el desplegable único "Ver completadas (N)" — mismo botón/estado (`historialTareasAbierto`) que ya existía para el historial, reutilizado para esto. La lista principal sigue mostrando solo `tareasPendientesLista`, sin cambios ahí.
+
+## 3. Verificado en vivo
+Con un participante descartable, 3 pendientes + 3 completadas (a propósito menos de 10, para confirmar que ni siquiera unas pocas completadas se cuelan en la vista principal): ninguna completada visible por defecto, el botón dice "Ver completadas (3)", y al abrirlo aparecen las 3. Cero errores de consola. `typecheck`/`lint` limpios, mismos warnings preexistentes de siempre (sin nuevos).
+
+## 4. Pendiente
 - **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
 - Resto sin cambios de sesiones anteriores: auditoría de performance del resto de la carga de Entusiasmento.

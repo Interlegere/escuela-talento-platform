@@ -189,7 +189,6 @@ type PrepararUploadProduccionResponse = {
 const MODO_PRUEBA = isDevelopmentPreviewEnabled()
 const STORAGE_MENSAJES_LEIDOS_CASATALENTOS = "casatalentos_mensajes_leidos"
 const STORAGE_RECORDATORIO_AGENTE_VISTO = "entusiasmo_recordatorio_agente_visto"
-const MAX_TAREAS_COMPLETADAS_VISIBLES = 10
 const CAMPOS_COORDENADAS: Array<keyof CoordenadasForm> = [
   "nombre",
   "que",
@@ -480,19 +479,11 @@ export default function CasaTalentosPage() {
   const porcentajeRitmo =
     tareas.length > 0 ? Math.round((tareasCompletadas / tareas.length) * 100) : 0
   const tareasPendientesLista = tareas.filter((t) => !t.completada)
-  // Las últimas MAX_TAREAS_COMPLETADAS_VISIBLES completadas quedan a la vista
-  // (fuera de la lista de pendientes, pero sin archivar todavía). Recién la
-  // que se convierte en la número 11 pasa al historial desplegable.
+  // Las completadas nunca se acumulan en la lista principal — quedan todas
+  // juntas en una pestaña desplegable aparte.
   const tareasCompletadasOrdenadas = tareas
     .filter((t) => t.completada)
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-  const tareasCompletadasVisibles = tareasCompletadasOrdenadas.slice(
-    0,
-    MAX_TAREAS_COMPLETADAS_VISIBLES
-  )
-  const tareasHistorialLista = tareasCompletadasOrdenadas.slice(
-    MAX_TAREAS_COMPLETADAS_VISIBLES
-  )
 
   const [mensajeExito, setMensajeExito] = useState("")
   const [mensajeError, setMensajeError] = useState("")
@@ -3254,27 +3245,20 @@ export default function CasaTalentosPage() {
                         )}
                       </div>
 
-                      {tareasCompletadasVisibles.length > 0 && (
+                      {tareasCompletadasOrdenadas.length > 0 && (
                         <div className="space-y-2 border-t border-amber-200 pt-2">
-                          <p className="workspace-eyebrow text-amber-600">Completadas</p>
-                          {tareasCompletadasVisibles.map(renderizarFilaTarea)}
-                        </div>
-                      )}
-
-                      {tareasHistorialLista.length > 0 && (
-                        <div className="space-y-2">
                           <button
                             type="button"
                             onClick={() => setHistorialTareasAbierto((v) => !v)}
                             className="text-xs text-gray-500 underline"
                           >
-                            {historialTareasAbierto ? "Ocultar" : "Ver"} historial (
-                            {tareasHistorialLista.length})
+                            {historialTareasAbierto ? "Ocultar" : "Ver"} completadas (
+                            {tareasCompletadasOrdenadas.length})
                           </button>
 
                           {historialTareasAbierto && (
                             <div className="space-y-2">
-                              {tareasHistorialLista.map(renderizarFilaTarea)}
+                              {tareasCompletadasOrdenadas.map(renderizarFilaTarea)}
                             </div>
                           )}
                         </div>
