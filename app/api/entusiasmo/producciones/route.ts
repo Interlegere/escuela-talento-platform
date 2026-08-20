@@ -4,6 +4,7 @@ import {
   hasPermission,
   requireActivityAccess,
 } from "@/lib/authz"
+import { otorgarPuntoSiCorresponde } from "@/lib/entusiasmo-puntos"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
 const BUCKET = process.env.SUPABASE_ENTUSIASMO_BUCKET || "entusiasmo-producciones"
@@ -234,6 +235,11 @@ export async function POST(req: Request) {
       )
     }
 
+    await otorgarPuntoSiCorresponde(supabase, {
+      participanteEmail: emailObjetivo,
+      categoria: "produccion",
+    })
+
     return NextResponse.json({ ok: true, produccion: data as ProduccionRow })
   } catch (error) {
     return NextResponse.json(
@@ -266,10 +272,11 @@ export async function PATCH(req: Request) {
 
     const { data: existente } = await supabase
       .from("entusiasmo_producciones")
-      .select("proyecto_id, entusiasmo_proyectos!inner(participante_email)")
+      .select("proyecto_id, visible, entusiasmo_proyectos!inner(participante_email)")
       .eq("id", id)
       .maybeSingle<{
         proyecto_id: number
+        visible: boolean
         entusiasmo_proyectos: { participante_email: string }
       }>()
 
@@ -305,6 +312,16 @@ export async function PATCH(req: Request) {
         { error: "No se pudo actualizar la producción.", detalle: error },
         { status: 500 }
       )
+    }
+
+    // Bonus por compartir en CoFruto: solo la primera vez que pasa a
+    // visible (no se vuelve a otorgar si se oculta y se muestra de nuevo).
+    if (body.visible === true && !existente.visible) {
+      await otorgarPuntoSiCorresponde(supabase, {
+        participanteEmail: existente.entusiasmo_proyectos.participante_email,
+        categoria: "produccion_compartida",
+        produccionId: id,
+      })
     }
 
     return NextResponse.json({ ok: true, produccion: data as ProduccionRow })

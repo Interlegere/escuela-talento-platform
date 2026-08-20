@@ -126,6 +126,14 @@ type ProximoEncuentro = {
   puedeIngresar: boolean
 }
 
+type PuntosGrupales = {
+  total: number
+  umbrales: { umbral: number; alcanzado: boolean }[]
+  proximoUmbral: number | null
+  porcentajeHaciaProximo: number
+  desglose: { email: string; nombre: string; puntos: number }[]
+}
+
 type AporteItem = {
   id: number
   autor_nombre: string | null
@@ -431,6 +439,8 @@ export default function CasaTalentosPage() {
     (campo) => !coordenadas[campo].trim()
   ).length
   const [proximoEncuentro, setProximoEncuentro] = useState<ProximoEncuentro | null>(null)
+  const [puntosGrupales, setPuntosGrupales] = useState<PuntosGrupales | null>(null)
+  const [desglosePuntosAbierto, setDesglosePuntosAbierto] = useState(false)
   const [aportesRecibidos, setAportesRecibidos] = useState<AporteItem[]>([])
   const [hayAportesNuevos, setHayAportesNuevos] = useState(false)
   const [novedadesPorParticipante, setNovedadesPorParticipante] = useState<
@@ -701,6 +711,29 @@ export default function CasaTalentosPage() {
       void cargarProyecto()
     }
   }, [mounted, viendoEmail])
+
+  useEffect(() => {
+    if (!mounted) return
+
+    let cancelado = false
+
+    const cargarPuntosGrupales = async () => {
+      try {
+        const res = await fetch("/api/entusiasmo/puntos")
+        const data = await leerRespuestaJson<PuntosGrupales & { ok?: boolean }>(res)
+        if (!res.ok || cancelado) return
+        setPuntosGrupales(data)
+      } catch {
+        if (!cancelado) setPuntosGrupales(null)
+      }
+    }
+
+    void cargarPuntosGrupales()
+
+    return () => {
+      cancelado = true
+    }
+  }, [mounted])
 
   const cargarAportesRecibidos = async () => {
     try {
@@ -2367,6 +2400,63 @@ export default function CasaTalentosPage() {
   return (
       <main className="workspace-page space-y-6">
         <WorkspaceHero title="Entusiasmento" subtitle="Espacio para Plasmar" />
+
+        {puntosGrupales && (
+          <div className="space-y-3 rounded-[1.5rem] border-2 border-emerald-300 bg-emerald-50/60 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="workspace-eyebrow text-emerald-600">🎯 Reunión extra del grupo</p>
+                <h3 className="text-lg font-bold tracking-tight text-emerald-900">
+                  {puntosGrupales.proximoUmbral
+                    ? `${puntosGrupales.total} / ${puntosGrupales.proximoUmbral} puntos`
+                    : `¡Las dos reuniones extra de este mes ya están desbloqueadas! (${puntosGrupales.total} pts)`}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDesglosePuntosAbierto((v) => !v)}
+                className="text-xs text-emerald-700 underline"
+              >
+                {desglosePuntosAbierto ? "Ocultar" : "Ver"} quién aportó
+              </button>
+            </div>
+
+            <div className="h-3 w-full overflow-hidden rounded-full bg-white/80">
+              <div
+                className="h-full rounded-full bg-emerald-500 transition-all"
+                style={{ width: `${puntosGrupales.porcentajeHaciaProximo}%` }}
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-3 text-xs text-emerald-800">
+              {puntosGrupales.umbrales.map((u) => (
+                <span key={u.umbral} className={u.alcanzado ? "font-semibold" : ""}>
+                  {u.alcanzado ? "✓" : "○"} {u.umbral} pts
+                </span>
+              ))}
+            </div>
+
+            {desglosePuntosAbierto && (
+              <div className="space-y-1 border-t border-emerald-200 pt-2">
+                {puntosGrupales.desglose.length === 0 ? (
+                  <p className="text-xs text-emerald-700">
+                    Todavía nadie sumó puntos este mes.
+                  </p>
+                ) : (
+                  puntosGrupales.desglose.map((d) => (
+                    <div
+                      key={d.email}
+                      className="flex items-center justify-between text-xs text-emerald-800"
+                    >
+                      <span>{d.nombre}</span>
+                      <span className="font-semibold">{d.puntos} pts</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center justify-end gap-3">
           {proximoEncuentro && (

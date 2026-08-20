@@ -1380,5 +1380,48 @@ Nicolás pidió simplificar el comportamiento de Tareas semanales: que las compl
 Con un participante descartable, 3 pendientes + 3 completadas (a propósito menos de 10, para confirmar que ni siquiera unas pocas completadas se cuelan en la vista principal): ninguna completada visible por defecto, el botón dice "Ver completadas (3)", y al abrirlo aparecen las 3. Cero errores de consola. `typecheck`/`lint` limpios, mismos warnings preexistentes de siempre (sin nuevos).
 
 ## 4. Pendiente
+- Resto sin cambios de sesiones anteriores: auditoría de performance del resto de la carga de Entusiasmento.
+
+Commiteado y pusheado (`0fb5448`).
+
+---
+
+# Sesión de trabajo 2026-08-20 — Sistema de puntos grupal: reunión extra por avances
+
+## 1. Objetivo
+Nicolás ofrece 2 reuniones quincenales garantizadas al mes. Pidió un sistema de puntos grupal para que el grupo se gane una 3ra y 4ta reunión extra según sus avances en Entusiasmento — pidió diagnóstico de viabilidad antes de construir nada.
+
+## 2. Diseño (acordado en una ronda larga de preguntas antes de tocar código)
+- **Categorías y puntos** (tope de 1 por participante+categoría+día, salvo donde se indica):
+  - Coordenadas actualizadas: 1pt/día (sin importar cuántos campos).
+  - Tareas: 1pt/día — se gana con **cualquiera** de: crear una tarea nueva, editar fecha/hora/prioridad, o completar **2 o más** el mismo día (a propósito ≥2, no 1 solo, para filtrar un tilde accidental — "acto fallido" según lo pidió Nicolás).
+  - Pitch actualizado: 1,5pt/día.
+  - Producción nueva subida: 1pt/día (aunque se suban varias el mismo día, solo cuenta una).
+  - Marcarla visible en CoFruto: +0,5pt **por producción** (no por día) — bonus de una sola vez por ítem, no se vuelve a otorgar si se oculta y se muestra de nuevo.
+- **Umbrales**: acumulativo desde el día 1 del mes (Argentina), sin resetear — 20 puntos totales habilita la reunión de la semana 2, 40 puntos totales (acumulados, no adicionales) habilita la de la semana 4.
+- **Al cruzar un umbral**: mail a Nicolás (una sola vez por umbral y mes) — no se agenda solo, él la carga a mano en `/agenda` como siempre.
+- **Visibilidad**: barra de progreso y desglose de quién aportó cuánto, públicos para todos los participantes.
+
+## 3. Qué se hizo
+- **`sql/2026-08-20_entusiasmo_puntos_eventos.sql`** (nuevo, corrido por Nicolás): tabla `entusiasmo_puntos_eventos` (registro de cada acción que suma punto, con `categoria`/`puntos`/`fecha`/`produccion_id`) — un índice único parcial garantiza el tope de 1/día por categoría (excluyendo a propósito la categoría interna `tarea_completada_senal`, que necesita poder repetirse el mismo día para poder contar "¿se completaron 2 o más?"), y otro índice único garantiza que el bonus de CoFruto sea una sola vez por producción. Tabla `entusiasmo_puntos_notificaciones` (mes + umbral, unique) para no mandar el mail de aviso más de una vez por umbral y mes.
+- **`lib/entusiasmo-puntos.ts`** (nuevo): `otorgarPuntoSiCorresponde` (inserta el evento, ignora en silencio si ya rompe un tope — nunca tira error que pueda tumbar la acción real del usuario), `otorgarPuntoTareaSiCorresponde` (implementa la regla OR de tareas, con la señal cruda de completadas para poder contar cuántas hubo en el día), `calcularPuntosDelMes` (total grupal + desglose por persona + estado de los 2 umbrales), y `verificarYNotificarUmbrales` (se llama después de cada punto otorgado, manda el mail a Nicolás si corresponde y no se mandó antes ese mes).
+- **Enganchado en 4 endpoints existentes**, sin tocar su lógica principal: `PUT /api/entusiasmo/proyecto` (coordenadas, reutiliza el cálculo de `camposModificados` que ya existía para los puntitos de "nuevo"), `POST /api/entusiasmo/pitch/confirmar`, `POST /api/entusiasmo/producciones` (crear) y su `PATCH` (detecta la transición `visible: false → true` comparando contra el valor existente antes de actualizar), `POST` y `PATCH /api/entusiasmo/tareas` (crear, editar fecha/hora/prioridad, completar).
+- **`GET /api/entusiasmo/puntos`** (nuevo): expone el total del mes, los 2 umbrales y su estado, y el desglose por persona — a cualquiera con acceso a Entusiasmento (no admin-only, es información pública a propósito).
+- **`app/casatalentos/page.tsx`**: nueva tarjeta con barra de progreso justo debajo del hero (visible en ambos destinos, Mi espacio y CoFruto, ya que es un dato grupal) — muestra "{total} / {próximo umbral} puntos", los 2 umbrales con su estado (✓/○), y un desplegable "Ver quién aportó" con el desglose persona por persona.
+
+## 4. Verificado en vivo
+Batería completa contra el servidor real (login por API + llamadas directas, datos 100% descartables, con cuidado especial de no cruzar el umbral real de 20 durante las pruebas para no disparar un mail real a Nicolás):
+- Coordenadas/Producción/Pitch: cada uno suma su valor exacto la primera vez, y NO vuelve a sumar una segunda vez el mismo día (tope diario confirmado en las 3 categorías).
+- Compartir en CoFruto: +0,5 al marcar visible por primera vez; ocultar y volver a mostrar la misma producción NO vuelve a sumar (bonus de una sola vez por ítem, confirmado).
+- Tareas — la regla OR probada de forma aislada (participante nuevo, sin haber creado/editado nada ese día): completar **1 sola** tarea no otorga el punto; completar una **segunda** el mismo día sí lo otorga recién ahí — confirma que el filtro anti-"acto fallido" funciona exactamente como se pidió.
+- Idempotencia del aviso por umbral: confirmado a nivel de base que una segunda inserción de notificación para el mismo mes+umbral choca contra el índice único (sin mandar mail de prueba real).
+- Seguridad: sin sesión, `GET /api/entusiasmo/puntos` devuelve 401.
+- UI real (Playwright): con un participante de prueba en 5 puntos, la barra mostró "5 / 20 puntos" correcto, y el desglegable "Ver quién aportó" mostró el nombre y "5 pts" correctamente.
+- Confirmado antes y después de cada tanda de pruebas que la tabla real (`entusiasmo_puntos_eventos`) queda vacía — el total es un dato público/grupal, así que cualquier residuo de prueba se vería reflejado para todos, no solo para el usuario de prueba.
+
+Cero errores de consola en ninguna corrida. `typecheck`/`lint` limpios, sin warnings nuevos.
+
+## 5. Pendiente
 - **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
+- No se probó el envío real del mail de aviso (se verificó la lógica de idempotencia contra la base, pero no se disparó un mail real cruzando el umbral de verdad — eso va a pasar naturalmente la primera vez que el grupo llegue a 20 puntos en producción).
 - Resto sin cambios de sesiones anteriores: auditoría de performance del resto de la carga de Entusiasmento.

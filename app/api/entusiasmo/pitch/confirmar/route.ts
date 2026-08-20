@@ -4,6 +4,7 @@ import {
   hasPermission,
   requireActivityAccess,
 } from "@/lib/authz"
+import { otorgarPuntoSiCorresponde } from "@/lib/entusiasmo-puntos"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
 const BUCKET = process.env.SUPABASE_ENTUSIASMO_BUCKET || "entusiasmo-producciones"
@@ -105,6 +106,11 @@ export async function POST(req: Request) {
     if (pathAnterior && pathAnterior !== storagePath) {
       await supabase.storage.from(BUCKET).remove([pathAnterior])
     }
+
+    await otorgarPuntoSiCorresponde(supabase, {
+      participanteEmail: emailObjetivo,
+      categoria: "pitch",
+    })
 
     const { data: signedData, error: signedError } = await supabase.storage
       .from(BUCKET)

@@ -4,6 +4,7 @@ import {
   hasPermission,
   requireActivityAccess,
 } from "@/lib/authz"
+import { otorgarPuntoSiCorresponde } from "@/lib/entusiasmo-puntos"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
 const BUCKET = process.env.SUPABASE_ENTUSIASMO_BUCKET || "entusiasmo-producciones"
@@ -230,6 +231,11 @@ export async function PUT(req: Request) {
         })),
         { onConflict: "proyecto_id,campo" }
       )
+
+      await otorgarPuntoSiCorresponde(supabase, {
+        participanteEmail: emailObjetivo,
+        categoria: "coordenadas",
+      })
     }
 
     return NextResponse.json({ ok: true, proyecto: data as ProyectoRow })

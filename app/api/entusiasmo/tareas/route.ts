@@ -4,6 +4,7 @@ import {
   hasPermission,
   requireActivityAccess,
 } from "@/lib/authz"
+import { otorgarPuntoTareaSiCorresponde } from "@/lib/entusiasmo-puntos"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
 type TareaRow = {
@@ -155,6 +156,8 @@ export async function POST(req: Request) {
       )
     }
 
+    await otorgarPuntoTareaSiCorresponde(supabase, auth.actor.email, "creada")
+
     return NextResponse.json({ ok: true, tarea: data as TareaRow })
   } catch (error) {
     return NextResponse.json(
@@ -186,10 +189,11 @@ export async function PATCH(req: Request) {
 
     const { data: existente } = await supabase
       .from("entusiasmo_tareas")
-      .select("proyecto_id, entusiasmo_proyectos!inner(participante_email)")
+      .select("proyecto_id, completada, entusiasmo_proyectos!inner(participante_email)")
       .eq("id", id)
       .maybeSingle<{
         proyecto_id: number
+        completada: boolean
         entusiasmo_proyectos: { participante_email: string }
       }>()
 
@@ -237,6 +241,19 @@ export async function PATCH(req: Request) {
         { error: "No se pudo actualizar la tarea.", detalle: error },
         { status: 500 }
       )
+    }
+
+    const participanteEmail = existente.entusiasmo_proyectos.participante_email
+    const seEditoFechaOPrioridad =
+      body.fecha !== undefined || body.hora !== undefined || body.prioridad !== undefined
+    const seCompletoAhora = body.completada === true && !existente.completada
+
+    if (seEditoFechaOPrioridad) {
+      await otorgarPuntoTareaSiCorresponde(supabase, participanteEmail, "editada")
+    }
+
+    if (seCompletoAhora) {
+      await otorgarPuntoTareaSiCorresponde(supabase, participanteEmail, "completada")
     }
 
     return NextResponse.json({ ok: true, tarea: data as TareaRow })
