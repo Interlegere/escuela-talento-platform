@@ -1487,3 +1487,32 @@ El endpoint de creación no participa del cálculo de fechas (solo inserta lo qu
 
 ## 5. Pendiente
 - **No se hizo commit todavía.**
+
+---
+
+# Sesión de trabajo 2026-08-20 (continuación 3) — Comentarios anclados en Tareas semanales (mismo mecanismo que Coordenadas)
+
+## 1. Objetivo
+Nicolás pidió poder comentar tareas de un participante con el mismo mecanismo que ya existe en Coordenadas desde la Fase A3b: seleccionar un fragmento de texto y dejar una nota anclada ahí, visible como un ícono 💬 que se abre al pasar el mouse/tocarlo.
+
+## 2. Diseño — reutilización total, sin tocar backend ni SQL
+`entusiasmo_aportes.campo` siempre fue texto libre (sin validación contra un set fijo de valores) — el mismo mecanismo de Coordenadas (`campo` + `fragmento`, `construirSegmentosResaltados`, `manejarSeleccionTexto`, `guardarNotaAncla`, y el estado `campoConSeleccion`/`comentandoCampo`/`textoSeleccionado`/`contenidoNotaAncla`/`aporteAbiertoId`, todos ya tipados como `string | null`) se reutiliza tal cual para tareas, usando `campo: "tarea:<id>"` como identificador — ningún archivo de `app/api/` ni SQL nuevo, todo el cambio quedó en `app/casatalentos/page.tsx`.
+
+## 3. Qué se hizo
+- `campoDeTarea(id)` → `"tarea:" + id`.
+- `renderizarContenidoTareaComentable(tarea)` (nueva): mismo bloque de segmentos resaltados + ícono 💬 + popup + botón "Comentar selección" + formulario de guardar que ya usaba `renderizarCampoLectura` para Coordenadas, aplicado al `contenido` de la tarea. Solo se usa cuando `viendoEmail` está seteado (admin mirando a otro participante).
+- `renderizarNotasTarea(id)` (nueva): lista simple de comentarios recibidos debajo de la tarea, mismo patrón que `renderizarNotasCampo` — se usa solo en la vista propia (`!viendoEmail`), para que el participante pueda ver los comentarios que le dejaron aunque ahí no haya resaltado interactivo (la tarea no se edita como textarea, pero tampoco hacía falta activar selección de texto para uno mismo).
+- **Restructuración necesaria de la fila de tarea** (`renderizarFilaTarea`): el checkbox y el texto vivían juntos dentro de un mismo `<label>` (clickear en cualquier parte, incluido el texto, togglea "completada" por comportamiento nativo de `<label>`). Meter un `<button>` (el ícono 💬) ahí adentro hubiera disparado el toggle por accidente al hacer click en el comentario. Se separó: en modo `viendoEmail`, el checkbox queda solo (con `aria-label`, sin texto asociado) y el contenido pasa a ser un `<div>` hermano con el contenido comentable — mismo criterio ya usado en una sesión anterior para separar el botón "+Fecha/Editar" del label. En la vista propia (`!viendoEmail`) no se tocó nada, sigue exactamente igual que antes (label con checkbox+texto).
+
+## 4. Verificado en vivo
+Contra la cuenta real de Cuchulain Mago (participante beta), con una tarea 100% descartable creada y borrada al final (`entusiasmo_tareas` id 169, `entusiasmo_aportes` id 25) — nunca se tocaron sus tareas reales:
+- Por API: `POST /api/entusiasmo/aportes` con `campo: "tarea:169"` y `fragmento` guardó y devolvió correcto; `GET` lo trae con el email del participante correcto.
+- Por navegador real (Playwright, admin viendo la solapa de Cuchulain): selección de texto ("el jueves") dentro de la tarea → aparece "💬 Comentar selección: 'el jueves'" → se guarda → aparece el ícono 💬 pegado al fragmento, con el fragmento resaltado en ámbar → click en el ícono abre el popup con el contenido, autor y fecha — capturado en screenshot, coincide visualmente con el mismo patrón ya usado en Coordenadas.
+- Confirmado que el checkbox de "completada" sigue funcionando en el nuevo layout (togglear la tarea de prueba la marcó `completada: true` en la base — desapareció de la vista de pendientes porque pasó a "Ver completadas", comportamiento esperado de una fase anterior, no relacionado).
+- Confirmado que un click simple sin arrastrar (sin seleccionar texto) no dispara por error el flujo de comentario.
+- Cero errores de consola en las 3 corridas. Toda la data de prueba se borró al final — confirmado que las tareas reales de Cuchulain (`KJLJL`, `hola que tal`) quedaron intactas.
+
+`typecheck`/`lint` limpios, mismo baseline de 24 problemas preexistentes, sin warnings nuevos. Único archivo tocado: `app/casatalentos/page.tsx`.
+
+## 5. Pendiente
+- **No se hizo commit todavía.**

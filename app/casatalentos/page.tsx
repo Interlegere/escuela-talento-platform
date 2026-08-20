@@ -1166,35 +1166,62 @@ export default function CasaTalentosPage() {
         className="space-y-2 rounded-xl border border-amber-200 bg-white/80 px-3 py-2"
       >
         <div className="flex items-center gap-3">
-          <label className="flex flex-1 items-center gap-3">
-            <input
-              type="checkbox"
-              checked={tarea.completada}
-              onChange={() => void alternarTareaCompletada(tarea.id, tarea.completada)}
-            />
-            <span
-              className={`text-sm ${
-                tarea.completada ? "text-gray-400 line-through" : "text-gray-800"
-              }`}
-            >
-              {tarea.contenido}
-            </span>
-            {tarea.serie_id && tarea.diaSemana !== null && (
-              <span
-                className="shrink-0 text-xs text-amber-600"
-                title={`Se repite todos los ${DIAS_SEMANA_CORTO[tarea.diaSemana]}`}
-              >
-                🔁 {DIAS_SEMANA_CORTO[tarea.diaSemana]}
-              </span>
-            )}
-            {tareasNuevasViendo.has(tarea.id) && (
-              <span
-                aria-label="Tarea nueva"
-                title="Nueva o cambió desde la última vez que la viste"
-                className="h-2 w-2 shrink-0 rounded-full bg-rose-500"
+          {viendoEmail ? (
+            <div className="flex flex-1 items-center gap-3">
+              <input
+                type="checkbox"
+                aria-label="Marcar como completada"
+                checked={tarea.completada}
+                onChange={() => void alternarTareaCompletada(tarea.id, tarea.completada)}
               />
-            )}
-          </label>
+              <div className="min-w-0 flex-1">{renderizarContenidoTareaComentable(tarea)}</div>
+              {tarea.serie_id && tarea.diaSemana !== null && (
+                <span
+                  className="shrink-0 text-xs text-amber-600"
+                  title={`Se repite todos los ${DIAS_SEMANA_CORTO[tarea.diaSemana]}`}
+                >
+                  🔁 {DIAS_SEMANA_CORTO[tarea.diaSemana]}
+                </span>
+              )}
+              {tareasNuevasViendo.has(tarea.id) && (
+                <span
+                  aria-label="Tarea nueva"
+                  title="Nueva o cambió desde la última vez que la viste"
+                  className="h-2 w-2 shrink-0 rounded-full bg-rose-500"
+                />
+              )}
+            </div>
+          ) : (
+            <label className="flex flex-1 items-center gap-3">
+              <input
+                type="checkbox"
+                checked={tarea.completada}
+                onChange={() => void alternarTareaCompletada(tarea.id, tarea.completada)}
+              />
+              <span
+                className={`text-sm ${
+                  tarea.completada ? "text-gray-400 line-through" : "text-gray-800"
+                }`}
+              >
+                {tarea.contenido}
+              </span>
+              {tarea.serie_id && tarea.diaSemana !== null && (
+                <span
+                  className="shrink-0 text-xs text-amber-600"
+                  title={`Se repite todos los ${DIAS_SEMANA_CORTO[tarea.diaSemana]}`}
+                >
+                  🔁 {DIAS_SEMANA_CORTO[tarea.diaSemana]}
+                </span>
+              )}
+              {tareasNuevasViendo.has(tarea.id) && (
+                <span
+                  aria-label="Tarea nueva"
+                  title="Nueva o cambió desde la última vez que la viste"
+                  className="h-2 w-2 shrink-0 rounded-full bg-rose-500"
+                />
+              )}
+            </label>
+          )}
 
           {!editando && (
             <>
@@ -1235,6 +1262,8 @@ export default function CasaTalentosPage() {
             ))}
           </div>
         </div>
+
+        {!viendoEmail && renderizarNotasTarea(tarea.id)}
 
         {tarea.serie_id && !viendoEmail && (
           <div>
@@ -1629,6 +1658,143 @@ export default function CasaTalentosPage() {
         )}
 
         {renderizarVersionesCampo(campo)}
+      </div>
+    )
+  }
+
+  // Mismo mecanismo de comentarios anclados que Coordenadas (campo +
+  // fragmento en entusiasmo_aportes), reutilizando exactamente el mismo
+  // estado — "campo" acá es un identificador propio de la tarea
+  // ("tarea:<id>"), no uno de los campos fijos de Coordenadas, pero la
+  // columna siempre fue texto libre así que no hace falta tocar el backend.
+  const campoDeTarea = (tareaId: number) => `tarea:${tareaId}`
+
+  const renderizarNotasTarea = (tareaId: number) => {
+    const notas = aportesRecibidos.filter((a) => a.campo === campoDeTarea(tareaId))
+
+    if (notas.length === 0) return null
+
+    return (
+      <div className="space-y-1">
+        {notas.map((n) => (
+          <div
+            key={n.id}
+            className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-gray-700"
+          >
+            {n.fragmento && (
+              <p className="italic text-gray-500">sobre: &ldquo;{n.fragmento}&rdquo;</p>
+            )}
+            <p>💬 {n.contenido}</p>
+            <p className="text-gray-500">— {n.autor_nombre || n.autor_email}</p>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  const renderizarContenidoTareaComentable = (tarea: TareaItem) => {
+    const campo = campoDeTarea(tarea.id)
+    const notasDelCampo = aportesRecibidos.filter((a) => a.campo === campo && a.fragmento)
+    const segmentos = construirSegmentosResaltados(tarea.contenido, notasDelCampo)
+    const hayTextoSeleccionadoAca = campoConSeleccion === campo && textoSeleccionado
+
+    return (
+      <div className="space-y-2">
+        <p
+          className={`cursor-text text-sm ${
+            tarea.completada ? "text-gray-400 line-through" : "text-gray-800"
+          }`}
+          onMouseUp={() => manejarSeleccionTexto(campo)}
+        >
+          {segmentos.map((seg, i) =>
+            seg.nota ? (
+              <span key={i} className="group relative inline">
+                <span
+                  className={`rounded px-0.5 transition-colors group-hover:bg-amber-200 ${
+                    aporteAbiertoId === seg.nota!.id ? "bg-amber-200" : ""
+                  }`}
+                >
+                  {seg.texto}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Ver comentario"
+                  onClick={() =>
+                    setAporteAbiertoId((prev) => (prev === seg.nota!.id ? null : seg.nota!.id))
+                  }
+                  className="mx-0.5 cursor-pointer align-middle text-amber-600"
+                >
+                  💬
+                </button>
+                <span
+                  className={`absolute bottom-full left-0 z-10 mb-1 hidden w-64 max-w-[80vw] rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2 text-sm normal-case shadow-lg group-hover:block ${
+                    aporteAbiertoId === seg.nota!.id ? "!block" : ""
+                  }`}
+                >
+                  <span className="block text-gray-800">{seg.nota!.contenido}</span>
+                  <span className="mt-1 block text-xs text-gray-500">
+                    {seg.nota!.autor_nombre || seg.nota!.autor_email} ·{" "}
+                    {new Date(seg.nota!.created_at).toLocaleDateString("es-AR")}
+                  </span>
+                </span>
+              </span>
+            ) : (
+              <span key={i}>{seg.texto}</span>
+            )
+          )}
+        </p>
+
+        {hayTextoSeleccionadoAca && comentandoCampo !== campo && (
+          <button
+            type="button"
+            onClick={() => {
+              setComentandoCampo(campo)
+              setContenidoNotaAncla("")
+              setMensajeAporte("")
+            }}
+            className="workspace-button-secondary text-xs"
+          >
+            💬 Comentar selección: &ldquo;
+            {textoSeleccionado.length > 40
+              ? `${textoSeleccionado.slice(0, 40)}…`
+              : textoSeleccionado}
+            &rdquo;
+          </button>
+        )}
+
+        {comentandoCampo === campo && (
+          <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50/60 p-3">
+            <p className="text-xs text-gray-600">Sobre: &ldquo;{textoSeleccionado}&rdquo;</p>
+            {mensajeAporte && <p className="text-xs text-red-600">{mensajeAporte}</p>}
+            <textarea
+              className="workspace-field min-h-16"
+              placeholder="Tu comentario..."
+              value={contenidoNotaAncla}
+              onChange={(e) => setContenidoNotaAncla(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={guardandoNotaAncla || !contenidoNotaAncla.trim()}
+                onClick={() => void guardarNotaAncla()}
+                className="workspace-button-secondary disabled:opacity-60"
+              >
+                {guardandoNotaAncla ? "Guardando..." : "Guardar comentario"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setComentandoCampo(null)
+                  setCampoConSeleccion(null)
+                  setTextoSeleccionado("")
+                }}
+                className="text-xs text-gray-500 underline"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
