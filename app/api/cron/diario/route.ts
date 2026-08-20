@@ -81,6 +81,15 @@ export async function GET(req: Request) {
       cronSecret
     )
 
+    // Tareas semanales recurrentes: mantiene el horizonte de ocurrencias
+    // generadas de cada serie activa (para que nunca falte la "próxima"),
+    // se revisa todos los días.
+    resultados.tareasRecurrentes = await llamarInterno(
+      origin,
+      "/api/entusiasmo/tareas/generar-ocurrencias",
+      cronSecret
+    )
+
     return NextResponse.json({
       ok: true,
       fecha: ahora.toISOString(),

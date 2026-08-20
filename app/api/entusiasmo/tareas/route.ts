@@ -5,6 +5,10 @@ import {
   requireActivityAccess,
 } from "@/lib/authz"
 import { otorgarPuntoTareaSiCorresponde } from "@/lib/entusiasmo-puntos"
+import {
+  cancelarSerieDesdeOcurrencia,
+  generarOcurrenciasIniciales,
+} from "@/lib/entusiasmo-tareas-series"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
 
 type TareaRow = {
@@ -15,6 +19,7 @@ type TareaRow = {
   fecha: string | null
   hora: string | null
   prioridad: string | null
+  serie_id: number | null
   created_at: string
   updated_at: string
 }
@@ -23,6 +28,8 @@ type PostBody = {
   contenido?: string
   fecha?: string
   hora?: string
+  repetir?: boolean
+  diaSemana?: number
 }
 
 type PatchBody = {
@@ -32,6 +39,11 @@ type PatchBody = {
   fecha?: string | null
   hora?: string | null
   prioridad?: string | null
+}
+
+type DeleteBody = {
+  id?: number
+  alcance?: "esta" | "esta_y_proximas"
 }
 
 const PRIORIDADES_VALIDAS = ["verde", "amarillo", "rojo"]
@@ -75,7 +87,10 @@ export async function GET(req: Request) {
     const supabase = createAdminSupabaseClient()
 
     // Un solo viaje a la base (join + filtro por email) en vez de resolver
-    // primero el proyecto_id y recién después pedir las tareas.
+    // primero el proyecto_id y recién después pedir las tareas. La info de
+    // recurrencia (dia_semana) se resuelve aparte, en una segunda consulta
+    // opcional — así, si esa tabla todavía no existe, el listado principal
+    // de tareas sigue funcionando igual.
     const { data, error } = await supabase
       .from("entusiasmo_tareas")
       .select("*, entusiasmo_proyectos!inner(participante_email)")
@@ -91,7 +106,30 @@ export async function GET(req: Request) {
       )
     }
 
-    return NextResponse.json({ ok: true, tareas: (data as TareaRow[]) || [] })
+    const filas = (data || []) as TareaRow[]
+    const serieIds = Array.from(
+      new Set(filas.map((fila) => fila.serie_id).filter((id): id is number => Boolean(id)))
+    )
+
+    const diaSemanaPorSerie = new Map<number, number>()
+
+    if (serieIds.length > 0) {
+      const { data: series } = await supabase
+        .from("entusiasmo_tareas_series")
+        .select("id, dia_semana")
+        .in("id", serieIds)
+
+      for (const serie of series || []) {
+        diaSemanaPorSerie.set(serie.id as number, serie.dia_semana as number)
+      }
+    }
+
+    const tareas = filas.map((fila) => ({
+      ...fila,
+      diaSemana: fila.serie_id ? diaSemanaPorSerie.get(fila.serie_id) ?? null : null,
+    }))
+
+    return NextResponse.json({ ok: true, tareas })
   } catch (error) {
     return NextResponse.json(
       { error: "Error interno cargando las tareas.", detalle: String(error) },
@@ -136,6 +174,39 @@ export async function POST(req: Request) {
       }
 
       proyectoId = proyectoNuevo.id
+    }
+
+    const diaSemana = Number(body.diaSemana)
+
+    if (body.repetir) {
+      if (!Number.isInteger(diaSemana) || diaSemana < 0 || diaSemana > 6) {
+        return NextResponse.json(
+          { error: "Elegí un día de la semana válido para la repetición." },
+          { status: 400 }
+        )
+      }
+
+      const { data: serie, error: serieError } = await supabase
+        .from("entusiasmo_tareas_series")
+        .insert({
+          proyecto_id: proyectoId,
+          contenido,
+          dia_semana: diaSemana,
+          hora: body.hora?.trim() || null,
+        })
+        .select("*")
+        .single()
+
+      if (serieError || !serie) {
+        return NextResponse.json(
+          { error: "No se pudo crear la tarea recurrente.", detalle: serieError },
+          { status: 500 }
+        )
+      }
+
+      await generarOcurrenciasIniciales(supabase, serie, auth.actor.email)
+
+      return NextResponse.json({ ok: true, serie })
     }
 
     const { data, error } = await supabase
@@ -260,6 +331,87 @@ export async function PATCH(req: Request) {
   } catch (error) {
     return NextResponse.json(
       { error: "Error interno actualizando la tarea.", detalle: String(error) },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const auth = await requireActivityAccess(
+      "casatalentos",
+      getActivityAdminPermission("casatalentos")
+    )
+
+    if ("response" in auth) {
+      return auth.response
+    }
+
+    const body: DeleteBody = await req.json()
+    const id = Number(body.id)
+    const alcance = body.alcance === "esta_y_proximas" ? "esta_y_proximas" : "esta"
+
+    if (!id) {
+      return NextResponse.json({ error: "Falta el id de la tarea." }, { status: 400 })
+    }
+
+    const supabase = createAdminSupabaseClient()
+
+    // No se pide "serie_id" en esta consulta principal: es una columna nueva
+    // (sql/2026-08-20_entusiasmo_tareas_series.sql) y pedirla explícitamente
+    // acá rompería el borrado de CUALQUIER tarea (no solo recurrente) mientras
+    // esa migración no esté corrida. Se resuelve aparte, solo si hace falta.
+    const { data: existente } = await supabase
+      .from("entusiasmo_tareas")
+      .select("proyecto_id, fecha, entusiasmo_proyectos!inner(participante_email)")
+      .eq("id", id)
+      .maybeSingle<{
+        proyecto_id: number
+        fecha: string | null
+        entusiasmo_proyectos: { participante_email: string }
+      }>()
+
+    if (!existente) {
+      return NextResponse.json({ error: "No se encontró la tarea." }, { status: 404 })
+    }
+
+    const esAdmin = hasPermission(auth.actor, "casatalentos.admin")
+    const esDueno =
+      existente.entusiasmo_proyectos?.participante_email === auth.actor.email
+
+    if (!esDueno && !esAdmin) {
+      return NextResponse.json(
+        { error: "No podés eliminar la tarea de otra persona." },
+        { status: 403 }
+      )
+    }
+
+    if (alcance === "esta_y_proximas" && existente.fecha) {
+      const { data: serieInfo } = await supabase
+        .from("entusiasmo_tareas")
+        .select("serie_id")
+        .eq("id", id)
+        .maybeSingle<{ serie_id: number | null }>()
+
+      if (serieInfo?.serie_id) {
+        await cancelarSerieDesdeOcurrencia(supabase, serieInfo.serie_id, existente.fecha)
+        return NextResponse.json({ ok: true })
+      }
+    }
+
+    const { error } = await supabase.from("entusiasmo_tareas").delete().eq("id", id)
+
+    if (error) {
+      return NextResponse.json(
+        { error: "No se pudo eliminar la tarea.", detalle: error },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Error interno eliminando la tarea.", detalle: String(error) },
       { status: 500 }
     )
   }

@@ -163,6 +163,8 @@ type TareaItem = {
   fecha: string | null
   hora: string | null
   prioridad: string | null
+  serie_id: number | null
+  diaSemana: number | null
   created_at: string
 }
 
@@ -474,6 +476,9 @@ export default function CasaTalentosPage() {
   const [nuevaTarea, setNuevaTarea] = useState("")
   const [nuevaTareaFecha, setNuevaTareaFecha] = useState("")
   const [nuevaTareaHora, setNuevaTareaHora] = useState("")
+  const [nuevaTareaRepite, setNuevaTareaRepite] = useState(false)
+  const [nuevaTareaDiaSemana, setNuevaTareaDiaSemana] = useState(1)
+  const [cancelandoTareaId, setCancelandoTareaId] = useState<number | null>(null)
   const [guardandoTarea, setGuardandoTarea] = useState(false)
   const [mensajeTarea, setMensajeTarea] = useState("")
   const [editandoTareaId, setEditandoTareaId] = useState<number | null>(null)
@@ -1018,11 +1023,20 @@ export default function CasaTalentosPage() {
       const res = await fetch("/api/entusiasmo/tareas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contenido: nuevaTarea,
-          fecha: nuevaTareaFecha,
-          hora: nuevaTareaHora,
-        }),
+        body: JSON.stringify(
+          nuevaTareaRepite
+            ? {
+                contenido: nuevaTarea,
+                hora: nuevaTareaHora,
+                repetir: true,
+                diaSemana: nuevaTareaDiaSemana,
+              }
+            : {
+                contenido: nuevaTarea,
+                fecha: nuevaTareaFecha,
+                hora: nuevaTareaHora,
+              }
+        ),
       })
       const data = await leerRespuestaJson<{ error?: string }>(res)
 
@@ -1034,11 +1048,26 @@ export default function CasaTalentosPage() {
       setNuevaTarea("")
       setNuevaTareaFecha("")
       setNuevaTareaHora("")
+      setNuevaTareaRepite(false)
       await cargarTareas()
     } catch {
       setMensajeTarea("Error agregando la tarea.")
     } finally {
       setGuardandoTarea(false)
+    }
+  }
+
+  const cancelarTarea = async (id: number, alcance: "esta" | "esta_y_proximas") => {
+    try {
+      await fetch("/api/entusiasmo/tareas", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, alcance }),
+      })
+      setCancelandoTareaId(null)
+      await cargarTareas()
+    } catch {
+      setMensajeTarea("Error cancelando la tarea.")
     }
   }
 
@@ -1150,6 +1179,14 @@ export default function CasaTalentosPage() {
             >
               {tarea.contenido}
             </span>
+            {tarea.serie_id && tarea.diaSemana !== null && (
+              <span
+                className="shrink-0 text-xs text-amber-600"
+                title={`Se repite todos los ${DIAS_SEMANA_CORTO[tarea.diaSemana]}`}
+              >
+                🔁 {DIAS_SEMANA_CORTO[tarea.diaSemana]}
+              </span>
+            )}
             {tareasNuevasViendo.has(tarea.id) && (
               <span
                 aria-label="Tarea nueva"
@@ -1198,6 +1235,45 @@ export default function CasaTalentosPage() {
             ))}
           </div>
         </div>
+
+        {tarea.serie_id && !viendoEmail && (
+          <div>
+            {cancelandoTareaId === tarea.id ? (
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="text-gray-600">¿Cancelar la repetición?</span>
+                <button
+                  type="button"
+                  onClick={() => void cancelarTarea(tarea.id, "esta")}
+                  className="text-amber-700 underline"
+                >
+                  Solo esta vez
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void cancelarTarea(tarea.id, "esta_y_proximas")}
+                  className="text-red-600 underline"
+                >
+                  Esta y las próximas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCancelandoTareaId(null)}
+                  className="text-gray-500 underline"
+                >
+                  Cerrar
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setCancelandoTareaId(tarea.id)}
+                className="text-xs text-gray-500 underline"
+              >
+                Cancelar repetición
+              </button>
+            )}
+          </div>
+        )}
 
         {editando && (
           <div className="flex flex-wrap items-center gap-2">
@@ -3362,13 +3438,35 @@ export default function CasaTalentosPage() {
                             value={nuevaTarea}
                             onChange={(e) => setNuevaTarea(e.target.value)}
                           />
-                          <div className="flex flex-wrap gap-2">
+                          <label className="flex items-center gap-2 text-xs text-gray-600">
                             <input
-                              type="date"
-                              className="workspace-field flex-1"
-                              value={nuevaTareaFecha}
-                              onChange={(e) => setNuevaTareaFecha(e.target.value)}
+                              type="checkbox"
+                              checked={nuevaTareaRepite}
+                              onChange={(e) => setNuevaTareaRepite(e.target.checked)}
                             />
+                            🔁 Repetir todas las semanas
+                          </label>
+                          <div className="flex flex-wrap gap-2">
+                            {nuevaTareaRepite ? (
+                              <select
+                                className="workspace-field flex-1"
+                                value={nuevaTareaDiaSemana}
+                                onChange={(e) => setNuevaTareaDiaSemana(Number(e.target.value))}
+                              >
+                                {DIAS_SEMANA_CORTO.map((dia, indice) => (
+                                  <option key={dia} value={indice}>
+                                    Todos los {dia}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                type="date"
+                                className="workspace-field flex-1"
+                                value={nuevaTareaFecha}
+                                onChange={(e) => setNuevaTareaFecha(e.target.value)}
+                              />
+                            )}
                             <Hora24Input
                               value={nuevaTareaHora}
                               onChange={setNuevaTareaHora}
@@ -3383,7 +3481,9 @@ export default function CasaTalentosPage() {
                             </button>
                           </div>
                           <p className="text-xs text-gray-500">
-                            Fecha y hora son opcionales.
+                            {nuevaTareaRepite
+                              ? "Se va a crear una tarea nueva cada semana, ese día."
+                              : "Fecha y hora son opcionales."}
                           </p>
                         </div>
                       )}
