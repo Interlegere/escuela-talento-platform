@@ -1158,7 +1158,10 @@ export default function CasaTalentosPage() {
 
   const renderizarFilaTarea = (tarea: TareaItem) => {
     const fechaHoraTexto = formatearFechaHoraTarea(tarea.fecha, tarea.hora)
-    const editando = editandoTareaId === tarea.id
+    // El admin viendo a otro participante solo puede comentar, nunca editar
+    // — se ignora cualquier estado de edición que pudiera haber quedado de
+    // antes de cambiar de solapa.
+    const editando = !viendoEmail && editandoTareaId === tarea.id
 
     return (
       <div
@@ -1172,7 +1175,8 @@ export default function CasaTalentosPage() {
                 type="checkbox"
                 aria-label="Marcar como completada"
                 checked={tarea.completada}
-                onChange={() => void alternarTareaCompletada(tarea.id, tarea.completada)}
+                disabled
+                title="El admin solo puede comentar, no modificar las tareas de un participante"
               />
               <div className="min-w-0 flex-1">{renderizarContenidoTareaComentable(tarea)}</div>
               {tarea.serie_id && tarea.diaSemana !== null && (
@@ -1228,13 +1232,15 @@ export default function CasaTalentosPage() {
               {fechaHoraTexto && (
                 <span className="shrink-0 text-xs text-amber-700">{fechaHoraTexto}</span>
               )}
-              <button
-                type="button"
-                onClick={() => abrirEdicionFechaHoraTarea(tarea)}
-                className="shrink-0 text-xs text-amber-600 underline"
-              >
-                {fechaHoraTexto ? "Editar" : "+ Fecha"}
-              </button>
+              {!viendoEmail && (
+                <button
+                  type="button"
+                  onClick={() => abrirEdicionFechaHoraTarea(tarea)}
+                  className="shrink-0 text-xs text-amber-600 underline"
+                >
+                  {fechaHoraTexto ? "Editar" : "+ Fecha"}
+                </button>
+              )}
             </>
           )}
 
@@ -1342,6 +1348,8 @@ export default function CasaTalentosPage() {
     setContenidoNotaAncla("")
     setAporteAbiertoId(null)
     setMensajeAporte("")
+    setEditandoTareaId(null)
+    setCancelandoTareaId(null)
 
     if (email) {
       setNovedadesPorParticipante((prev) => ({ ...prev, [email]: false }))

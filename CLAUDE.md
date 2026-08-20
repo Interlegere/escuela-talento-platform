@@ -1516,3 +1516,24 @@ Contra la cuenta real de Cuchulain Mago (participante beta), con una tarea 100% 
 
 ## 5. Pendiente
 - **No se hizo commit todavía.**
+
+---
+
+# Sesión de trabajo 2026-08-20 (continuación 4) — Bug real: admin togglaba tareas de un participante sin querer al intentar comentar
+
+## 1. Reporte de Nicolás
+"Yo como admin no tengo que poder modificar ni las coordenadas ni las tareas... sólo comentarlas para hacerle aportes... recién quise marcar una frase de una tarea para hacerle un comentario y sin querer la tildé como marcada a Florencia."
+
+## 2. Diagnóstico
+Coordenadas ya era 100% de solo lectura para el admin viendo a otro participante (`renderizarCampoLectura` no tiene textarea ni botón de guardar — confirmado que "Guardar coordenadas" solo existe en la rama `!viendoEmail`, la de edición propia). El agujero real estaba en Tareas, agregado sin querer en la sesión anterior al meter el mecanismo de comentarios anclados: el checkbox de "completada" **no estaba deshabilitado** para el admin viendo a otro, así que un intento de seleccionar texto que terminara sobre el checkbox (o cerca) podía togglear la tarea de otra persona por accidente. Tampoco estaba oculto el botón "+Fecha"/"Editar" del fecha/hora.
+
+## 3. Qué se corrigió
+- Checkbox de "completada": ahora `disabled` cuando `viendoEmail` está seteado (admin viendo a otro) — sigue mostrando el estado (tildado o no) pero no se puede tocar. Mismo criterio ya usado en los 3 puntos de prioridad, que ya estaban bien deshabilitados.
+- Botón "+Fecha"/"Editar": ahora oculto cuando `viendoEmail` — el texto de fecha/hora (si la tarea ya tiene una) se sigue mostrando, solo se sacó la acción de editarla.
+- Defensivo: `editando` (el formulario de editar fecha/hora/prioridad) ahora nunca se activa mientras `viendoEmail` esté seteado, aunque quedara un `editandoTareaId` viejo de antes de cambiar de solapa; `cambiarViendoEmail` también resetea `editandoTareaId`/`cancelandoTareaId` al cambiar de participante, por las dudas.
+
+## 4. Verificado en vivo
+Con una tarea 100% descartable en la cuenta real de Cuchulain Mago (creada y borrada al final, `id 170`): confirmado que el checkbox aparece deshabilitado y que **ni siquiera un click forzado a nivel DOM** logra togglearlo (se confirmó contra la base que `completada` siguió en `false` después del intento) — no solo visualmente deshabilitado, genuinamente no interactivo. Confirmado que el botón "Editar"/"+ Fecha" ya no aparece. Confirmado que seleccionar texto y dejar un comentario anclado (la función que sí tiene que seguir funcionando) sigue andando exactamente igual que antes. Cero errores de consola. `typecheck`/`lint` limpios, mismo baseline de siempre.
+
+## 5. Pendiente
+- **No se hizo commit todavía.**
