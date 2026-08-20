@@ -1425,3 +1425,65 @@ Cero errores de consola en ninguna corrida. `typecheck`/`lint` limpios, sin warn
 - **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
 - No se probó el envío real del mail de aviso (se verificó la lógica de idempotencia contra la base, pero no se disparó un mail real cruzando el umbral de verdad — eso va a pasar naturalmente la primera vez que el grupo llegue a 20 puntos en producción).
 - Resto sin cambios de sesiones anteriores: auditoría de performance del resto de la carga de Entusiasmento.
+
+---
+
+# Sesión de trabajo 2026-08-20 (continuación) — Tareas recurrentes (formato tipo Google Calendar) — EN CURSO, falta correr el SQL
+
+## 1. Objetivo
+Nicolás pidió que una tarea semanal pueda marcarse como recurrente ("todos los martes a cierta hora, copiale el formato de configuraciones a Google Calendar"). Definido con él vía preguntas antes de programar: solo recurrencia **semanal** (sin diario/mensual todavía); al cancelar, ofrecer **"sólo esta vez"** y **"esta y las próximas"** (no una eliminación ciega de toda la serie); las ocurrencias generadas automáticamente **suman puntos igual que cualquier tarea** (crear cuenta como "creada" del sistema de puntos de la sesión anterior — sin excepción ni caso especial para lo autogenerado).
+
+## 2. Diseño
+- `entusiasmo_tareas_series` (tabla nueva): la plantilla — `proyecto_id`, `contenido`, `dia_semana` (0=domingo..6=sábado), `hora`, `prioridad`, `activa`. `entusiasmo_tareas` gana `serie_id` (FK nullable a la serie que la generó).
+- Al crear una serie, se generan de una las próximas **8 semanas** de ocurrencias reales en `entusiasmo_tareas` (cada una editable/completable de forma independiente, como cualquier tarea). Un cron nuevo (revisado a diario, mismo cron único del proyecto) mantiene ese horizonte de 8 semanas siempre completo para toda serie activa — así nunca falta la "próxima".
+- Cancelar una ocurrencia puntual: **"Solo esta vez"** borra nada más esa fila. **"Esta y las próximas"** borra esa fila y las futuras ya generadas de la serie, y desactiva la serie (no se generan más).
+
+## 3. Qué se hizo
+- `sql/2026-08-20_entusiasmo_tareas_series.sql` (nuevo — **todavía sin correr por Nicolás**, ver Pendiente).
+- `lib/entusiasmo-tareas-series.ts` (nuevo): `calcularProximasFechas`, `generarOcurrenciasIniciales`, `completarHorizonteDeSeries` (el top-up del cron), `cancelarSerieDesdeOcurrencia`.
+- `app/api/entusiasmo/tareas/route.ts`: `POST` acepta `{ repetir: true, diaSemana }` para crear una serie en vez de una tarea suelta; `DELETE` nuevo, acepta `{ id, alcance: "esta" | "esta_y_proximas" }`.
+- `app/api/entusiasmo/tareas/generar-ocurrencias/route.ts` (nuevo, protegido con `CRON_SECRET`) + wireado en `app/api/cron/diario/route.ts` (revisión diaria, mismo patrón que el resto de sub-tareas del cron único).
+- `app/casatalentos/page.tsx`: checkbox "🔁 Repetir todas las semanas" en el formulario de nueva tarea (cambia el selector de fecha por uno de día de la semana); insignia "🔁 {día}" en cada ocurrencia de una serie; flujo de cancelación con las dos opciones pedidas.
+
+## 4. Dos bugs de regresión encontrados y corregidos ANTES de pedirle a Nicolás que corra el SQL
+Siguiendo la práctica ya establecida en el proyecto (nunca pedir una migración nueva sin antes probar que nada se rompe en su ausencia), se probó en vivo contra el estado real de la base (sin la tabla nueva, que es exactamente el estado de producción hoy) y aparecieron dos regresiones reales, ambas por el mismo motivo de fondo — pedirle a PostgREST una columna/relación que todavía no existe hace fallar la consulta entera, sin degradación posible:
+1. **`GET /api/entusiasmo/tareas` rompía el listado completo de tareas (500, `PGRST200`)** para cualquier usuario — el primer intento traía `dia_semana` con un embed directo (`entusiasmo_tareas_series(dia_semana)`) en la misma consulta que trae todas las tareas. Corregido: la consulta principal de tareas ya no depende de la tabla nueva; el `dia_semana` de las que sí tienen `serie_id` se resuelve aparte, en una segunda consulta que solo se dispara si hace falta.
+2. **`DELETE /api/entusiasmo/tareas` rompía el borrado de CUALQUIER tarea** (no solo recurrente) — la consulta que verifica dueño/existencia antes de borrar pedía explícitamente la columna `serie_id`, inexistente sin la migración; el error de esa consulta quedaba silenciado y el código lo interpretaba como "tarea no encontrada" (404 engañoso). Corregido: esa consulta ya no pide `serie_id`; se resuelve aparte, y solo cuando el `alcance` pedido es `"esta_y_proximas"`.
+
+**Verificado en vivo (con `admin@escuela.com`, contra la base real, sin la tabla nueva)**: `GET` ahora responde 200 con `diaSemana: null` en vez de 500; se creó y luego se borró una tarea normal de prueba (`POST` → 200, `GET` la lista bien, `DELETE` → 200, `GET` posterior confirma que no quedó nada) — las dos regresiones ya no reproducen. `typecheck`/`lint` limpios, sin warnings nuevos (mismo baseline de siempre).
+
+## 5. Verificación completa en vivo (con la tabla ya creada por Nicolás)
+- Serie real ("todos los martes, 19:00"): se generaron exactamente 8 ocurrencias, todas martes, fechas espaciadas 7 días, `diaSemana` resuelto correcto en el `GET`.
+- Puntos: crear la serie sumó 1 punto categoría "tareas" (mismo tope diario que cualquier otra acción de tareas — confirmado que una segunda serie el mismo día no vuelve a sumar).
+- **Bug de sobregeneración encontrado y corregido en el top-up del cron** (`completarHorizonteDeSeries`): la primera versión, cada vez que el horizonte quedaba aunque sea 1-2 días corto, generaba un lote *completo* de 8 semanas nuevas en vez de solo lo que faltaba — una serie recién creada (8 ocurrencias) se duplicaba a 16 en el primer tick del cron, porque el último día generado casi nunca cae justo en el borde exacto de "8 semanas desde hoy". Corregido acotando las fechas nuevas a `<= limiteHorizonte` en vez de generar siempre el lote entero. Verificado con una serie de prueba aislada: primer top-up completó el horizonte real (sin duplicar), segundo top-up el mismo día no generó nada de más (`seriesCompletadas: 0`), y una serie cancelada quedó excluida de revisiones futuras (`seriesRevisadas: 0`).
+- Cancelar "esta": borró únicamente la ocurrencia elegida, dejando el resto de la serie intacta.
+- Cancelar "esta y las próximas": borró esa ocurrencia y todas las futuras ya generadas, dejó intactas las anteriores a esa fecha, y desactivó la serie (`activa: false`) — confirmado que el cron ya no la vuelve a tocar.
+- Seguridad admin↔participante: probado que admin puede cancelar la serie de cualquier participante (mismo patrón `esDueno || esAdmin` ya usado en el resto del archivo); el rechazo 403 a un no-dueño no-admin no se re-probó con un login real esta ronda (no había credenciales de un participante de prueba a mano) — es la misma lógica ya verificada en el `PATCH` de este mismo endpoint en sesiones anteriores, sin cambios acá.
+- Cero residuos: toda la data de prueba (series, tareas, proyectos, eventos de puntos) se creó y se borró de punta a punta contra la base real — se dejó explícitamente confirmado antes y después que el total de puntos grupal (dato público/compartido) solo contenía la actividad real de Florencia Varela, ninguna contaminación de prueba.
+
+`typecheck`/`lint` limpios, mismo baseline de 24 problemas preexistentes de siempre, sin warnings nuevos.
+
+## 6. Pendiente
+- **No se hizo commit todavía** — a la espera de confirmación de Nicolás.
+
+---
+
+# Sesión de trabajo 2026-08-20 (continuación 2) — Agenda: fecha de inicio elegible al repetir semanalmente
+
+## 1. Objetivo
+Nicolás reportó que, al crear una programación con "Repetir semanalmente" en `/agenda`, la serie siempre arranca desde el día de hoy en vez de dejar elegir desde qué fecha empezar.
+
+## 2. Diagnóstico
+Confirmado en `app/agenda/page.tsx`, dentro de `crearProgramacion` (rama `esRecurrente`): el cálculo de las fechas arrancaba literalmente en `let cursor = new Date()` (hoy), y el campo de fecha (`fecha`, el mismo que ya usa el modo no-recurrente) ni siquiera se mostraba en el formulario cuando "Repetir semanalmente" estaba tildado (`{!esRecurrente && (<input type="date" .../>)}`) — no era un campo cableado e ignorado, directamente no existía en ese modo. El endpoint que recibe la creación (`POST /api/agenda/admin/crear-disponibilidades`) no calcula fechas — recibe las fechas ya resueltas por el cliente e inserta tal cual, así que todo el fix es client-side.
+
+## 3. Qué se hizo
+- El input de fecha ahora es siempre visible (se sacó la condición `{!esRecurrente && ...}`), con un `title` que aclara "Fecha del primer encuentro de la serie" cuando el modo recurrente está activo.
+- La validación previa a crear ahora exige `fecha` en los dos modos (antes solo era obligatoria para el modo no-recurrente).
+- El cálculo de la serie arranca desde esa fecha en vez de `new Date()`: `let cursor = fecha ? new Date(\`${fecha}T00:00:00\`) : new Date()`. El resto de la lógica no cambió — si la fecha elegida ya cae en el día de semana seleccionado, la serie arranca ahí mismo; si no, avanza al primer día que coincida (mismo comportamiento de "buscar el próximo X" que ya tenía, solo que ahora el punto de partida es el elegido, no hoy).
+- Se agregó una nota visible debajo de "Cantidad de semanas" aclarando el comportamiento ("La serie arranca el {día} en o después de la fecha que elegiste arriba — no necesariamente hoy"), para que quede claro en la UI y no sea una sorpresa.
+
+## 4. Verificado
+El endpoint de creación no participa del cálculo de fechas (solo inserta lo que ya viene resuelto), así que se verificó la lógica de cálculo en aislado (réplica exacta del bloque corregido, sin tocar la tabla real de `disponibilidades` — evita cualquier riesgo de colisionar con encuentros reales de Mentorías/Terapia/Conectando Sentidos ya agendados o con la sincronización real de Google Calendar): confirmado que si la fecha elegida cae en el día de semana pedido, esa fecha es la primera ocurrencia; si no coincide, la primera ocurrencia es el próximo día que sí coincide (nunca antes de la fecha elegida); y que el fallback sin fecha sigue funcionando sin romper. `typecheck`/`lint` limpios, mismo baseline de siempre, sin warnings nuevos.
+
+## 5. Pendiente
+- **No se hizo commit todavía.**

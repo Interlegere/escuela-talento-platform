@@ -362,8 +362,12 @@ export default function AgendaPage() {
         return
       }
 
-      if (!esRecurrente && !fecha) {
-        setError("Elegí una fecha para crear la programación.")
+      if (!fecha) {
+        setError(
+          esRecurrente
+            ? "Elegí la fecha del primer encuentro de la serie."
+            : "Elegí una fecha para crear la programación."
+        )
         return
       }
 
@@ -451,7 +455,10 @@ export default function AgendaPage() {
 
         const fechasAInsertar: string[] = []
         const serieId = generarSerieId()
-        let cursor = new Date()
+        // Arranca desde la fecha que eligió el admin (no desde "hoy") — si
+        // esa fecha ya cae en el día de semana elegido, la serie empieza ahí
+        // mismo; si no, el bucle de abajo avanza al primer día que coincida.
+        let cursor = fecha ? new Date(`${fecha}T00:00:00`) : new Date()
         let encontradas = 0
 
         while (encontradas < cantidad) {
@@ -661,14 +668,13 @@ export default function AgendaPage() {
               onChange={(e) => setDuracion(e.target.value)}
             />
 
-            {!esRecurrente && (
-              <input
-                className="workspace-field"
-                type="date"
-                value={fecha}
-                onChange={(e) => setFecha(e.target.value)}
-              />
-            )}
+            <input
+              className="workspace-field"
+              type="date"
+              value={fecha}
+              onChange={(e) => setFecha(e.target.value)}
+              title={esRecurrente ? "Fecha del primer encuentro de la serie" : "Fecha"}
+            />
 
             <Hora24Input value={hora} onChange={setHora} />
 
@@ -736,6 +742,11 @@ export default function AgendaPage() {
                 value={cantidadSemanas}
                 onChange={(e) => setCantidadSemanas(e.target.value)}
               />
+
+              <p className="workspace-inline-note md:col-span-2 xl:col-span-3">
+                La serie arranca el {diaSemana} en o después de la fecha que
+                elegiste arriba — no necesariamente hoy.
+              </p>
             </div>
           )}
 
