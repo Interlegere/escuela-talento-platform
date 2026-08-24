@@ -1638,3 +1638,29 @@ Los comentarios nunca se borraban de la base — seguían existiendo, pero `rend
 
 ## 5. Pendiente
 - **No se hizo commit todavía.**
+
+---
+
+# Sesión de trabajo 2026-08-24 (continuación) — Bug real en el link de comentarios a versiones: mayúsculas/minúsculas
+
+## 1. Reporte de Nicolás
+"No puedo ver los comentarios que le hice en las versiones anteriores de las coordenadas a Verónica Saracho."
+
+## 2. Diagnóstico
+Bug real en el código que se había subido la sesión anterior, no un problema de datos. `entusiasmo_coordenadas_versiones.campo` guarda el nombre de columna de la base (snake_case, ej. `"para_que"`), pero `entusiasmo_aportes.campo` guarda la clave que usa el frontend (camelCase, ej. `"paraQue"` — la misma que usa `keyof CoordenadasForm`). El código que religaba comentarios a la versión recién archivada comparaba `entusiasmo_aportes.campo` directo contra el `campo` (snake_case) de la versión — **coincide por casualidad solo en 2 de los 9 campos** ("que" y "nombre", donde ambos formatos son iguales), y falla en silencio en los otros 7 (paraQue/para_que, problemaSolucion/problema_solucion, resultadoMensual/resultado_mensual, resultadoTrimestral/resultado_trimestral, resultadoAnual/resultado_anual, habilidadADesarrollar/habilidad_a_desarrollar, queTeEntusiasma/que_te_entusiasma).
+
+**Corregido**: se arma un mapa columna→campoBody a partir de `CAMPOS_VERSIONABLES` (que ya tenía ambos formatos) y se usa `campoBody` (camelCase) para buscar los comentarios a religar, no `columna` (snake_case).
+
+## 3. Alcance real relevado antes de tocar datos
+Se corrió un diagnóstico de solo lectura sobre **los 28 comentarios anclados de Coordenadas que existen en toda la plataforma** (no solo los de Verónica), comparando cada uno contra el texto vigente y contra todas las versiones archivadas de su mismo campo:
+- **23** ya se veían bien en el texto vigente (el campo nunca se había vuelto a editar desde el comentario) — sin tocar.
+- **5** estaban "huérfanos" (sin versión asignada y el fragmento ya no está en el texto actual) — los 5 son de Verónica Saracho, campo `que` (4) y `paraQue` (1), y los 5 tenían exactamente una versión archivada donde el fragmento calza sin ambigüedad.
+- **0** irresolubles (ningún comentario quedó sin candidata).
+
+Con la lista completa mostrada, Nicolás confirmó religar los 5. Se actualizó `version_id` de esos 5 registros (`entusiasmo_aportes` ids 11-15) a las versiones correspondientes (ids 16 y 17) — dato corregido a mano una sola vez, no queda como script en el repo, mismo criterio ya usado en migraciones de datos anteriores de este proyecto.
+
+## 4. Verificado en vivo
+Contra la cuenta real de Verónica Saracho (sin datos de prueba, dato real de producción — cambio confirmado explícitamente con Nicolás antes de tocarlo): al abrir "Ver versiones anteriores" en Coordenadas, los 5 comentarios aparecen ahora debajo de la versión correspondiente ("que" con los 4, "paraQue" con el 1), con el fragmento citado, el contenido y "— Nicolás". Los 23 que ya andaban bien siguen sin cambios. Cero errores de consola. `typecheck`/`lint` limpios, mismo baseline de 24 problemas preexistentes.
+
+## 5. Pendiente
+- **No se hizo commit todavía** — solo el fix de código (`app/api/entusiasmo/proyecto/route.ts`); la reparación de los 5 registros fue un cambio de datos directo, no hay nada de eso para commitear.

@@ -211,16 +211,29 @@ export async function PUT(req: Request) {
           .insert(versiones)
           .select("id, campo")
 
+        // entusiasmo_coordenadas_versiones.campo guarda el nombre de columna
+        // (snake_case, ej. "para_que"), pero entusiasmo_aportes.campo guarda
+        // la clave que usa el frontend (camelCase, ej. "paraQue") — hay que
+        // traducir antes de buscar, si no la mayoría de los campos (todos
+        // menos "que"/"nombre", que coinciden en los dos formatos) nunca
+        // encuentran ningún comentario para religar.
+        const campoBodyPorColumna = new Map(
+          CAMPOS_VERSIONABLES.map(({ campoBody, columna }) => [columna, campoBody])
+        )
+
         // Los comentarios anclados que estaban sobre el texto vigente de
         // cada campo (version_id null) pasan a apuntar a la versión recién
         // archivada — es el texto exacto sobre el que se habían hecho, así
         // que quedan visibles ahí en vez de perderse de la vista.
         for (const version of versionesCreadas || []) {
+          const campoBody = campoBodyPorColumna.get(version.campo)
+          if (!campoBody) continue
+
           await supabase
             .from("entusiasmo_aportes")
             .update({ version_id: version.id })
             .eq("proyecto_id", existente.id)
-            .eq("campo", version.campo)
+            .eq("campo", campoBody)
             .is("version_id", null)
         }
       }
