@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { signIn, signOut } from "next-auth/react"
 import { Suspense, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -153,6 +154,15 @@ function LoginPageContent() {
               ? "Ingresando..."
               : "Ingresar"}
         </button>
+
+        {status !== "authenticated" && (
+          <Link
+            href="/recuperar-clave"
+            className="block text-center text-sm text-gray-600 underline"
+          >
+            ¿Olvidaste tu contraseña?
+          </Link>
+        )}
       </form>
     </main>
   )

@@ -1537,3 +1537,48 @@ Con una tarea 100% descartable en la cuenta real de Cuchulain Mago (creada y bor
 
 ## 5. Pendiente
 - **No se hizo commit todavía.**
+
+---
+
+# Sesión de trabajo 2026-08-23 — Recuperación de clave self-service
+
+## 1. Objetivo
+Nicolás pidió que los usuarios puedan recuperar su contraseña sin depender de que él se las cambie a mano — un link "¿Olvidaste tu contraseña?" en el cartel de login.
+
+## 2. Diagnóstico previo
+Las claves ya estaban hasheadas con scrypt casero (`crearPasswordHash`/`verificarPassword` en `lib/usuarios-plataforma.ts`, con salt + `timingSafeEqual` — no bcrypt, pero correcto y reutilizable). No existía ningún mecanismo de token/magic-link en todo el proyecto, ni rate-limiting de ningún tipo en endpoints públicos. El mail transaccional ya tenía un patrón claro para clonar (`enviarBienvenidaUsuario`/`crearContenidoBienvenida` en `lib/mailing.ts`, Resend vía `fetch` directo).
+
+## 3. Diseño
+- **Nunca se manda la clave por mail** (a diferencia del alta manual del admin, que sí manda la clave inicial en texto plano) — acá siempre es un link con token de un solo uso.
+- **Token**: 32 bytes random (`crypto.randomBytes`), se guarda solo su hash sha256 (`reset_token_hash`) — no hace falta scrypt para esto, la entropía del token ya alcanza con un hash rápido. Vence en 1 hora (`reset_token_expires_at`). Se invalida (se pone en `null`) apenas se usa una vez.
+- **Cooldown anti-abuso**: 2 minutos entre pedidos de reset para la misma cuenta (`reset_requested_at`), la única protección anti-abuso que tiene el endpoint — no hay infraestructura de rate-limiting en el proyecto, así que se resolvió con una columna en la misma tabla en vez de sumar una dependencia nueva.
+- **Sin filtrado de información**: `POST /api/auth/recuperar-clave` devuelve siempre el mismo mensaje genérico ("Si el email corresponde a una cuenta activa, te mandamos un mail...") exista o no la cuenta, esté activa o no, haya cooldown o no — así este endpoint no sirve para averiguar qué emails están registrados en la plataforma.
+
+## 4. Qué se hizo
+- `sql/2026-08-23_usuarios_plataforma_reset_clave.sql` (corrida por Nicolás): 3 columnas nuevas en `usuarios_plataforma` — `reset_token_hash`, `reset_token_expires_at`, `reset_requested_at`.
+- `lib/usuarios-plataforma.ts`: `solicitarRecuperacionClave(email)` (genera y guarda el token, respeta el cooldown, nunca revela si el email existe) y `confirmarRecuperacionClave(token, nuevaClave)` (valida hash+expiración, actualiza `password_hash` reusando `crearPasswordHash`, invalida el token).
+- `lib/mailing.ts`: `crearContenidoRecuperacionClave`/`enviarRecuperacionClaveUsuario`, mismo estilo visual ENTHEOS que el resto de los mails transaccionales. `appUrl()` se exportó (antes era interno) para poder armar el link del token desde el endpoint.
+- `app/api/auth/recuperar-clave/route.ts` (POST, público): pide el email, siempre responde igual.
+- `app/api/auth/recuperar-clave/confirmar/route.ts` (POST, público): recibe `{ token, password }`, valida largo mínimo (6 caracteres), confirma o rechaza con mensaje específico (link inválido / vencido).
+- `app/recuperar-clave/page.tsx` (nueva): pantalla para pedir el link, mismo estilo minimal que `/login` (`border p-8 rounded-xl w-80`).
+- `app/recuperar-clave/confirmar/page.tsx` (nueva): pantalla para elegir la clave nueva, lee `?token=` de la URL (con `Suspense`, mismo patrón que ya usa `/login` para `useSearchParams`).
+- `app/login/page.tsx`: link "¿Olvidaste tu contraseña?" debajo del botón de ingresar (oculto si ya hay sesión activa).
+
+## 5. Verificado en vivo
+Antes de pedirle a Nicolás que corra el SQL, se confirmó que sin las columnas nuevas el login normal seguía funcionando igual (200) y que el endpoint de pedido de reset degradaba con gracia (200 genérico, sin excepción) en vez de romper — mismo criterio de siempre en este proyecto.
+
+Con las columnas ya creadas, batería completa contra el servidor real con un usuario 100% descartable (`delivered@resend.dev`, la dirección de prueba oficial de Resend — entrega real sin mandarle nada a una persona real), borrado al final:
+1. Pedido real de reset → genera token, dispara el mail real (sin errores), expiración a 1 hora.
+2. Pedir de nuevo enseguida → cooldown respetado, no regenera el token.
+3. Confirmar con un token válido (mismo algoritmo sha256, sembrado directo para no depender de leer el contenido del mail real) → clave actualizada, token invalidado (los 3 campos vuelven a `null`).
+4. Reusar el mismo token ya usado → rechazado.
+5. Login con la clave vieja → falla; con la clave nueva → funciona.
+6. Token vencido → rechazado con mensaje específico.
+7. Token inventado/inválido → rechazado.
+8. Clave nueva demasiado corta → rechazada (400).
+9. Email inexistente → mismo mensaje genérico que un email real (sin filtrado de información).
+
+`typecheck`/`lint` limpios, mismo baseline de 24 problemas preexistentes, sin warnings nuevos.
+
+## 6. Pendiente
+- **No se hizo commit todavía.**

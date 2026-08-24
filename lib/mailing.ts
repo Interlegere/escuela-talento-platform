@@ -11,6 +11,12 @@ type CharlaIntroParams = {
   password: string
 }
 
+type RecuperacionClaveParams = {
+  nombre: string
+  email: string
+  resetUrl: string
+}
+
 type MailingResult =
   | { enviado: true; proveedor: string; proveedorId?: string | null }
   | { enviado: false; motivo: string }
@@ -21,7 +27,7 @@ type EmailAttachment = {
   content_type?: string
 }
 
-function appUrl() {
+export function appUrl() {
   return (
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.APP_URL ||
@@ -149,6 +155,68 @@ function crearContenidoBienvenida(params: BienvenidaParams) {
 
   return {
     subject: "Bienvenido/a a ENTHEOS",
+    text,
+    html,
+  }
+}
+
+function crearContenidoRecuperacionClave(params: RecuperacionClaveParams) {
+  const nombre = params.nombre.trim() || "hola"
+  const subtitulo = "Pediste recuperar tu clave de acceso a ENTHEOS"
+
+  const text = [
+    `Hola ${nombre},`,
+    "",
+    "Pediste recuperar tu clave de acceso a ENTHEOS.",
+    "",
+    `Elegí una clave nueva acá: ${params.resetUrl}`,
+    "",
+    "Este link vale por 1 hora y se puede usar una sola vez.",
+    "",
+    "Si no fuiste vos, ignorá este mail — tu clave actual sigue siendo válida.",
+  ].join("\n")
+
+  const html = `
+    <div style="margin: 0; padding: 32px 16px; background: #f6efe2; font-family: Arial, sans-serif; color: #1f2933;">
+      <div style="max-width: 640px; margin: 0 auto; background: #fffdf8; border: 1px solid #eadfc9; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(77, 54, 18, 0.08);">
+        <div style="padding: 32px 32px 20px; background: linear-gradient(135deg, rgba(250,244,229,1) 0%, rgba(255,250,240,1) 55%, rgba(248,237,210,1) 100%);">
+          <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: #8a6a2f; font-weight: 700;">ENTHEOS</p>
+          <h1 style="margin: 0 0 10px; font-size: 32px; line-height: 1.15; color: #18202a;">Recuperar tu clave</h1>
+          <p style="margin: 0; color: #6b7280; font-size: 16px; line-height: 1.5;">
+            ${escapeHtml(subtitulo)}
+          </p>
+        </div>
+
+        <div style="padding: 28px 32px 32px; line-height: 1.7;">
+          <p style="margin: 0 0 14px;">Hola ${escapeHtml(nombre)},</p>
+          <p style="margin: 0 0 16px;">
+            Tocá el botón de abajo para elegir una clave nueva. El link vale por 1 hora y se puede usar una sola vez.
+          </p>
+
+          <div style="margin: 24px 0 28px;">
+            <a
+              href="${params.resetUrl}"
+              style="display: inline-block; padding: 14px 22px; border-radius: 999px; background: #c98b1b; color: #ffffff; font-weight: 700; text-decoration: none;"
+            >
+              Elegir clave nueva
+            </a>
+          </div>
+
+          <p style="margin: 0 0 14px; font-size: 13px; color: #6b7280;">
+            Si el botón no funciona, copiá y pegá este link en tu navegador:<br />
+            <a href="${params.resetUrl}" style="color: #8a6a2f;">${escapeHtml(params.resetUrl)}</a>
+          </p>
+
+          <p style="margin: 0;">
+            Si no pediste esto, ignorá el mail — tu clave actual sigue siendo válida.
+          </p>
+        </div>
+      </div>
+    </div>
+  `
+
+  return {
+    subject: "Recuperar tu clave de acceso a ENTHEOS",
     text,
     html,
   }
@@ -342,6 +410,19 @@ export async function enviarBienvenidaUsuario(
   params: BienvenidaParams
 ): Promise<MailingResult> {
   const contenido = crearContenidoBienvenida(params)
+
+  return enviarEmail({
+    to: params.email,
+    subject: contenido.subject,
+    text: contenido.text,
+    html: contenido.html,
+  })
+}
+
+export async function enviarRecuperacionClaveUsuario(
+  params: RecuperacionClaveParams
+): Promise<MailingResult> {
+  const contenido = crearContenidoRecuperacionClave(params)
 
   return enviarEmail({
     to: params.email,

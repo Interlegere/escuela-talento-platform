@@ -1,5 +1,11 @@
-import { randomBytes, scryptSync, timingSafeEqual } from "crypto"
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from "crypto"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
+
+// Cuánto dura activo un link de recuperación de clave.
+const RESET_TOKEN_TTL_MINUTOS = 60
+// Cooldown mínimo entre dos pedidos de recuperación seguidos, para que
+// alguien no pueda hacer que se disparen mails en cadena.
+const RESET_COOLDOWN_MINUTOS = 2
 
 export type UsuarioPlataformaRole = "admin" | "colaborador" | "participante"
 
@@ -129,6 +135,117 @@ export async function autenticarUsuarioPlataforma(
     console.error("Error autenticando usuario de plataforma", error)
     return { found: false }
   }
+}
+
+function hashearTokenRecuperacion(token: string) {
+  // A diferencia de la clave (baja entropía, necesita salt + hash lento),
+  // el token es un random de 32 bytes generado acá mismo — con esa entropía
+  // un hash rápido (sha256) ya alcanza, no hace falta scrypt.
+  return createHash("sha256").update(token).digest("hex")
+}
+
+type SolicitudRecuperacion =
+  | { generado: true; token: string; nombre: string; email: string }
+  | { generado: false; motivo: "no_encontrado" | "inactivo" | "cooldown" }
+
+export async function solicitarRecuperacionClave(
+  email: string
+): Promise<SolicitudRecuperacion> {
+  const emailNormalizado = normalizarEmail(email)
+  const supabase = createAdminSupabaseClient()
+
+  const { data } = await supabase
+    .from("usuarios_plataforma")
+    .select("id, nombre, activo, reset_requested_at")
+    .eq("email", emailNormalizado)
+    .maybeSingle()
+
+  if (!data) {
+    return { generado: false, motivo: "no_encontrado" }
+  }
+
+  if (!data.activo) {
+    return { generado: false, motivo: "inactivo" }
+  }
+
+  const pedidoAnterior = data.reset_requested_at
+    ? new Date(data.reset_requested_at as string).getTime()
+    : 0
+  const cooldownMs = RESET_COOLDOWN_MINUTOS * 60 * 1000
+
+  if (pedidoAnterior && Date.now() - pedidoAnterior < cooldownMs) {
+    return { generado: false, motivo: "cooldown" }
+  }
+
+  const token = randomBytes(32).toString("hex")
+  const ahora = new Date()
+  const expira = new Date(ahora.getTime() + RESET_TOKEN_TTL_MINUTOS * 60 * 1000)
+
+  const { error } = await supabase
+    .from("usuarios_plataforma")
+    .update({
+      reset_token_hash: hashearTokenRecuperacion(token),
+      reset_token_expires_at: expira.toISOString(),
+      reset_requested_at: ahora.toISOString(),
+    })
+    .eq("id", data.id)
+
+  if (error) {
+    throw error
+  }
+
+  return {
+    generado: true,
+    token,
+    nombre: (data.nombre as string) || "",
+    email: emailNormalizado,
+  }
+}
+
+type ConfirmacionRecuperacion =
+  | { ok: true }
+  | { ok: false; error: "token_invalido" | "token_vencido" }
+
+export async function confirmarRecuperacionClave(
+  token: string,
+  nuevaClave: string
+): Promise<ConfirmacionRecuperacion> {
+  const supabase = createAdminSupabaseClient()
+  const hash = hashearTokenRecuperacion(token)
+
+  const { data } = await supabase
+    .from("usuarios_plataforma")
+    .select("id, reset_token_expires_at")
+    .eq("reset_token_hash", hash)
+    .maybeSingle()
+
+  if (!data) {
+    return { ok: false, error: "token_invalido" }
+  }
+
+  const expiraEn = data.reset_token_expires_at
+    ? new Date(data.reset_token_expires_at as string).getTime()
+    : 0
+
+  if (!expiraEn || Date.now() > expiraEn) {
+    return { ok: false, error: "token_vencido" }
+  }
+
+  const { error } = await supabase
+    .from("usuarios_plataforma")
+    .update({
+      password_hash: crearPasswordHash(nuevaClave),
+      reset_token_hash: null,
+      reset_token_expires_at: null,
+      reset_requested_at: null,
+    })
+    .eq("id", data.id)
+
+  if (error) {
+    throw error
+  }
+
+  return { ok: true }
 }
 
 export async function listarUsuariosPlataforma() {
