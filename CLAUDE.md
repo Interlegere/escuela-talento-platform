@@ -1612,3 +1612,29 @@ Batería completa con Playwright, mobile (iPhone 13) y desktop (1400×900), cont
 ## 5. Pendiente
 - **No se hizo commit todavía.**
 - Resto del diagnóstico (prioridad media/baja) sin implementar todavía: selector de participante que corta texto en Mentorías/Terapia, longitud de la landing en celular, insignias repetidas en Comunicaciones, ajustes menores en Entusiasmento — quedan en el artifact para cuando Nicolás quiera retomarlos.
+
+---
+
+# Sesión de trabajo 2026-08-24 — Comentarios de Coordenadas ligados a la versión anterior correspondiente
+
+## 1. Objetivo
+Nicolás reportó que sus comentarios anclados en Coordenadas "se pierden" cuando el participante reescribe el texto — pidió poder seguir viendo qué comentó sobre cada versión anterior.
+
+## 2. Diagnóstico
+Los comentarios nunca se borraban de la base — seguían existiendo, pero `renderizarCampoLectura` solo los resalta si su `fragmento` aparece dentro del texto **vigente** (`texto.indexOf(nota.fragmento)`). En cuanto el participante reescribía el campo, ese fragmento dejaba de existir en el texto actual, y el comentario simplemente no volvía a resaltarse en ningún lado visible para el admin — visualmente "desaparecía", aunque seguía en la base y seguía apareciendo en la lista plana del participante (`renderizarNotasCampo`, sin filtro de versión).
+
+## 3. Qué se hizo
+- `sql/2026-08-24_entusiasmo_aportes_version.sql` (corrida por Nicolás): columna nueva `entusiasmo_aportes.version_id` (nullable, FK a `entusiasmo_coordenadas_versiones`) — `null` significa "todavía sobre el texto vigente".
+- `app/api/entusiasmo/proyecto/route.ts` (PUT): al archivar el valor anterior de un campo que cambió (lógica que ya existía), ahora además liga los comentarios que estaban con `version_id null` para ese campo a la versión recién archivada — son, por definición, los que se habían hecho sobre el texto que se está por reemplazar.
+- `app/casatalentos/page.tsx`: `renderizarCampoLectura` (vista de solo lectura del admin) ahora solo resalta comentarios con `version_id` nulo (los que siguen sobre el texto vigente) — los demás ya no se intentan calzar contra el texto nuevo. `renderizarVersionesCampo` (el desplegable "Ver versiones anteriores") ahora muestra, debajo de cada versión archivada, los comentarios que quedaron ligados a esa versión específica — mismo estilo visual que ya usaba la lista plana de comentarios.
+- Se agregó un refetch de `aportesRecibidos` después de `guardarCoordenadas` (cuando el panel de versiones está abierto) para que la reasignación de `version_id` se refleje sin necesitar recargar la página.
+
+## 4. Verificado en vivo
+- **Antes de la migración**: se confirmó que dejar un comentario y editar el campo no rompía nada (el POST/PUT seguían devolviendo 200, el comentario original seguía existiendo) — el `.update({version_id})` sin la columna simplemente no-opea sin tirar error, y el filtro del lado del cliente usa `(a.version_id ?? null) === null` para tratar la ausencia de la columna igual que "sin versión asignada", así el resaltado en vivo tampoco se rompía mientras tanto.
+- **Con la migración corrida**: batería completa contra la API real — comentario sobre el texto original → se edita el campo → el comentario queda con `version_id` = el id de la versión recién archivada; un segundo comentario sobre el texto nuevo → se edita de nuevo → el segundo comentario se liga a la segunda versión, el primero queda intacto sin tocarse.
+- **UI real** (Playwright, participante descartable con inscripción activa a Entusiasmento — necesitó fila en `usuarios_plataforma` además de `inscripciones` para aparecer en el selector de solapas del admin): el texto vigente no muestra ningún resaltado (correcto, el comentario quedó en la versión vieja); al abrir "Ver versiones anteriores (1)" aparece el texto archivado con el comentario debajo, en su formato ya conocido ("sobre: …", 💬 contenido, autor) — confirmado visualmente. Cero errores de consola. Toda la data de prueba (usuario, inscripción, proyecto, comentarios) se creó y se borró por completo al final.
+
+`typecheck`/`lint` limpios, mismo baseline de 24 problemas preexistentes, sin warnings nuevos.
+
+## 5. Pendiente
+- **No se hizo commit todavía.**

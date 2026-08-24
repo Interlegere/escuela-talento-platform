@@ -141,6 +141,7 @@ type AporteItem = {
   contenido: string
   campo: string | null
   fragmento: string | null
+  version_id: number | null
   created_at: string
 }
 
@@ -1521,24 +1522,51 @@ export default function CasaTalentosPage() {
 
         {abierto && (
           <div className="mt-1 space-y-1">
-            {versiones.map((v) => (
-              <div
-                key={v.id}
-                className="rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-600"
-              >
-                <p className="whitespace-pre-wrap">{v.contenido}</p>
-                <p className="mt-1 text-gray-400">
-                  {new Date(v.created_at).toLocaleString("es-AR", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hourCycle: "h23",
-                  })}
-                </p>
-              </div>
-            ))}
+            {versiones.map((v) => {
+              const comentariosDeEstaVersion = aportesRecibidos.filter(
+                (a) => a.campo === campo && a.version_id === v.id
+              )
+
+              return (
+                <div
+                  key={v.id}
+                  className="rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-600"
+                >
+                  <p className="whitespace-pre-wrap">{v.contenido}</p>
+                  <p className="mt-1 text-gray-400">
+                    {new Date(v.created_at).toLocaleString("es-AR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hourCycle: "h23",
+                    })}
+                  </p>
+
+                  {comentariosDeEstaVersion.length > 0 && (
+                    <div className="mt-2 space-y-1 border-t border-gray-200 pt-2">
+                      {comentariosDeEstaVersion.map((c) => (
+                        <div
+                          key={c.id}
+                          className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-gray-700"
+                        >
+                          {c.fragmento && (
+                            <p className="italic text-gray-500">
+                              sobre: &ldquo;{c.fragmento}&rdquo;
+                            </p>
+                          )}
+                          <p>💬 {c.contenido}</p>
+                          <p className="text-gray-500">
+                            — {c.autor_nombre || c.autor_email}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
@@ -1550,7 +1578,18 @@ export default function CasaTalentosPage() {
     etiqueta: string,
     valor: string
   ) => {
-    const notasDelCampo = aportesRecibidos.filter((a) => a.campo === campo && a.fragmento)
+    // Solo los comentarios que siguen sobre el texto vigente (sin versión
+    // asignada todavía) se resaltan acá — los que quedaron atados a una
+    // versión anterior se muestran junto a esa versión, en
+    // renderizarVersionesCampo, para no intentar calzarlos contra un texto
+    // que ya cambió.
+    const notasDelCampo = aportesRecibidos.filter(
+      // "?? null" normaliza el caso en que la columna version_id todavía no
+      // existe (llega undefined en vez de null) al mismo comportamiento que
+      // un comentario sin versión asignada — así no deja de mostrarse nada
+      // mientras la migración no esté corrida.
+      (a) => a.campo === campo && a.fragmento && (a.version_id ?? null) === null
+    )
     const segmentos = construirSegmentosResaltados(valor, notasDelCampo)
     const hayTextoSeleccionadoAca = campoConSeleccion === campo && textoSeleccionado
     const esNuevo = camposNuevosViendo.has(COLUMNA_POR_CAMPO_COORDENADAS[campo])
@@ -1833,6 +1872,11 @@ export default function CasaTalentosPage() {
 
       if (coordenadasAbiertas) {
         void cargarVersionesCoordenadas()
+        // Los comentarios que estaban sobre el texto vigente acaban de
+        // quedar atados a la versión que se archiva recién ahora — sin este
+        // refetch, el panel de versiones seguiría mostrándolos como si
+        // siguieran "en vivo" hasta la próxima recarga.
+        void cargarAportesRecibidos()
       }
     } catch {
       setMensajeCoordenadas("Error guardando tu proyecto.")

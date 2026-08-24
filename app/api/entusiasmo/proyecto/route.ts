@@ -206,7 +206,23 @@ export async function PUT(req: Request) {
       }))
 
       if (versiones.length > 0) {
-        await supabase.from("entusiasmo_coordenadas_versiones").insert(versiones)
+        const { data: versionesCreadas } = await supabase
+          .from("entusiasmo_coordenadas_versiones")
+          .insert(versiones)
+          .select("id, campo")
+
+        // Los comentarios anclados que estaban sobre el texto vigente de
+        // cada campo (version_id null) pasan a apuntar a la versión recién
+        // archivada — es el texto exacto sobre el que se habían hecho, así
+        // que quedan visibles ahí en vez de perderse de la vista.
+        for (const version of versionesCreadas || []) {
+          await supabase
+            .from("entusiasmo_aportes")
+            .update({ version_id: version.id })
+            .eq("proyecto_id", existente.id)
+            .eq("campo", version.campo)
+            .is("version_id", null)
+        }
       }
     }
 
