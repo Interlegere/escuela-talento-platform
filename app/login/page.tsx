@@ -1,14 +1,39 @@
 "use client"
 
+import Image from "next/image"
 import Link from "next/link"
 import { signIn, signOut } from "next-auth/react"
 import { Suspense, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
 
+// El menú principal (AppNav) no se renderiza en /login (ver AppNav.tsx) —
+// esta marca chica reemplaza esa referencia visual sin traer de vuelta la
+// fila completa de links, que ahí no le sirve a nadie sin sesión.
+function LoginBrand() {
+  return (
+    <Link
+      href="/landing"
+      className="mb-6 flex items-center gap-2 text-gray-800 no-underline"
+    >
+      <Image
+        src="/interlegere-icono.png"
+        alt="Logo"
+        width={32}
+        height={32}
+        className="h-8 w-8 object-contain"
+      />
+      <span className="text-sm font-semibold uppercase tracking-[0.2em]">
+        Entheos
+      </span>
+    </Link>
+  )
+}
+
 function LoginPageFallback() {
   return (
-    <main className="flex items-center justify-center h-screen">
+    <main className="flex flex-col items-center justify-center h-screen">
+      <LoginBrand />
       <div className="border p-8 rounded-xl w-80 space-y-4">
         <h1 className="text-2xl font-bold text-center">Acceso al Campus</h1>
         <p className="text-sm text-gray-600 text-center">Preparando acceso...</p>
@@ -77,7 +102,8 @@ function LoginPageContent() {
   }
 
   return (
-    <main className="flex items-center justify-center h-screen">
+    <main className="flex flex-col items-center justify-center h-screen">
+      <LoginBrand />
       <form
         onSubmit={handleLogin}
         suppressHydrationWarning

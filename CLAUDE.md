@@ -1582,3 +1582,33 @@ Con las columnas ya creadas, batería completa contra el servidor real con un us
 
 ## 6. Pendiente
 - **No se hizo commit todavía.**
+
+---
+
+# Sesión de trabajo 2026-08-23 (continuación) — Diagnóstico mobile + los 2 hallazgos de prioridad alta
+
+## 1. Objetivo
+Nicolás pidió una verificación y diagnóstico del uso en celular, con sugerencias de UX/estética. Se armó un artifact con capturas reales (viewport iPhone 13, 390×844) sobre 10 pantallas — públicas, de participante y de admin — publicado y compartido. Resumen del diagnóstico: **ningún** page-level horizontal overflow en ninguna pantalla (el layout base ya está bien pensado para mobile); los dos problemas reales eran de navegación, no de layout roto. Nicolás pidió avanzar con esos dos (prioridad alta).
+
+## 2. Hallazgo 1 — el menú principal escondía la mayoría de sus links sin avisar
+El menú (`components/AppNav.tsx`) era una fila de píldoras con scroll horizontal (`overflow-x-auto`), sin ningún indicador visual de que hubiera más contenido a la derecha. Medido en vivo: 1280px de contenido real contra 348px visibles en un participante — "Perfil" y "Login" quedaban totalmente fuera de vista. Para admin (10 links) era todavía peor.
+
+**Corregido**: se agregó un botón de menú (☰ / ✕) visible solo debajo de `lg` (mismo breakpoint que ya usaba el layout para pasar de columna a fila), que despliega los links en una lista vertical dentro de la misma tarjeta — sin overlay ni backdrop, simple y consistente con el resto del proyecto. En `lg` y superior el comportamiento queda **exactamente igual que antes** (fila horizontal, sin cambios). El punto de "hay novedades en Entusiasmento" se preserva tanto en el botón del menú cerrado como en el link dentro del menú abierto. Cada link del menú desplegado cierra el menú al tocarlo (via `onClick` en el propio link, no un `useEffect` con `setState` — ese patrón disparaba un error real de lint, `react-hooks/set-state-in-effect`, corregido moviendo el cierre al evento de click).
+
+## 3. Hallazgo 2 — el login mostraba el menú completo de un usuario ya logueado, sin haber iniciado sesión
+`esLandingPublica` (ahora renombrada `esRutaPublicaSinNav` para que el nombre siga siendo preciso) excluía `/landing` y `/` del render de `AppNav`, pero no `/login` — ahí aparecía el mismo menú de 8 links de un participante logueado, inútil para alguien que todavía no entró, empujando el formulario de acceso más abajo.
+
+**Corregido**: se agregó `/login` a esa exclusión. Como `/login` no tenía ningún logo/marca propia (a diferencia de `/landing`, que trae su propio `LandingPublicNav`), se agregó un componente chico `LoginBrand` directo en `app/login/page.tsx` — solo el ícono + "Entheos" en mayúsculas, sin ningún link de navegación, para que la página no quede sin ninguna marca visual.
+
+## 4. Verificado en vivo
+Batería completa con Playwright, mobile (iPhone 13) y desktop (1400×900), contra el servidor real:
+- `/login` sin sesión: 0 apariciones del `AppNav` completo, la marca chica `LoginBrand` presente.
+- `/campus` como admin, mobile: la fila horizontal vieja ya no existe, aparece el botón de menú, al abrirlo se listan los 10 links del admin, tocar "Perfil" navega y cierra el menú solo.
+- Desktop: el botón de menú existe en el DOM pero no es visible (`lg:hidden`), la fila horizontal sigue mostrando los 11 elementos (10 links + logo) exactamente como antes.
+- Cero errores de consola en ambas corridas — la primera corrida sí mostró errores de hidratación reales, pero se confirmó que eran el servidor de desarrollo sirviendo HTML viejo tras varias ediciones seguidas al mismo archivo (mismo patrón ya documentado en sesiones anteriores) — se reinició `npm run dev` con la caché de `.next` borrada y quedó resuelto, confirmado con una segunda corrida limpia.
+
+`typecheck`/`lint` limpios, mismo baseline de 24 problemas preexistentes (el error nuevo de `set-state-in-effect` que había introducido se corrigió antes de terminar, no quedó ninguno nuevo).
+
+## 5. Pendiente
+- **No se hizo commit todavía.**
+- Resto del diagnóstico (prioridad media/baja) sin implementar todavía: selector de participante que corta texto en Mentorías/Terapia, longitud de la landing en celular, insignias repetidas en Comunicaciones, ajustes menores en Entusiasmento — quedan en el artifact para cuando Nicolás quiera retomarlos.
