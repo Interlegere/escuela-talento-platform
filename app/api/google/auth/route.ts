@@ -28,10 +28,17 @@ export async function GET() {
     redirectUri
   )
 
+  const ownerEmail = process.env.GOOGLE_CALENDAR_OWNER_EMAIL
+
   const url = oauth2Client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
     scope: ["https://www.googleapis.com/auth/calendar"],
+    // Le sugiere a Google qué cuenta preseleccionar en la pantalla de login
+    // — no lo fuerza (si hay varias cuentas activas en el navegador, Google
+    // igual puede ofrecer otras), pero baja mucho la chance de tocar por
+    // costumbre la cuenta personal en vez de la del dominio.
+    ...(ownerEmail ? { login_hint: ownerEmail } : {}),
   })
 
   return NextResponse.redirect(url)

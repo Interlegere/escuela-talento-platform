@@ -37,6 +37,9 @@ export default function PerfilPage() {
   const [mensaje, setMensaje] = useState("")
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
+  const [googleConectado, setGoogleConectado] = useState<boolean | null>(null)
+  const [googleMensaje, setGoogleMensaje] = useState("")
+  const [desconectandoGoogle, setDesconectandoGoogle] = useState(false)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -78,6 +81,61 @@ export default function PerfilPage() {
       void cargarPerfil()
     }
   }, [cargarPerfil, status])
+
+  const cargarEstadoGoogle = useCallback(async () => {
+    try {
+      const res = await fetch("/api/google/participante/estado", { cache: "no-store" })
+      const data = await res.json()
+      setGoogleConectado(res.ok ? Boolean(data.conectado) : false)
+    } catch {
+      setGoogleConectado(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      void cargarEstadoGoogle()
+    }
+  }, [cargarEstadoGoogle, status])
+
+  // El callback de Google vuelve acá con ?google_success=...&google_error=...
+  // en la URL — se lee directo de window.location en vez de useSearchParams
+  // para no tener que envolver toda la página en Suspense por esto solo.
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const params = new URLSearchParams(window.location.search)
+    const success = params.get("google_success")
+    const error = params.get("google_error")
+
+    if (success) setGoogleMensaje(success)
+    if (error) setGoogleMensaje(error)
+
+    if (success || error) {
+      window.history.replaceState({}, "", window.location.pathname)
+    }
+  }, [])
+
+  const desconectarGoogle = async () => {
+    try {
+      setDesconectandoGoogle(true)
+      setGoogleMensaje("")
+
+      const res = await fetch("/api/google/participante/desconectar", { method: "POST" })
+
+      if (!res.ok) {
+        setGoogleMensaje("No se pudo desconectar Google Calendar.")
+        return
+      }
+
+      setGoogleConectado(false)
+      setGoogleMensaje("Se desconectó tu Google Calendar.")
+    } catch {
+      setGoogleMensaje("Error desconectando Google Calendar.")
+    } finally {
+      setDesconectandoGoogle(false)
+    }
+  }
 
   const guardarPerfil = async () => {
     try {
@@ -207,6 +265,42 @@ export default function PerfilPage() {
             {guardando ? "Guardando..." : "Guardar perfil"}
           </button>
         </div>
+      </section>
+
+      <section className="workspace-panel space-y-3">
+        <div className="space-y-1">
+          <p className="workspace-eyebrow">Calendario</p>
+          <h2 className="workspace-title-sm">Google Calendar</h2>
+          <p className="text-sm text-gray-600">
+            Conectá tu Google Calendar para que tus tareas de Entusiasmento con
+            fecha y hora aparezcan solas en tu calendario, sin tener que
+            aceptar nada por mail.
+          </p>
+        </div>
+
+        {googleMensaje && (
+          <p className="text-sm text-gray-700">{googleMensaje}</p>
+        )}
+
+        {googleConectado === null ? (
+          <p className="text-sm text-gray-500">Revisando conexión...</p>
+        ) : googleConectado ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm text-emerald-700">✓ Conectado</span>
+            <button
+              type="button"
+              onClick={() => void desconectarGoogle()}
+              disabled={desconectandoGoogle}
+              className="text-sm text-gray-500 underline disabled:opacity-60"
+            >
+              {desconectandoGoogle ? "Desconectando..." : "Desconectar"}
+            </button>
+          </div>
+        ) : (
+          <a href="/api/google/participante/auth" className="workspace-button-primary inline-block">
+            Conectar con Google
+          </a>
+        )}
       </section>
     </main>
   )

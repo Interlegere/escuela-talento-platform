@@ -1,3 +1,7 @@
+import {
+  cancelarTareasEnCalendario,
+  sincronizarTareaEnCalendario,
+} from "@/lib/entusiasmo-calendario-ics"
 import { obtenerFechaISOArgentina } from "@/lib/fechas"
 import { otorgarPuntoTareaSiCorresponde } from "@/lib/entusiasmo-puntos"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
@@ -52,22 +56,29 @@ export async function generarOcurrenciasIniciales(
 ) {
   const fechas = calcularProximasFechas(serie.dia_semana, SEMANAS_ADELANTE)
 
-  const { error } = await supabase.from("entusiasmo_tareas").insert(
-    fechas.map((fecha) => ({
-      proyecto_id: serie.proyecto_id,
-      contenido: serie.contenido,
-      fecha,
-      hora: serie.hora,
-      prioridad: serie.prioridad,
-      serie_id: serie.id,
-    }))
-  )
+  const { data: creadas, error } = await supabase
+    .from("entusiasmo_tareas")
+    .insert(
+      fechas.map((fecha) => ({
+        proyecto_id: serie.proyecto_id,
+        contenido: serie.contenido,
+        fecha,
+        hora: serie.hora,
+        prioridad: serie.prioridad,
+        serie_id: serie.id,
+      }))
+    )
+    .select("id")
 
   if (error) {
     throw error
   }
 
   await otorgarPuntoTareaSiCorresponde(supabase, participanteEmail, "creada")
+
+  for (const fila of creadas || []) {
+    await sincronizarTareaEnCalendario(supabase, fila.id as number)
+  }
 }
 
 // Para cada serie activa, si la última ocurrencia generada queda a menos
@@ -132,16 +143,19 @@ export async function completarHorizonteDeSeries(supabase: SupabaseAdminClient) 
 
     if (fechas.length === 0) continue
 
-    const { error: insertError } = await supabase.from("entusiasmo_tareas").insert(
-      fechas.map((fecha) => ({
-        proyecto_id: serie.proyecto_id,
-        contenido: serie.contenido,
-        fecha,
-        hora: serie.hora,
-        prioridad: serie.prioridad,
-        serie_id: serie.id,
-      }))
-    )
+    const { data: creadas, error: insertError } = await supabase
+      .from("entusiasmo_tareas")
+      .insert(
+        fechas.map((fecha) => ({
+          proyecto_id: serie.proyecto_id,
+          contenido: serie.contenido,
+          fecha,
+          hora: serie.hora,
+          prioridad: serie.prioridad,
+          serie_id: serie.id,
+        }))
+      )
+      .select("id")
 
     if (insertError) {
       console.warn("No se pudo completar el horizonte de una serie de tareas:", insertError)
@@ -153,6 +167,11 @@ export async function completarHorizonteDeSeries(supabase: SupabaseAdminClient) 
     ).entusiasmo_proyectos.participante_email
 
     await otorgarPuntoTareaSiCorresponde(supabase, participanteEmail, "creada")
+
+    for (const fila of creadas || []) {
+      await sincronizarTareaEnCalendario(supabase, fila.id as number)
+    }
+
     seriesCompletadas += 1
   }
 
@@ -166,6 +185,20 @@ export async function cancelarSerieDesdeOcurrencia(
   serieId: number,
   fechaDesde: string
 ) {
+  const { data: aBorrar } = await supabase
+    .from("entusiasmo_tareas")
+    .select("id")
+    .eq("serie_id", serieId)
+    .gte("fecha", fechaDesde)
+
+  // Hay que cancelar la invitación de calendario ANTES de borrar las filas
+  // — una vez borradas ya no queda de dónde leer fecha/hora para armar el
+  // .ics de cancelación.
+  await cancelarTareasEnCalendario(
+    supabase,
+    (aBorrar || []).map((fila) => fila.id as number)
+  )
+
   const { error: deleteError } = await supabase
     .from("entusiasmo_tareas")
     .delete()

@@ -4,6 +4,10 @@ import {
   hasPermission,
   requireActivityAccess,
 } from "@/lib/authz"
+import {
+  cancelarTareasEnCalendario,
+  sincronizarTareaEnCalendario,
+} from "@/lib/entusiasmo-calendario-ics"
 import { otorgarPuntoTareaSiCorresponde } from "@/lib/entusiasmo-puntos"
 import {
   cancelarSerieDesdeOcurrencia,
@@ -228,6 +232,7 @@ export async function POST(req: Request) {
     }
 
     await otorgarPuntoTareaSiCorresponde(supabase, auth.actor.email, "creada")
+    await sincronizarTareaEnCalendario(supabase, (data as TareaRow).id)
 
     return NextResponse.json({ ok: true, tarea: data as TareaRow })
   } catch (error) {
@@ -327,6 +332,18 @@ export async function PATCH(req: Request) {
       await otorgarPuntoTareaSiCorresponde(supabase, participanteEmail, "completada")
     }
 
+    // Cualquier cambio que pueda afectar si la tarea corresponde estar en el
+    // calendario de la persona, o cuándo — contenido, fecha, hora o
+    // completada — dispara una revisión de la invitación.
+    if (
+      body.contenido !== undefined ||
+      body.fecha !== undefined ||
+      body.hora !== undefined ||
+      body.completada !== undefined
+    ) {
+      await sincronizarTareaEnCalendario(supabase, id)
+    }
+
     return NextResponse.json({ ok: true, tarea: data as TareaRow })
   } catch (error) {
     return NextResponse.json(
@@ -398,6 +415,10 @@ export async function DELETE(req: Request) {
         return NextResponse.json({ ok: true })
       }
     }
+
+    // Cancelar la invitación de calendario antes de borrar — una vez
+    // borrada la fila ya no queda de dónde leer fecha/hora/participante.
+    await cancelarTareasEnCalendario(supabase, [id])
 
     const { error } = await supabase.from("entusiasmo_tareas").delete().eq("id", id)
 

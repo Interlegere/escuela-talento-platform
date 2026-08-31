@@ -1664,3 +1664,96 @@ Contra la cuenta real de Verónica Saracho (sin datos de prueba, dato real de pr
 
 ## 5. Pendiente
 - **No se hizo commit todavía** — solo el fix de código (`app/api/entusiasmo/proyecto/route.ts`); la reparación de los 5 registros fue un cambio de datos directo, no hay nada de eso para commitear.
+
+---
+
+# Sesión de trabajo 2026-08-25 — Sincronizar tareas de Entusiasmento al calendario personal de cada participante
+
+## 1. Objetivo
+Nicolás pidió llevar las tareas de Entusiasmento al calendario personal de cada participante, conectándolo con el esfuerzo anterior de sincronizar la Agenda.
+
+## 2. Antecedente clave que definió el diseño
+La sesión del 2026-08-04 había dejado un bloqueo real y sin resolver: invitar participantes como asistentes de un evento vía la API de Google Calendar (usando la única cuenta OAuth conectada, la de Nicolás) es **rechazado en silencio por una política de Google Workspace** — el evento se crea, pero el invitado externo desaparece. Ese código (`attendees`/`sendUpdates` en `lib/google-calendar.ts`/`app/api/google/sync-serie/route.ts`) sigue sin commitear, tal cual quedó. Como no hay una conexión OAuth por participante (solo la de Nicolás), cualquier diseño que dependiera de "invitarlos" desde ahí pisaba el mismo muro.
+
+Se le presentaron 3 caminos a Nicolás (link de suscripción ICS manual, OAuth propio por participante, o antes solo diagnosticar) — pidió la opción ICS pero **sin que dependa de que la persona se acuerde de configurarlo**. Se ajustó el diseño a **invitación de calendario por mail** (`.ics` adjunto con `METHOD:REQUEST`, el mismo mecanismo con el que cualquier app manda "Fulano te invitó a un evento") — es un mail común enviado por Resend, no pasa por la API de Google Calendar ni por la cuenta de Nicolás, así que el bloqueo de Workspace no aplica. Gmail/Outlook/Apple Mail lo reconocen solos y muestran un cartel de Sí/Tal vez/No directo en el mail.
+
+## 3. Diseño
+- Solo se sincronizan tareas con **fecha y hora** cargadas (sin hora no hay con qué armar un evento) y que no estén completadas.
+- Cada tarea individual es su propio evento — como las tareas recurrentes ya se generan como filas concretas semana por semana (no como una regla `RRULE` abstracta), no hizo falta ningún manejo especial de recurrencia: cada ocurrencia se sincroniza igual que cualquier tarea suelta.
+- `UID` estable derivado del id de la tarea (`entusiasmo-tarea-<id>@entheosescuela.com`, sin necesidad de guardarlo) — así todos los re-envíos actualizan el mismo evento en el calendario de la persona en vez de crear uno nuevo cada vez.
+- `SEQUENCE` (RFC 5545) sube en cada reenvío para que los clientes de calendario lo traten como actualización, no como duplicado — incluyendo el caso de "se canceló y después se volvió a activar" (completar y destildar una tarea), que updates ingenuos podían haber reenviado con el mismo número que la cancelación.
+- Completar una tarea → cancela el evento (ya cumplió su función, no tiene sentido seguir ocupando lugar en el calendario). Descompletarla → vuelve a mandar la invitación.
+- Editar contenido/fecha/hora → reenvía la invitación actualizada. Borrar una tarea (o "esta y las próximas" de una serie) → cancela antes de borrar la fila (una vez borrada no queda de dónde leer los datos para armar la cancelación).
+- El estado de sincronización solo se guarda en la base **si el mail realmente salió** (`resultado.enviado`) — si Resend falla, la tarea queda igual que antes en vez de darse por sincronizada/cancelada sin haber mandado nada.
+
+## 4. Qué se hizo
+- `sql/2026-08-24_entusiasmo_tareas_calendario.sql` (corrida por Nicolás): `entusiasmo_tareas` gana `calendario_ics_sequence` (integer, default 0) y `calendario_sincronizado_at` (timestamptz, null = nunca se mandó nada para esa tarea).
+- `lib/entusiasmo-calendario-ics.ts` (nuevo): construcción del `.ics` a mano (sin librería — mismo criterio hand-rolled del resto del proyecto), con plegado de líneas RFC 5545 (75 octetos) y escapado de texto (comas, punto y coma, saltos de línea). `sincronizarTareaEnCalendario` (crear/actualizar/cancelar según corresponda) y `cancelarTareasEnCalendario` (para cancelar en lote antes de un borrado). Reutiliza `enviarEmail` de `lib/mailing.ts`, mismo patrón que el resto de mails transaccionales.
+- Enganchado en `app/api/entusiasmo/tareas/route.ts` (POST/PATCH/DELETE) y `lib/entusiasmo-tareas-series.ts` (`generarOcurrenciasIniciales`, `completarHorizonteDeSeries` — el cron de top-up ya existente, sin cron nuevo — y `cancelarSerieDesdeOcurrencia`).
+
+## 5. Bugs reales encontrados y corregidos durante la prueba en vivo (antes de dar por terminado)
+1. **`hora` llega de la base como `"HH:MM:SS"`, no `"HH:MM"`** (columna `time` de Postgres) — el primer intento asumía 5 caracteres y le agregaba `:00` sin chequear, armando una fecha inválida (`"...T15:00:00:00-03:00"`) que tiraba `RangeError: Invalid time value` en cada envío, silenciado por el try/catch general (todas las tareas de prueba fallaban en silencio, `calendario_sincronizado_at` nunca se actualizaba). Mismo detalle que ya estaba resuelto para esto mismo en `convertirFechaHoraArgentinaAZona` (`lib/fechas.ts`) — se copió el mismo chequeo de longitud.
+2. **Reenvío tras un ciclo cancelar→reactivar podía repetir el mismo `SEQUENCE`** (completar una tarea la cancela; destildarla la reactiva) — el primer diseño solo miraba si la invitación estaba viva *ahora* para decidir si incrementar, así que un "volver a activar" después de una cancelación reusaba el número ya gastado en esa cancelación. Corregido: se incrementa siempre que ya se haya mandado algo antes (mirando tanto si está viva ahora como si `calendario_ics_sequence` ya es mayor a 0), reservando el valor sin incrementar solo para el primer envío de todos.
+
+## 6. Verificado en vivo
+Antes de pedirle a Nicolás que corriera el SQL, se confirmó que crear una tarea con fecha+hora seguía funcionando igual sin las columnas nuevas (degradación con gracia, mismo criterio de siempre). Con las columnas ya creadas, batería completa contra el servidor real, con un participante de prueba 100% descartable (`delivered@resend.dev`, la dirección oficial de entrega real de Resend — permite confirmar el envío de punta a punta sin mandarle nada a una persona real):
+- Crear tarea con fecha/hora → invitación mandada, `sequence: 0`.
+- Editar la hora → invitación actualizada, `sequence: 1`.
+- Completar la tarea → cancelación mandada, `sequence: 2`, `calendario_sincronizado_at` vuelve a `null`.
+- Destildarla → se manda de nuevo, `sequence: 3` (no repite el 2, confirma el fix del punto 5.2).
+- Borrarla → cancelación mandada antes del borrado.
+- Crear una serie recurrente ("todos los martes") → las 8 ocurrencias generadas de una mandan su propia invitación cada una, todas confirmadas.
+- Cancelar "esta y las próximas" → las 8 ocurrencias se cancelan (mail de cancelación por cada una) antes de borrarse de la base.
+- Confirmado contra la API real de Resend que los mails de prueba quedaron `"last_event": "delivered"` (entrega real confirmada, no solo aceptados).
+- Contenido del `.ics` validado por separado de forma estructural (réplica exacta del algoritmo): `BEGIN`/`END` balanceados, `DTSTART` con formato válido, conversión de horario correcta (16:30 hora Argentina → `19:30:00Z`, offset fijo -3 sin problema), plegado de línea y escapado de texto funcionando.
+
+**Lo que no se pudo verificar desde acá**: cómo se ve exactamente la invitación en un cliente de mail real (el cartel "Sí/Tal vez/No" de Gmail, por ejemplo) — Resend no permite recuperar el contenido exacto de un adjunto ya enviado, y no hay una casilla real accesible desde este entorno para mirarlo. Confirmado que el mail llega y que el `.ics` es válido, pero la experiencia visual final conviene que Nicolás la confirme con su propio Gmail antes de darlo por definitivo.
+
+`typecheck`/`lint` limpios, mismo baseline de 24 problemas preexistentes, sin warnings nuevos.
+
+## 7. Pendiente
+- **No se hizo commit todavía.**
+- Nicolás tiene que confirmar con un mail real cómo se ve/comporta la invitación en su propio cliente de calendario antes de darlo por terminado.
+- Extender el mismo mecanismo a las reuniones de Agenda (mencionado como el próximo paso natural, no arrancado en esta sesión).
+- El volumen de mails al crear una serie recurrente (8 de una) no se probó "en la práctica" para ver si se siente como spam — vale la pena que Nicolás lo viva una vez y decida si conviene agrupar en un solo mail con varios `VEVENT` más adelante.
+
+---
+
+# Sesión de trabajo 2026-08-27 → 2026-08-31 — Google Calendar por participante (conexión directa, sin mail)
+
+## 1. Objetivo
+Después de implementar la sincronización de tareas de Entusiasmento por mail (sesión 2026-08-25), Nicolás la probó y pidió algo "más instantáneo": que la tarea aparezca directo en el calendario, sin tener que aceptar una invitación. Se le explicó que eso técnicamente requiere que cada participante conecte su propia cuenta de Google (OAuth), ya que el mail con aceptar/rechazar es inherente al protocolo de invitaciones de calendario, no un detalle de implementación — no hay forma de evitarlo sin ese permiso. Nicolás confirmó avanzar con esa opción pese al costo (una integración nueva, aunque terminó siendo más simple de lo previsto: no hace falta verificación de Google, solo pasar la pantalla de consentimiento a "In Production", ver punto 4).
+
+## 2. Diseño
+Se reutilizó la tabla `google_calendar_tokens` ya existente (antes solo servía a la conexión única de Nicolás) en vez de crear una nueva — ya tenía la forma correcta (access_token/refresh_token/scope/expiry por fila), solo le faltaba una columna para asociar una fila a un participante en vez de a la cuenta única configurada por env var.
+
+- **`participante_email`** (nueva columna en `google_calendar_tokens`, con restricción UNIQUE): identifica de qué participante es cada conexión, independiente de `user_email` (que sigue usando el flujo viejo de Nicolás).
+- **Flujo nuevo, completamente separado del de Nicolás** (`lib/entusiasmo-google-participante.ts` + `app/api/google/participante/{auth,callback,estado,desconectar}`) — a propósito no se tocó `lib/google-calendar.ts` (esa lógica ya sostiene la Agenda en producción, cualquier cambio ahí es más riesgoso).
+- **Scope acotado**: `calendar.events` (crear/editar/borrar eventos) en vez del `calendar` completo que usa la conexión de Nicolás — el flujo por participante no necesita gestionar calendarios enteros.
+- **`lib/entusiasmo-calendario-ics.ts`** ahora prioriza: si el participante ya conectó su Google, escribe el evento **directo** en su calendario (crear/actualizar/borrar vía API, usando `entusiasmo_tareas.calendario_google_event_id` para saber qué evento tocar) — sin mail, sin click, instantáneo, y sin pasar por la cuenta de Nicolás así que no aplica el bloqueo de Workspace a invitados externos (acá cada quien escribe en su propio calendario, no invita a nadie). Si el participante todavía no conectó, sigue funcionando el respaldo por mail de la sesión anterior.
+- **Botón "Conectar con Google" en `/perfil`**: estado (conectado/no), desconectar, mensaje de éxito/error leído de `?google_success=`/`?google_error=` en la URL tras volver del callback.
+
+## 3. Bug real encontrado y corregido: índice único parcial no sirve para upsert
+El primer intento (`sql/2026-08-27_...`) usó un índice único **parcial** (`create unique index ... where participante_email is not null`). Postgres lo rechaza como target de `ON CONFLICT` en un upsert simple ("no unique or exclusion constraint matching the ON CONFLICT specification") salvo que el `ON CONFLICT` repita el mismo predicado — algo que la API de upsert de Supabase no permite expresar. Corregido con una migración nueva (`sql/2026-08-31_...`): se reemplazó por una restricción `UNIQUE` común (en Postgres, `UNIQUE` nunca considera dos `NULL` iguales, así que las filas viejas del flujo de Nicolás con `participante_email` null conviven sin problema). Verificado en vivo: 3 upserts seguidos con el mismo `participante_email` de prueba dieron como resultado una sola fila.
+
+## 4. Incidente real durante la prueba: la conexión de Nicolás con Agenda estaba muerta
+Mientras se probaba esto, Nicolás reportó que una mentoría recién agendada no se había sincronizado — investigado en vivo (probando el token guardado directo contra la API de Google), devolvía `invalid_grant: "Token has been expired or revoked."`. Causa: el proyecto de Google Cloud estaba en estado "Testing", que vence los refresh tokens a los 7 días — exactamente el "cada tanto se desconecta sola" que Nicolás venía sufriendo con la Agenda, sin relación directa con esta feature nueva pero descubierto en el camino.
+
+**Corrección de Nicolás (no mía) sobre lo que yo había dicho antes**: yo había asumido que evitar esto requería pasar por la verificación de Google (proceso de revisión, puede tardar). Nicolás corrigió: **no hace falta verificar** — alcanza con pasar la pantalla de consentimiento de "Testing" a "In Production" (un click en Google Cloud Console) para que los tokens dejen de vencer a los 7 días; los participantes solo ven una pantalla de "app no verificada" que pueden saltear. La verificación solo hace falta para sacar ese cartel o superar 100 usuarios — no aplica con la escala actual (unos pocos participantes). Nicolás pasó la app a producción y reconectó — verificado en vivo contra la API real de Google que el token nuevo ya no falla.
+
+También se agregó `login_hint` (con `GOOGLE_CALENDAR_OWNER_EMAIL`) al link de conectar de Nicolás (`app/api/google/auth/route.ts`) — tiene dos cuentas de Google activas en el mismo navegador (`nicolasbusico.psi@gmail.com`, la personal con la que armó todo al principio, y `nicolasbusico@entheosescuela.com`, la del dominio) y a veces terminaba autenticándose sin querer con la personal; el código ya rechazaba correctamente guardar esa conexión equivocada (por diseño, para no mezclar cuentas), pero sin ningún aviso claro de por qué "no tomaba" — el `login_hint` reduce la chance de tocar la cuenta equivocada de entrada.
+
+## 5. Limpieza de datos real (confirmada con Nicolás antes de tocar)
+`google_calendar_tokens` tenía 6 filas duplicadas para `nicolasbusico.psi@gmail.com` (reconexiones de distintos momentos, cada una con su propio refresh_token — probablemente de antes de que existiera la lógica actual de "buscar si ya existe antes de insertar"). Se dejó solo la más reciente (id 8) y se borraron las otras 5 (ids 2-6). Se dejó sin tocar una fila suelta con `user_email: admin@escuela.com` (login de prueba, no una cuenta real de Google, sin relación con este bug) — Nicolás no pidió borrarla.
+
+## 6. Verificado en vivo
+- Upsert con índice corregido: 3 intentos seguidos con el mismo `participante_email` de prueba → 1 sola fila, con el valor del último intento.
+- Token de Nicolás reconectado: probado directo contra `calendar.calendarList.get` con las credenciales guardadas → responde con la cuenta real (`nicolasbusico@entheosescuela.com`), sin error.
+- Toda la lógica de `lib/entusiasmo-calendario-ics.ts` (creación/edición/completado/borrado directo por API cuando hay conexión, respaldo por mail cuando no la hay) ya estaba probada de la sesión anterior para la rama de mail; la rama directa por API está escrita y revisada pero **la única verificación que falta es un click humano real** (completar la pantalla de consentimiento de Google) — no se puede automatizar desde acá.
+- `typecheck`/`lint` limpios, mismo baseline de 24 problemas preexistentes.
+
+## 7. Pendiente
+- **Nicolás tiene que probar el botón real "Conectar con Google" en `/perfil`** una vez que esto esté desplegado (recién ahora se pushea — nada de esto estaba en producción todavía, por eso no le aparecía el botón cuando lo buscó).
+- Confirmar que `GOOGLE_PARTICIPANTE_REDIRECT_URI` esté cargada también en las variables de entorno de Vercel (ya está en `.env.local`), y que esa misma URL esté registrada como "Authorized redirect URI" en el proyecto de Google Cloud.
+- Una vez confirmado que la conexión directa funciona de punta a punta con una cuenta real, probar el flujo completo con una tarea real (crear/editar/completar/borrar) para confirmar que el evento aparece/se actualiza/desaparece solo en el calendario de esa persona, sin ningún mail de por medio.
+- Extender el mismo mecanismo (mail de respaldo + conexión directa opcional) a las reuniones de Agenda — sigue siendo el próximo paso natural, no arrancado todavía.
