@@ -1,0 +1,16 @@
+<svg width="1200" height="1200" viewBox="0 0 1200 1200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="1200" fill="#FFF5E8"/>
+  <circle cx="876" cy="226" r="172" fill="#F4C25E" fill-opacity="0.54"/>
+  <circle cx="280" cy="930" r="176" fill="#9EC3D5" fill-opacity="0.34"/>
+  <rect x="126" y="112" width="948" height="976" rx="56" fill="#FFF9F0"/>
+  <rect x="190" y="186" width="820" height="280" rx="36" fill="#F5E8D6"/>
+  <rect x="238" y="236" width="210" height="18" rx="9" fill="#B37B34" fill-opacity="0.24"/>
+  <rect x="238" y="274" width="510" height="16" rx="8" fill="#B37B34" fill-opacity="0.14"/>
+  <rect x="238" y="312" width="416" height="16" rx="8" fill="#B37B34" fill-opacity="0.14"/>
+  <rect x="226" y="548" width="250" height="172" rx="30" fill="#F1C35C" fill-opacity="0.48"/>
+  <rect x="498" y="548" width="250" height="172" rx="30" fill="#EAB35A" fill-opacity="0.32"/>
+  <rect x="770" y="548" width="204" height="172" rx="30" fill="#D79744" fill-opacity="0.34"/>
+  <path d="M352 860C352 741.26 448.26 645 567 645V645C685.74 645 782 741.26 782 860V954H352V860Z" fill="#B37B34"/>
+  <circle cx="567" cy="742" r="92" fill="#26272E"/>
+  <path d="M248 996C402 940 576 926 774 984" stroke="#D28E2F" stroke-width="14" stroke-linecap="round" stroke-opacity="0.28"/>
+</svg>

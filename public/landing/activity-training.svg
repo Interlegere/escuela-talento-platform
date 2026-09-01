@@ -1,0 +1,14 @@
+<svg width="1600" height="1100" viewBox="0 0 1600 1100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="1100" fill="#FDF4E8"/>
+  <circle cx="276" cy="278" r="162" fill="#F4C55E" fill-opacity="0.5"/>
+  <rect x="94" y="80" width="1412" height="940" rx="52" fill="#FFF9F0"/>
+  <rect x="194" y="182" width="508" height="298" rx="38" fill="#F4E4CF"/>
+  <rect x="254" y="252" width="192" height="18" rx="9" fill="#B37B34" fill-opacity="0.24"/>
+  <rect x="254" y="292" width="314" height="16" rx="8" fill="#B37B34" fill-opacity="0.14"/>
+  <path d="M756 748C756 605.511 871.511 490 1014 490V490C1156.49 490 1272 605.511 1272 748V914H756V748Z" fill="#B37B34"/>
+  <circle cx="1014" cy="626" r="110" fill="#26272E"/>
+  <rect x="814" y="214" width="470" height="170" rx="34" fill="#F4D07A" fill-opacity="0.42"/>
+  <rect x="862" y="264" width="204" height="18" rx="9" fill="#B37B34" fill-opacity="0.22"/>
+  <rect x="862" y="304" width="288" height="16" rx="8" fill="#B37B34" fill-opacity="0.14"/>
+  <path d="M286 846C482 776 660 756 868 810" stroke="#2D6F95" stroke-width="14" stroke-linecap="round" stroke-opacity="0.22"/>
+</svg>

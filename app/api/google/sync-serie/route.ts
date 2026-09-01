@@ -23,6 +23,8 @@ type DisponibilidadGoogle = {
   es_recurrente?: boolean | null
   dia_semana?: string | null
   excepcion_fechas?: string | null
+  participante_email?: string | null
+  participante_nombre?: string | null
   google_event_id?: string | null
   google_calendar_id?: string | null
   serie_id?: string | null
@@ -50,6 +52,24 @@ function buildMeetConferenceData(
       },
     },
   }
+}
+
+function construirAttendees(
+  email?: string | null,
+  nombre?: string | null
+): calendar_v3.Schema$EventAttendee[] | undefined {
+  const emailNormalizado = String(email || "").trim().toLowerCase()
+
+  if (!emailNormalizado) {
+    return undefined
+  }
+
+  return [
+    {
+      email: emailNormalizado,
+      displayName: nombre?.trim() || undefined,
+    },
+  ]
 }
 
 function extractMeetLink(
@@ -139,6 +159,10 @@ async function sincronizarDisponibilidad(params: {
     location: "Google Meet",
     start: intervaloGoogle.start,
     end: intervaloGoogle.end,
+    attendees: construirAttendees(
+      disponibilidad.participante_email,
+      disponibilidad.participante_nombre
+    ),
   }
 
   let googleEventId = disponibilidad.google_event_id || null
@@ -149,6 +173,7 @@ async function sincronizarDisponibilidad(params: {
     const insertRes = await calendar.events.insert({
       calendarId,
       conferenceDataVersion: 1,
+      sendUpdates: "all",
       requestBody: {
         ...requestBody,
         conferenceData: buildMeetConferenceData(),
@@ -167,6 +192,7 @@ async function sincronizarDisponibilidad(params: {
       calendarId,
       eventId: googleEventId,
       conferenceDataVersion: 1,
+      sendUpdates: "all",
       requestBody: {
         ...requestBody,
         conferenceData: buildMeetConferenceData(

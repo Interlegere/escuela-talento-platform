@@ -2,8 +2,8 @@ import type { Metadata } from "next"
 import { Fraunces, Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import Providers from "./providers"
+import AppFooter from "@/components/AppFooter"
 import AppNav from "@/components/AppNav"
-import Link from "next/link"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -51,22 +51,9 @@ export default function RootLayout({
               <div className="absolute bottom-[-12rem] left-1/4 h-[28rem] w-[28rem] rounded-full bg-[rgba(85,108,97,0.16)] blur-3xl" />
               <div className="absolute inset-x-0 top-0 h-48 bg-[linear-gradient(180deg,rgba(255,253,247,0.74),transparent)]" />
             </div>
-
             <AppNav />
             <div className="flex-1">{children}</div>
-            <footer className="border-t border-[var(--line)] bg-[rgba(253,247,236,0.78)] px-6 py-5 text-sm text-[var(--muted)] backdrop-blur-xl">
-              <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p>
-                  ENTHEOS · Escuela de trabajo, proceso y creación compartida.
-                </p>
-                <Link
-                  href="/terminos-y-condiciones"
-                  className="font-medium underline underline-offset-4"
-                >
-                  Términos y Condiciones
-                </Link>
-              </div>
-            </footer>
+            <AppFooter />
           </div>
         </Providers>
       </body>

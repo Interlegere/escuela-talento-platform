@@ -13,6 +13,8 @@ type Disponibilidad = {
   requiere_pago: boolean
   precio: string
   estado: string
+  participante_email?: string | null
+  participante_nombre?: string | null
   google_event_id?: string | null
   google_calendar_id?: string | null
 }
@@ -367,6 +369,24 @@ function meetLinkReal(meetLink?: string | null) {
   return normalizarMeetLink(meetLink)
 }
 
+function construirAttendees(
+  email?: string | null,
+  nombre?: string | null
+): calendar_v3.Schema$EventAttendee[] | undefined {
+  const emailNormalizado = String(email || "").trim().toLowerCase()
+
+  if (!emailNormalizado) {
+    return undefined
+  }
+
+  return [
+    {
+      email: emailNormalizado,
+      displayName: nombre?.trim() || undefined,
+    },
+  ]
+}
+
 export async function sincronizarDisponibilidadConGoogle(params: {
   disponibilidadId: number
   actorEmail?: string
@@ -413,6 +433,10 @@ export async function sincronizarDisponibilidadConGoogle(params: {
     location: "Google Meet",
     start: intervaloGoogle.start,
     end: intervaloGoogle.end,
+    attendees: construirAttendees(
+      disponibilidad.participante_email,
+      disponibilidad.participante_nombre
+    ),
   }
 
   let googleEventId = disponibilidad.google_event_id || null
@@ -423,6 +447,7 @@ export async function sincronizarDisponibilidadConGoogle(params: {
     const insertRes = await calendar.events.insert({
       calendarId,
       conferenceDataVersion: 1,
+      sendUpdates: "all",
       requestBody: {
         ...requestBody,
         conferenceData: buildMeetConferenceData(),
@@ -441,6 +466,7 @@ export async function sincronizarDisponibilidadConGoogle(params: {
       calendarId,
       eventId: googleEventId,
       conferenceDataVersion: 1,
+      sendUpdates: "all",
       requestBody: {
         ...requestBody,
         conferenceData: buildMeetConferenceData(
@@ -620,6 +646,10 @@ export async function crearEventoGoogleDesdeReserva(params: {
     location: "Google Meet",
     start: intervaloGoogle.start,
     end: intervaloGoogle.end,
+    attendees: construirAttendees(
+      reserva.participante_email,
+      reserva.participante_nombre
+    ),
   }
 
   let googleEventId =
@@ -636,6 +666,7 @@ export async function crearEventoGoogleDesdeReserva(params: {
     const insertRes = await calendar.events.insert({
       calendarId,
       conferenceDataVersion: 1,
+      sendUpdates: "all",
       requestBody: {
         ...requestBody,
         conferenceData: buildMeetConferenceData(),
@@ -654,6 +685,7 @@ export async function crearEventoGoogleDesdeReserva(params: {
       calendarId,
       eventId: googleEventId,
       conferenceDataVersion: 1,
+      sendUpdates: "all",
       requestBody: {
         ...requestBody,
         conferenceData: buildMeetConferenceData(

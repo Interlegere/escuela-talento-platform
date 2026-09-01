@@ -43,11 +43,11 @@ No asumir que ocultar botones equivale a seguridad real.
 CasaTalentos es módulo crítico.
 
 Reglas actuales importantes:
-- Videos semanales de 1 min: lunes, martes y miércoles.
-- Elección el miércoles entre 18:30 y 21:30.
+- Videos semanales de 1 min: lunes y miércoles. El martes es día de aportes escritos (comentarios), no de video.
+- Elección (votación): jueves, hasta las 17:00 hs.
 - Ranking top 3.
 - Ganador solo si:
-  - subió lunes, martes y miércoles
+  - subió video lunes y miércoles
   - participó eligiendo
 - Si no elige, no puede ganar.
 - Puede haber empate → no definir ganador automático.
