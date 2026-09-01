@@ -1757,3 +1757,42 @@ También se agregó `login_hint` (con `GOOGLE_CALENDAR_OWNER_EMAIL`) al link de 
 - Confirmar que `GOOGLE_PARTICIPANTE_REDIRECT_URI` esté cargada también en las variables de entorno de Vercel (ya está en `.env.local`), y que esa misma URL esté registrada como "Authorized redirect URI" en el proyecto de Google Cloud.
 - Una vez confirmado que la conexión directa funciona de punta a punta con una cuenta real, probar el flujo completo con una tarea real (crear/editar/completar/borrar) para confirmar que el evento aparece/se actualiza/desaparece solo en el calendario de esa persona, sin ningún mail de por medio.
 - Extender el mismo mecanismo (mail de respaldo + conexión directa opcional) a las reuniones de Agenda — sigue siendo el próximo paso natural, no arrancado todavía.
+
+---
+
+# Sesión de trabajo 2026-08-31 (continuación) — 4 pedidos de Entusiasmento: duplicado de aportes, recordatorio, puntito rojo, y tareas editables con historial
+
+## 1. Objetivo
+Mientras se resolvía el tema de Google Calendar (ver sección de arriba), Nicolás pidió cuatro cosas sobre Entusiasmento:
+1. Que el texto de las tareas sea editable para el participante, sin perder la versión anterior ni los aportes que el admin le dejó ahí.
+2. Que un aporte no aparezca duplicado (una vez en "versiones anteriores" y otra vez en un cartel amarillo aparte) — que se vea siempre con el mismo globito, en Tareas, Producciones, Coordenadas y Pitch.
+3. Un cartel en Coordenadas recordando guardar los cambios.
+4. Verificar que el puntito rojo de "hay novedades" funcione bien tanto para aportes del admin como para actualizaciones de los participantes.
+
+## 2. Qué se hizo
+
+**#2 — Bug real encontrado y corregido (Coordenadas)**: en la vista de edición propia (participante viendo sus propias Coordenadas, o el admin en su solapa "Yo"), se llamaban `renderizarNotasCampo` (lista plana, sin filtrar por versión) Y `renderizarVersionesCampo` (dentro de "Ver versiones anteriores", si el aporte ya estaba religado a una versión) — el mismo aporte aparecía en las dos. Corregido: `renderizarNotasCampo` ahora filtra a `version_id === null` (solo aportes sobre el texto vigente), y `renderizarVersionesCampo` pasó de mostrar los aportes archivados en una caja plana separada a resaltarlos **con el mismo mecanismo de globito 💬 + popup** que ya se usaba para el texto vigente (se extrajo ese bloque de JSX a una función compartida, `renderizarSegmentosConAportes`, reutilizada en las dos vistas).
+
+**#1 — Tareas editables con historial (lo más grande)**: no existía ningún versionado de tareas — se construyó desde cero, replicando exactamente el patrón ya probado de Coordenadas:
+- `sql/2026-08-31_entusiasmo_tareas_versiones.sql` (corrida por Nicolás): tabla nueva `entusiasmo_tareas_versiones` (`tarea_id`, `contenido`, `created_at`) + columna nueva `entusiasmo_aportes.tarea_version_id` (FK separada de `version_id`, que sigue siendo solo para Coordenadas — un comentario de tarea nunca se puede confundir con uno de coordenadas).
+- `PATCH /api/entusiasmo/tareas`: si `contenido` cambia y el valor anterior no estaba vacío, se archiva el valor viejo y se religan los aportes de esa tarea que tenían `tarea_version_id null` — mismo mecanismo que ya usa `PUT /api/entusiasmo/proyecto` para Coordenadas.
+- `GET /api/entusiasmo/tareas-versiones` (nuevo endpoint): trae las versiones archivadas de las tareas de un participante.
+- UI: se restructuró la fila de tarea en `app/casatalentos/page.tsx` — el checkbox ya no envuelve el texto en un `<label>` (mismo motivo que ya se corrigió antes: un botón de comentario adentro de un `<label>` togglearía el checkbox sin querer), ahora el participante tiene un botón "✎" para editar el texto de su propia tarea, y el texto vigente se muestra con el mismo resaltado con globito que ya tenía Coordenadas (usando `renderizarSegmentosConAportes`, sin el flujo de "comentar selección" que es admin-only). Se agregó "Ver versiones anteriores" también para tareas, tanto en la vista propia como en la vista de admin.
+- Reutiliza `renderizarSegmentosConAportes` (extraída en el punto anterior) en tres lugares: texto vigente propio, texto vigente que ve el admin, y cada versión archivada — así el mismo aporte SIEMPRE se ve igual, esté donde esté.
+
+**#3 — Cartel de recordatorio**: agregado en Coordenadas, junto al botón "Guardar coordenadas".
+
+**#4 — Bug real encontrado y corregido (puntito rojo)**: `calcularNovedadesPorParticipante` (`lib/entusiasmo-novedades.ts`, alimenta el punto del menú y el de la lista de solapas del admin) solo miraba `created_at` de producciones/tareas para decidir "hay novedad" — si el participante EDITABA algo ya existente (sin crear una fila nueva), el punto no se encendía, aunque el detalle fino al abrir la solapa sí lo mostraba correctamente (ese usa `updated_at`). Corregido para usar `updated_at || created_at`, igual que ya hacía el detalle — ahora ambos niveles son consistentes.
+
+## 3. Verificado en vivo
+- Antes de pedirle a Nicolás que corriera el SQL de tareas-versiones, se confirmó que crear/editar/borrar tareas seguía funcionando igual sin la tabla nueva (el archivado falla en silencio, sin romper la edición real).
+- Con el SQL corrido, batería completa por API: crear tarea → comentario anclado (`tarea_version_id null`) → editar el texto → confirmar que se archivó la versión vieja y el comentario quedó religado a ella → confirmar que un SEGUNDO edit archiva una SEGUNDA versión distinta sin tocar el religado ya hecho.
+- Prueba visual real (Playwright, cuenta de Cuchulain Mago, datos descartables creados y borrados al final): comentario sobre "el viernes" visible con el globito en el texto vigente → se edita el texto → el globito desaparece del texto vigente (ya no aplica) → aparece "Ver versiones anteriores (1)" → al abrirlo, el texto viejo se ve con el fragmento resaltado y el globito, el popup muestra el comentario correcto, y **no queda ningún cartel duplicado en formato viejo**.
+- Edición propia (cuenta de prueba, solapa "Yo"): el botón "✎" abre el modo edición, guardar actualiza el texto, y el checkbox de completada sigue funcionando normalmente después (confirmado contra la base, no solo por UI).
+- Puntito rojo: con un participante 100% descartable, se marcó como "leído", se editó una tarea YA EXISTENTE (no se creó una nueva), y se confirmó que `GET /api/entusiasmo/admin/novedades` ahora sí devuelve `true` para esa persona (antes del fix daba `false`).
+
+`typecheck`/`lint` limpios, mismo baseline de 24 problemas preexistentes, sin warnings nuevos.
+
+## 4. Pendiente
+- **No se hizo commit todavía.**
+- El pedido original mencionaba extender el mismo mecanismo de comentarios con historial a **Producciones** y **Pitch** — hoy esos dos no tienen ningún sistema de comentarios anclados (se confirmó que no existe nada construido ahí). Queda pendiente como una fase aparte, ya que es tan grande como lo que se hizo para Tareas en esta sesión.

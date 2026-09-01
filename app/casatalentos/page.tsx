@@ -142,6 +142,7 @@ type AporteItem = {
   campo: string | null
   fragmento: string | null
   version_id: number | null
+  tarea_version_id: number | null
   created_at: string
 }
 
@@ -486,6 +487,14 @@ export default function CasaTalentosPage() {
   const [edicionTareaFecha, setEdicionTareaFecha] = useState("")
   const [edicionTareaHora, setEdicionTareaHora] = useState("")
   const [guardandoEdicionTarea, setGuardandoEdicionTarea] = useState(false)
+  const [editandoContenidoTareaId, setEditandoContenidoTareaId] = useState<number | null>(null)
+  const [edicionTareaContenido, setEdicionTareaContenido] = useState("")
+  const [guardandoEdicionContenidoTarea, setGuardandoEdicionContenidoTarea] = useState(false)
+  const [versionesTareas, setVersionesTareas] = useState<
+    Record<number, Array<{ id: number; contenido: string; created_at: string }>>
+  >({})
+  const [versionesTareasCargadas, setVersionesTareasCargadas] = useState(false)
+  const [versionesTareaAbierta, setVersionesTareaAbierta] = useState<Record<number, boolean>>({})
   const [puestosCofruto, setPuestosCofruto] = useState<PuestoCofruto[]>([])
   const [cargandoCofruto, setCargandoCofruto] = useState(false)
   const [puestoAmpliadoEmail, setPuestoAmpliadoEmail] = useState<string | null>(null)
@@ -986,9 +995,40 @@ export default function CasaTalentosPage() {
     }
   }
 
+  const cargarVersionesTareas = async () => {
+    try {
+      const query = viendoEmail ? `?email=${encodeURIComponent(viendoEmail)}` : ""
+      const res = await fetch(`/api/entusiasmo/tareas-versiones${query}`)
+      const data = await leerRespuestaJson<{
+        versiones?: Array<{ id: number; tarea_id: number; contenido: string; created_at: string }>
+      }>(res)
+
+      const agrupadas: Record<
+        number,
+        Array<{ id: number; contenido: string; created_at: string }>
+      > = {}
+
+      for (const version of data.versiones || []) {
+        if (!agrupadas[version.tarea_id]) agrupadas[version.tarea_id] = []
+        agrupadas[version.tarea_id].push({
+          id: version.id,
+          contenido: version.contenido,
+          created_at: version.created_at,
+        })
+      }
+
+      setVersionesTareas(agrupadas)
+    } catch {
+      setVersionesTareas({})
+    } finally {
+      setVersionesTareasCargadas(true)
+    }
+  }
+
   useEffect(() => {
     if (mounted) {
       void cargarTareas()
+      void cargarVersionesTareas()
     }
   }, [mounted, viendoEmail])
 
@@ -1157,6 +1197,54 @@ export default function CasaTalentosPage() {
     }
   }
 
+  const abrirEdicionContenidoTarea = (tarea: TareaItem) => {
+    setEditandoContenidoTareaId(tarea.id)
+    setEdicionTareaContenido(tarea.contenido)
+    setMensajeTarea("")
+  }
+
+  const cancelarEdicionContenidoTarea = () => {
+    setEditandoContenidoTareaId(null)
+    setEdicionTareaContenido("")
+  }
+
+  const guardarEdicionContenidoTarea = async (id: number) => {
+    if (!edicionTareaContenido.trim()) {
+      setMensajeTarea("La tarea no puede quedar vacía.")
+      return
+    }
+
+    try {
+      setGuardandoEdicionContenidoTarea(true)
+      setMensajeTarea("")
+
+      const res = await fetch("/api/entusiasmo/tareas", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, contenido: edicionTareaContenido.trim() }),
+      })
+
+      if (!res.ok) {
+        const data = await leerRespuestaJson<{ error?: string }>(res)
+        setMensajeTarea(data.error || "No se pudo actualizar la tarea.")
+        return
+      }
+
+      setEditandoContenidoTareaId(null)
+      setEdicionTareaContenido("")
+      // El texto viejo (con los aportes que tenía) recién queda archivado en
+      // el servidor con este guardado — hay que refrescar las dos cosas
+      // para que "Ver versiones anteriores" lo muestre ya mismo.
+      await cargarTareas()
+      await cargarVersionesTareas()
+      await cargarAportesRecibidos()
+    } catch {
+      setMensajeTarea("Error actualizando la tarea.")
+    } finally {
+      setGuardandoEdicionContenidoTarea(false)
+    }
+  }
+
   const renderizarFilaTarea = (tarea: TareaItem) => {
     const fechaHoraTexto = formatearFechaHoraTarea(tarea.fecha, tarea.hora)
     // El admin viendo a otro participante solo puede comentar, nunca editar
@@ -1196,20 +1284,66 @@ export default function CasaTalentosPage() {
                 />
               )}
             </div>
+          ) : editandoContenidoTareaId === tarea.id ? (
+            <div className="flex flex-1 flex-wrap items-center gap-2">
+              <input
+                className="workspace-field flex-1"
+                value={edicionTareaContenido}
+                onChange={(e) => setEdicionTareaContenido(e.target.value)}
+                autoFocus
+              />
+              <button
+                type="button"
+                disabled={guardandoEdicionContenidoTarea}
+                onClick={() => void guardarEdicionContenidoTarea(tarea.id)}
+                className="workspace-button-secondary text-xs disabled:opacity-60"
+              >
+                {guardandoEdicionContenidoTarea ? "..." : "Guardar"}
+              </button>
+              <button
+                type="button"
+                onClick={cancelarEdicionContenidoTarea}
+                className="text-xs text-gray-500 underline"
+              >
+                Cancelar
+              </button>
+            </div>
           ) : (
-            <label className="flex flex-1 items-center gap-3">
+            // Checkbox separado del texto (no un <label> envolviendo todo) a
+            // propósito: el texto ahora puede traer botones de comentario
+            // (💬) por dentro, y adentro de un <label> esos clicks también
+            // togglearían el checkbox por el comportamiento nativo del tag.
+            <div className="flex flex-1 items-center gap-3">
               <input
                 type="checkbox"
+                aria-label="Marcar como completada"
                 checked={tarea.completada}
                 onChange={() => void alternarTareaCompletada(tarea.id, tarea.completada)}
               />
               <span
-                className={`text-sm ${
+                className={`min-w-0 flex-1 text-sm ${
                   tarea.completada ? "text-gray-400 line-through" : "text-gray-800"
                 }`}
               >
-                {tarea.contenido}
+                {renderizarSegmentosConAportes(
+                  tarea.contenido,
+                  aportesRecibidos.filter(
+                    (a) =>
+                      a.campo === campoDeTarea(tarea.id) &&
+                      a.fragmento &&
+                      (a.tarea_version_id ?? null) === null
+                  )
+                )}
               </span>
+              <button
+                type="button"
+                onClick={() => abrirEdicionContenidoTarea(tarea)}
+                aria-label="Editar texto de la tarea"
+                title="Editar texto de la tarea"
+                className="shrink-0 text-xs text-amber-600 underline"
+              >
+                ✎
+              </button>
               {tarea.serie_id && tarea.diaSemana !== null && (
                 <span
                   className="shrink-0 text-xs text-amber-600"
@@ -1225,7 +1359,7 @@ export default function CasaTalentosPage() {
                   className="h-2 w-2 shrink-0 rounded-full bg-rose-500"
                 />
               )}
-            </label>
+            </div>
           )}
 
           {!editando && (
@@ -1271,6 +1405,7 @@ export default function CasaTalentosPage() {
         </div>
 
         {!viendoEmail && renderizarNotasTarea(tarea.id)}
+        {!viendoEmail && renderizarVersionesTarea(tarea.id)}
 
         {tarea.serie_id && !viendoEmail && (
           <div>
@@ -1351,6 +1486,8 @@ export default function CasaTalentosPage() {
     setMensajeAporte("")
     setEditandoTareaId(null)
     setCancelandoTareaId(null)
+    setEditandoContenidoTareaId(null)
+    setEdicionTareaContenido("")
 
     if (email) {
       setNovedadesPorParticipante((prev) => ({ ...prev, [email]: false }))
@@ -1477,8 +1614,60 @@ export default function CasaTalentosPage() {
     return segmentos
   }
 
+  // Segmentos de texto con el mismo tratamiento en las dos vistas: fragmento
+  // resaltado + ícono 💬 + globito que se abre al pasar el mouse o tocarlo.
+  // Se usa tanto para el texto vigente (renderizarCampoLectura) como para
+  // cada versión archivada (renderizarVersionesCampo) — así un aporte se ve
+  // siempre igual, esté sobre el texto actual o sobre uno viejo.
+  const renderizarSegmentosConAportes = (texto: string, notas: AporteItem[]) => {
+    const segmentos = construirSegmentosResaltados(texto, notas)
+
+    return segmentos.map((seg, i) =>
+      seg.nota ? (
+        <span key={i} className="group relative inline">
+          <span
+            className={`rounded px-0.5 transition-colors group-hover:bg-amber-200 ${
+              aporteAbiertoId === seg.nota!.id ? "bg-amber-200" : ""
+            }`}
+          >
+            {seg.texto}
+          </span>
+          <button
+            type="button"
+            aria-label="Ver comentario"
+            onClick={() =>
+              setAporteAbiertoId((prev) => (prev === seg.nota!.id ? null : seg.nota!.id))
+            }
+            className="mx-0.5 cursor-pointer align-middle text-amber-600"
+          >
+            💬
+          </button>
+          <span
+            className={`absolute bottom-full left-0 z-10 mb-1 hidden w-64 max-w-[80vw] rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2 text-sm normal-case shadow-lg group-hover:block ${
+              aporteAbiertoId === seg.nota!.id ? "!block" : ""
+            }`}
+          >
+            <span className="block text-gray-800">{seg.nota!.contenido}</span>
+            <span className="mt-1 block text-xs text-gray-500">
+              {seg.nota!.autor_nombre || seg.nota!.autor_email} ·{" "}
+              {new Date(seg.nota!.created_at).toLocaleDateString("es-AR")}
+            </span>
+          </span>
+        </span>
+      ) : (
+        <span key={i}>{seg.texto}</span>
+      )
+    )
+  }
+
   const renderizarNotasCampo = (campo: keyof CoordenadasForm) => {
-    const notas = aportesRecibidos.filter((a) => a.campo === campo)
+    // Solo los comentarios todavía sobre el texto vigente (sin versión
+    // asignada) — los que ya quedaron atados a una versión archivada se ven
+    // ahí, con el globito, en vez de acá también (evita el duplicado que
+    // mostraba el mismo aporte dos veces).
+    const notas = aportesRecibidos.filter(
+      (a) => a.campo === campo && (a.version_id ?? null) === null
+    )
 
     if (notas.length === 0) return null
 
@@ -1526,13 +1715,17 @@ export default function CasaTalentosPage() {
               const comentariosDeEstaVersion = aportesRecibidos.filter(
                 (a) => a.campo === campo && a.version_id === v.id
               )
+              const comentariosConFragmento = comentariosDeEstaVersion.filter((c) => c.fragmento)
+              const comentariosSinFragmento = comentariosDeEstaVersion.filter((c) => !c.fragmento)
 
               return (
                 <div
                   key={v.id}
                   className="rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-600"
                 >
-                  <p className="whitespace-pre-wrap">{v.contenido}</p>
+                  <p className="whitespace-pre-wrap">
+                    {renderizarSegmentosConAportes(v.contenido, comentariosConFragmento)}
+                  </p>
                   <p className="mt-1 text-gray-400">
                     {new Date(v.created_at).toLocaleString("es-AR", {
                       day: "2-digit",
@@ -1544,18 +1737,13 @@ export default function CasaTalentosPage() {
                     })}
                   </p>
 
-                  {comentariosDeEstaVersion.length > 0 && (
+                  {comentariosSinFragmento.length > 0 && (
                     <div className="mt-2 space-y-1 border-t border-gray-200 pt-2">
-                      {comentariosDeEstaVersion.map((c) => (
+                      {comentariosSinFragmento.map((c) => (
                         <div
                           key={c.id}
                           className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-gray-700"
                         >
-                          {c.fragmento && (
-                            <p className="italic text-gray-500">
-                              sobre: &ldquo;{c.fragmento}&rdquo;
-                            </p>
-                          )}
                           <p>💬 {c.contenido}</p>
                           <p className="text-gray-500">
                             — {c.autor_nombre || c.autor_email}
@@ -1590,7 +1778,6 @@ export default function CasaTalentosPage() {
       // mientras la migración no esté corrida.
       (a) => a.campo === campo && a.fragmento && (a.version_id ?? null) === null
     )
-    const segmentos = construirSegmentosResaltados(valor, notasDelCampo)
     const hayTextoSeleccionadoAca = campoConSeleccion === campo && textoSeleccionado
     const esNuevo = camposNuevosViendo.has(COLUMNA_POR_CAMPO_COORDENADAS[campo])
 
@@ -1611,42 +1798,7 @@ export default function CasaTalentosPage() {
           onMouseUp={() => manejarSeleccionTexto(campo)}
         >
           {valor ? (
-            segmentos.map((seg, i) =>
-              seg.nota ? (
-                <span key={i} className="group relative inline">
-                  <span
-                    className={`rounded px-0.5 transition-colors group-hover:bg-amber-200 ${
-                      aporteAbiertoId === seg.nota!.id ? "bg-amber-200" : ""
-                    }`}
-                  >
-                    {seg.texto}
-                  </span>
-                  <button
-                    type="button"
-                    aria-label="Ver comentario"
-                    onClick={() =>
-                      setAporteAbiertoId((prev) => (prev === seg.nota!.id ? null : seg.nota!.id))
-                    }
-                    className="mx-0.5 cursor-pointer align-middle text-amber-600"
-                  >
-                    💬
-                  </button>
-                  <span
-                    className={`absolute bottom-full left-0 z-10 mb-1 hidden w-64 max-w-[80vw] rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2 text-sm normal-case shadow-lg group-hover:block ${
-                      aporteAbiertoId === seg.nota!.id ? "!block" : ""
-                    }`}
-                  >
-                    <span className="block text-gray-800">{seg.nota!.contenido}</span>
-                    <span className="mt-1 block text-xs text-gray-500">
-                      {seg.nota!.autor_nombre || seg.nota!.autor_email} ·{" "}
-                      {new Date(seg.nota!.created_at).toLocaleDateString("es-AR")}
-                    </span>
-                  </span>
-                </span>
-              ) : (
-                <span key={i}>{seg.texto}</span>
-              )
-            )
+            renderizarSegmentosConAportes(valor, notasDelCampo)
           ) : (
             <span className="italic text-gray-400">Sin definir todavía.</span>
           )}
@@ -1717,7 +1869,13 @@ export default function CasaTalentosPage() {
   const campoDeTarea = (tareaId: number) => `tarea:${tareaId}`
 
   const renderizarNotasTarea = (tareaId: number) => {
-    const notas = aportesRecibidos.filter((a) => a.campo === campoDeTarea(tareaId))
+    // Solo los comentarios todavía sobre el texto vigente — los que ya
+    // quedaron atados a una versión archivada de la tarea se ven ahí, con
+    // el globito (renderizarVersionesTarea), para no repetir el mismo
+    // aporte dos veces.
+    const notas = aportesRecibidos.filter(
+      (a) => a.campo === campoDeTarea(tareaId) && (a.tarea_version_id ?? null) === null
+    )
 
     if (notas.length === 0) return null
 
@@ -1739,10 +1897,84 @@ export default function CasaTalentosPage() {
     )
   }
 
+  const renderizarVersionesTarea = (tareaId: number) => {
+    const versiones = versionesTareas[tareaId] || []
+
+    if (!versionesTareasCargadas || versiones.length === 0) return null
+
+    const abierto = Boolean(versionesTareaAbierta[tareaId])
+
+    return (
+      <div className="pt-1">
+        <button
+          type="button"
+          onClick={() =>
+            setVersionesTareaAbierta((prev) => ({ ...prev, [tareaId]: !prev[tareaId] }))
+          }
+          className="text-xs text-gray-500 underline"
+        >
+          {abierto ? "Ocultar" : "Ver"} versiones anteriores ({versiones.length})
+        </button>
+
+        {abierto && (
+          <div className="mt-1 space-y-1">
+            {versiones.map((v) => {
+              const comentariosDeEstaVersion = aportesRecibidos.filter(
+                (a) => a.campo === campoDeTarea(tareaId) && a.tarea_version_id === v.id
+              )
+              const comentariosConFragmento = comentariosDeEstaVersion.filter((c) => c.fragmento)
+              const comentariosSinFragmento = comentariosDeEstaVersion.filter((c) => !c.fragmento)
+
+              return (
+                <div
+                  key={v.id}
+                  className="rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-600"
+                >
+                  <p className="whitespace-pre-wrap">
+                    {renderizarSegmentosConAportes(v.contenido, comentariosConFragmento)}
+                  </p>
+                  <p className="mt-1 text-gray-400">
+                    {new Date(v.created_at).toLocaleString("es-AR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hourCycle: "h23",
+                    })}
+                  </p>
+
+                  {comentariosSinFragmento.length > 0 && (
+                    <div className="mt-2 space-y-1 border-t border-gray-200 pt-2">
+                      {comentariosSinFragmento.map((c) => (
+                        <div
+                          key={c.id}
+                          className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-gray-700"
+                        >
+                          <p>💬 {c.contenido}</p>
+                          <p className="text-gray-500">— {c.autor_nombre || c.autor_email}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const renderizarContenidoTareaComentable = (tarea: TareaItem) => {
     const campo = campoDeTarea(tarea.id)
-    const notasDelCampo = aportesRecibidos.filter((a) => a.campo === campo && a.fragmento)
-    const segmentos = construirSegmentosResaltados(tarea.contenido, notasDelCampo)
+    // Mismo criterio que Coordenadas: solo los comentarios todavía sobre el
+    // texto vigente (sin versión asignada) se resaltan acá — los que ya
+    // quedaron atados a una versión archivada de la tarea se ven junto a
+    // esa versión (ver renderizarVersionesTarea).
+    const notasDelCampo = aportesRecibidos.filter(
+      (a) => a.campo === campo && a.fragmento && (a.tarea_version_id ?? null) === null
+    )
     const hayTextoSeleccionadoAca = campoConSeleccion === campo && textoSeleccionado
 
     return (
@@ -1753,42 +1985,7 @@ export default function CasaTalentosPage() {
           }`}
           onMouseUp={() => manejarSeleccionTexto(campo)}
         >
-          {segmentos.map((seg, i) =>
-            seg.nota ? (
-              <span key={i} className="group relative inline">
-                <span
-                  className={`rounded px-0.5 transition-colors group-hover:bg-amber-200 ${
-                    aporteAbiertoId === seg.nota!.id ? "bg-amber-200" : ""
-                  }`}
-                >
-                  {seg.texto}
-                </span>
-                <button
-                  type="button"
-                  aria-label="Ver comentario"
-                  onClick={() =>
-                    setAporteAbiertoId((prev) => (prev === seg.nota!.id ? null : seg.nota!.id))
-                  }
-                  className="mx-0.5 cursor-pointer align-middle text-amber-600"
-                >
-                  💬
-                </button>
-                <span
-                  className={`absolute bottom-full left-0 z-10 mb-1 hidden w-64 max-w-[80vw] rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2 text-sm normal-case shadow-lg group-hover:block ${
-                    aporteAbiertoId === seg.nota!.id ? "!block" : ""
-                  }`}
-                >
-                  <span className="block text-gray-800">{seg.nota!.contenido}</span>
-                  <span className="mt-1 block text-xs text-gray-500">
-                    {seg.nota!.autor_nombre || seg.nota!.autor_email} ·{" "}
-                    {new Date(seg.nota!.created_at).toLocaleDateString("es-AR")}
-                  </span>
-                </span>
-              </span>
-            ) : (
-              <span key={i}>{seg.texto}</span>
-            )
-          )}
+          {renderizarSegmentosConAportes(tarea.contenido, notasDelCampo)}
         </p>
 
         {hayTextoSeleccionadoAca && comentandoCampo !== campo && (
@@ -1842,6 +2039,8 @@ export default function CasaTalentosPage() {
             </div>
           </div>
         )}
+
+        {renderizarVersionesTarea(tarea.id)}
       </div>
     )
   }
@@ -3544,6 +3743,11 @@ export default function CasaTalentosPage() {
                                   ))}
                                 </div>
                               </div>
+
+                              <p className="text-xs text-amber-700">
+                                ⚠️ No olvides guardar tus actualizaciones — los cambios no se
+                                guardan solos.
+                              </p>
 
                               <button
                                 type="button"

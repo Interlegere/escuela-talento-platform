@@ -49,19 +49,21 @@ export async function calcularNovedadesPorParticipante(
   )
   const proyectoIds = (proyectos || []).map((p) => p.id as number)
 
+  type ItemConFechas = { proyecto_id: number; created_at: string; updated_at: string | null }
+
   const [{ data: producciones }, { data: tareas }] = await Promise.all([
     proyectoIds.length > 0
       ? supabase
           .from("entusiasmo_producciones")
-          .select("proyecto_id, created_at")
+          .select("proyecto_id, created_at, updated_at")
           .in("proyecto_id", proyectoIds)
-      : Promise.resolve({ data: [] as { proyecto_id: number; created_at: string }[] }),
+      : Promise.resolve({ data: [] as ItemConFechas[] }),
     proyectoIds.length > 0
       ? supabase
           .from("entusiasmo_tareas")
-          .select("proyecto_id, created_at")
+          .select("proyecto_id, created_at, updated_at")
           .in("proyecto_id", proyectoIds)
-      : Promise.resolve({ data: [] as { proyecto_id: number; created_at: string }[] }),
+      : Promise.resolve({ data: [] as ItemConFechas[] }),
   ])
 
   const ultimaFechaPorProyectoId = new Map<number, number>()
@@ -73,11 +75,15 @@ export async function calcularNovedadesPorParticipante(
     }
   }
 
-  for (const item of producciones || []) {
-    registrar(item.proyecto_id as number, item.created_at as string)
+  // updated_at (con fallback a created_at) — no solo created_at — para que
+  // EDITAR una producción o tarea ya existente (no solo crear una nueva)
+  // también encienda el puntito del nav y de la lista de solapas, igual
+  // que ya hacía el detalle fino al abrir la solapa.
+  for (const item of (producciones || []) as ItemConFechas[]) {
+    registrar(item.proyecto_id, item.updated_at || item.created_at)
   }
-  for (const item of tareas || []) {
-    registrar(item.proyecto_id as number, item.created_at as string)
+  for (const item of (tareas || []) as ItemConFechas[]) {
+    registrar(item.proyecto_id, item.updated_at || item.created_at)
   }
 
   const leidoAtPorEmail = new Map(

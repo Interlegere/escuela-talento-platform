@@ -265,11 +265,12 @@ export async function PATCH(req: Request) {
 
     const { data: existente } = await supabase
       .from("entusiasmo_tareas")
-      .select("proyecto_id, completada, entusiasmo_proyectos!inner(participante_email)")
+      .select("proyecto_id, completada, contenido, entusiasmo_proyectos!inner(participante_email)")
       .eq("id", id)
       .maybeSingle<{
         proyecto_id: number
         completada: boolean
+        contenido: string
         entusiasmo_proyectos: { participante_email: string }
       }>()
 
@@ -290,7 +291,13 @@ export async function PATCH(req: Request) {
 
     const cambios: Record<string, unknown> = { updated_at: new Date().toISOString() }
 
-    if (body.contenido !== undefined) cambios.contenido = body.contenido.trim()
+    const contenidoNuevo = body.contenido !== undefined ? body.contenido.trim() : undefined
+    const contenidoCambio =
+      contenidoNuevo !== undefined &&
+      contenidoNuevo !== existente.contenido &&
+      Boolean(existente.contenido?.trim())
+
+    if (contenidoNuevo !== undefined) cambios.contenido = contenidoNuevo
     if (body.completada !== undefined) cambios.completada = Boolean(body.completada)
     if (body.fecha !== undefined) cambios.fecha = body.fecha?.trim() || null
     if (body.hora !== undefined) cambios.hora = body.hora?.trim() || null
@@ -317,6 +324,26 @@ export async function PATCH(req: Request) {
         { error: "No se pudo actualizar la tarea.", detalle: error },
         { status: 500 }
       )
+    }
+
+    // Antes de perder el texto anterior de la tarea, se archiva — mismo
+    // mecanismo ya probado en Coordenadas: religa los comentarios que
+    // estaban sobre ese texto (tarea_version_id null) a la versión recién
+    // creada, para que no se pierdan ni queden calzando contra texto nuevo.
+    if (contenidoCambio) {
+      const { data: version } = await supabase
+        .from("entusiasmo_tareas_versiones")
+        .insert({ tarea_id: id, contenido: existente.contenido })
+        .select("id")
+        .single()
+
+      if (version?.id) {
+        await supabase
+          .from("entusiasmo_aportes")
+          .update({ tarea_version_id: version.id })
+          .eq("campo", `tarea:${id}`)
+          .is("tarea_version_id", null)
+      }
     }
 
     const participanteEmail = existente.entusiasmo_proyectos.participante_email
