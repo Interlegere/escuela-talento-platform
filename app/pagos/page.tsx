@@ -465,8 +465,8 @@ export default function PagosPage() {
           <Link href="/terapia" className="rounded-xl border px-4 py-2">
             Ir a Terapia
           </Link>
-          <Link href="/mentorias" className="rounded-xl border px-4 py-2">
-            Ir a Mentorías
+          <Link href="/casatalentos" className="rounded-xl border px-4 py-2">
+            Ir a Entusiasmento
           </Link>
         </div>
       </section>

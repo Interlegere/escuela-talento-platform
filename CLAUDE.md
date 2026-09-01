@@ -1,49 +1,86 @@
 @AGENTS.md
 
-# Estado del proyecto (diagnóstico 2026-07-21)
+# Estado del proyecto — visión general (actualizado 2026-08-31)
 
-> Este resumen se generó explorando el código real (no solo los nombres de archivos). Sirve como referencia rápida para no re-explorar todo el proyecto en cada sesión nueva. Si algo de lo que dice acá cambia (se agrega auth por middleware, cambian reglas de CasaTalentos, etc.), actualizar esta sección.
+> Esta sección describe el proyecto ENTERO tal como está hoy, no solo lo último que cambió. Está para que cualquier sesión nueva pueda entender de qué se trata todo sin tener que leer el resto del archivo (que es un log cronológico de sesiones, útil para el "por qué" de decisiones puntuales, pero no para tener el panorama completo). **Si algo de lo que dice acá cambia, actualizar esta sección** — no dejar que quede desactualizada mientras el log de abajo sigue creciendo.
+
+## Qué es esto
+ENTHEOS ("Escuela Talento") es una plataforma web para una escuela/comunidad de acompañamiento y formación de talentos, dirigida por Nicolás (dueño, admin, y único desarrollador de producto vía estas sesiones de Claude Code — no programa él mismo, es el "product owner" no técnico). La plataforma gestiona inscripciones, pagos, agenda de encuentros (Google Meet), comunicación por mail, y el contenido específico de cada actividad que ofrece la escuela.
 
 ## Stack
 - Next.js 16.2.0 (App Router) + React 19.2.4 + TypeScript 5 (`strict`) + Tailwind CSS v4.
-- Auth: NextAuth v4, provider único `CredentialsProvider`, sesión JWT. No usa Supabase Auth ni Google login (Google solo se usa para Calendar, vía OAuth propio).
+- Auth: NextAuth v4, provider único `CredentialsProvider`, sesión JWT. No usa Supabase Auth. Google solo se usa para Calendar (OAuth propio, dos flujos: uno para la cuenta de Nicolás/Agenda, otro por participante para Entusiasmento — ver más abajo), nunca para login.
 - DB: Supabase (Postgres), acceso exclusivo desde el backend con `service_role` (RLS habilitado sin policies = deny-by-default para `anon`/`authenticated`).
 - Pagos: MercadoPago integrado a mano con `fetch` (no el SDK oficial `mercadopago`).
-- Mail: Resend. Sin zod, sin react-hook-form, sin UI kit — proyecto deliberadamente liviano en dependencias.
+- Mail: Resend, integrado a mano (sin el paquete `resend`). IA: API de Mensajes de Anthropic, también a mano (`lib/ai.ts`), modelo Haiku.
+- Sin zod, sin react-hook-form, sin UI kit — proyecto deliberadamente liviano en dependencias.
 - Package manager: npm. Scripts clave: `dev`, `dev:lan`, `build`, `start`, `lint`, `typecheck`.
+- Un solo entorno real: `.env.local` apunta a la única base de Supabase que existe (no hay staging). Todo cambio se prueba con datos descartables contra producción y se limpia después.
+- Deploy: Vercel, plan Hobby (límite real: 300s por invocación de función, máximo 2 cron jobs corriendo 1 vez por día — por eso hay un único cron diario que internamente decide qué le toca hacer cada día, ver `app/api/cron/diario/route.ts`). Dos proyectos de Vercel apuntan al mismo repo de GitHub por un detalle histórico; solo `escuela-talento-platform-bfbs` sirve el dominio real `www.entheosescuela.com` — las variables de entorno nuevas hay que cargarlas ahí.
 
 ## Carpetas clave
-- `app/` — páginas (una carpeta por módulo) + `app/api/` (route handlers, ~20 subcarpetas).
-- `lib/` — lógica de negocio y server-side: `auth.ts` (NextAuth), `authz.ts` (roles/permisos/acceso por actividad — 3 capas), `supabase.ts` (cliente anon) / `supabase-admin.ts` (cliente service_role), `payment-pricing.ts`/`billing.ts` (MP), `google-calendar.ts`, etc.
-- `sql/` — ~29 scripts SQL fechados a mano (no hay carpeta `supabase/migrations/` ni tooling de migraciones formal; varias tablas núcleo no tienen su `CREATE TABLE` versionado, se crearon directo en el dashboard).
+- `app/` — una carpeta por página/módulo (`casatalentos/`, `conectando-sentidos/`, `mentorias/`, `terapia/`, `agenda/`, `campus/`, `admin/`, `perfil/`, `landing/`, `login/`, `pagos/`, `recuperar-clave/`) + `app/api/` (route handlers, ~22 subcarpetas).
+- `lib/` — lógica de negocio y server-side (~42 archivos): `auth.ts` (NextAuth), `authz.ts` (roles/permisos/acceso por actividad — 3 capas), `supabase.ts` (cliente anon) / `supabase-admin.ts` (cliente service_role), `payment-pricing.ts`/`billing.ts` (MP), `google-calendar.ts` (Agenda/Nicolás) / `entusiasmo-google-participante.ts` (por participante), `comunicaciones.ts`, `ai.ts`, y toda la lógica de Entusiasmento (`entusiasmo-*.ts`, ~10 archivos).
+- `sql/` — ~50 scripts SQL fechados a mano, corridos uno por uno por Nicolás en el SQL Editor de Supabase (no hay carpeta `supabase/migrations/` ni tooling formal; varias tablas núcleo no tienen su `CREATE TABLE` versionado, se crearon directo en el dashboard).
 - No existe `/types` central (tipos inline por archivo) ni `middleware.ts` (protección de rutas 100% a nivel de componente/API, no de edge).
 
 ## Arquitectura de permisos (confirmada, funciona como se espera en AGENTS.md)
-`lib/authz.ts` separa correctamente: **rol global** (admin/colaborador/participante) → **acceso por actividad** (`resolveActivityAccess`, chequea inscripción + estado de pago mensual, no asume que participante = acceso a todo) → **permiso por acción** (`Permission` granular, `hasPermission`/`requirePermission`). Cada API route revalida server-side independientemente del cliente.
+`lib/authz.ts` separa correctamente: **rol global** (admin/colaborador/participante) → **acceso por actividad** (`resolveActivityAccess`, chequea inscripción + estado de pago mensual salvo excepciones explícitas — Mentoría y Entusiasmento dan acceso incondicional sin pago, ver abajo) → **permiso por acción** (`Permission` granular, `hasPermission`/`requirePermission`). Cada API route revalida server-side independientemente del cliente.
 
-## Riesgos activos a tener en cuenta
-1. **Alto (pendiente, decisión 2026-07-21: se atiende más adelante)** — `lib/auth.ts` tiene 3 usuarios de prueba hardcodeados (`admin@escuela.com` / `colaborador@escuela.com` / `participante@escuela.com`, password `"1234"`), deshabilitados solo si `process.env.NODE_ENV === "production"`. Verificar que esto quede realmente desactivado antes de cualquier despliegue público. Nicolás decidió no priorizarlo ahora; retomar antes de cualquier despliegue público.
-2. **Medio** — Webhooks de MercadoPago (`app/api/mp-webhook/route.ts`, `app/api/pagos-mensuales/mp-webhook/route.ts`) no verifican la firma (`x-signature`) de MP, no validan el monto recibido contra el esperado, y no son idempotentes (pueden recrear eventos duplicados en Google Calendar si MP reenvía la notificación).
-3. **Medio** — No hay `middleware.ts`: la seguridad de cada endpoint nuevo depende de que el desarrollador recuerde llamar a `requireAuthenticatedActor`/`requirePermission` de `lib/authz.ts`.
-4. **Bajo** — `normalizarRole` degrada silenciosamente cualquier rol desconocido/con error a `"participante"` en vez de fallar o loguear.
+## Los módulos, uno por uno
 
-## Discrepancias CasaTalentos — resueltas (decisión 2026-07-21)
-El código es la fuente de verdad; se corrigió AGENTS.md para que coincida:
-1. **Días de video**: **lunes y miércoles** (el martes es día de aportes escritos/comentarios, no de video).
-2. **Ventana de votación**: **jueves, hasta las 17:00 hs** (sin hora de inicio).
+- **Campus** (`app/campus/page.tsx`): dashboard de entrada, tarjetas por actividad a las que la persona tiene acceso, frase del "oráculo" del día (`lib/oraculo.ts`, determinística por fecha+email).
 
-Resto de la lógica de CasaTalentos (ranking top 3, empates sin ganador automático, "ganador" requiere subir ambos días de video + haber elegido, comentarios con nombre/fecha, referentes generales y semanales, grabación de video estilo WhatsApp con `MediaRecorder` + fallback a `<input capture>`) está completa y bien implementada.
+- **Agenda** (`app/agenda/page.tsx`, `components/agenda/AdminAgendaCalendar.tsx`, `lib/agenda-unificada.ts`): calendario unificado de encuentros de las 4 actividades (`disponibilidades`/`reservas`), con sincronización a Google Calendar vía la cuenta de Nicolás (`lib/google-calendar.ts`, un solo token OAuth compartido). Reintento automático diario de sincronizaciones que quedaron pendientes/con error. Herramienta de solo lectura "Comprobar con Google Calendar" para detectar reuniones cargadas directo en Google y no en la plataforma (hallazgo recurrente: buena parte de la agenda real todavía se carga directo en Google en vez de acá). Invitar al participante como asistente formal del evento de Google está técnicamente bloqueado por una política del Workspace de ENTHEOS (Google descarta en silencio a los invitados externos) — no es arreglable con código.
 
-## Rutas vestigiales — RESUELTO (ver sesión 2026-07-26 más abajo)
-~~`/admin/casatalentos` y `/admin/conectando-sentidos` son redirects de 5 líneas hacia las páginas reales; `/admin/grabaciones` se autodeclara "legado".~~ Las 3 carpetas se eliminaron del código en la sesión del 2026-07-26. La navegación de admin apunta ahora directo a `/casatalentos` y `/conectando-sentidos`.
+- **Entusiasmento** (`app/casatalentos/page.tsx` — un solo archivo muy grande — + `app/api/entusiasmo/*` + tablas `entusiasmo_*`): el módulo más grande y activamente desarrollado. **Reemplazó por completo** al viejo "CasaTalentos" (ranking semanal de videos + votación + evaluación, retirado del todo). El *slug* en la base y la URL siguen siendo `casatalentos` a propósito, para no tocar el motor de acceso ni romper links existentes — solo cambió el nombre visible. Hoy abierto a todos los participantes activos, con acceso incondicional sin importar el estado de pago (`ENTUSIASMENTO_ABIERTO_A_PARTICIPANTES = true` en `lib/entusiasmo-acceso.ts`).
+
+  Dos destinos, nunca solapas (excepto una: ver más abajo):
+  - **Mi espacio** — el proyecto propio de cada participante (o el que el admin esté "viendo", vía un selector de solapas admin-only — la única excepción a la regla de "nada de solapas"):
+    - *Pitch*: carta de presentación en video o imagen, formato Stories/Reels (marco 9:16, anillo dorado), siempre visible y se reemplaza in-place (nunca una lista histórica; regrabar borra el archivo anterior del storage). Solo se puede grabar en el momento, no subir un archivo ya grabado.
+    - *Coordenadas*: 9 campos fijos (Nombre del proyecto, Qué, Para qué, Problema/solución, Habilidad a desarrollar, Qué te entusiasma, Resultado mensual/trimestral/anual), con **versionado completo** (cada edición archiva el valor anterior, nunca se pierde) y **comentarios de admin anclados a un fragmento de texto** — se seleccionan con el mouse, se guardan, y se ven como un ícono 💬 que abre un popup al pasar el mouse/tocarlo (nunca resaltado permanente ni cartel duplicado).
+    - *Tareas semanales*: texto editable (mismo versionado + comentarios anclados que Coordenadas), fecha/hora opcional editable, prioridad tipo semáforo (verde/amarillo/rojo, sin texto explicativo — a propósito), recurrencia semanal (genera 8 semanas de ocurrencias por adelantado, un cron diario mantiene ese horizonte), las completadas se apartan a un desplegable "Ver completadas" en vez de acumularse en la vista principal, y se sincronizan al calendario personal del participante (directo si conectó su Google, o por invitación `.ics` vía mail como respaldo si no).
+    - *Producciones*: texto/imagen/audio/video/link, con toggle de visibilidad "En la mesa común" / "Solo lo ves vos" y el mismo mecanismo de comentarios de admin (anclados si es texto, generales si no hay texto para seleccionar).
+    - *Tu ritmo*: barra de progreso = tareas completadas / tareas totales, recalculada en cada render.
+    - Sistema de **puntos grupal**: ciertas acciones (actualizar Coordenadas, Tareas, Pitch, subir una Producción, compartirla en CoFruto) suman puntos con tope de 1 por categoría por día; el grupo entero acumula hacia 2 umbrales mensuales que habilitan una reunión extra, visibles para todos con barra de progreso y desglose de quién aportó.
+  - **CoFruto** — la "mesa común": grilla de "puestos" (uno por participante, con su propio pitch en miniatura + hasta 4 producciones visibles), clic para ampliar en un modal (con lightbox de imágenes). Incluye los Recursos de la actividad debajo.
+  - Indicadores de "nuevo" (puntito rojo) en tres niveles: el link del menú, la solapa de cada participante (para el admin), y el campo/producción/tarea puntual — comparando la última actividad real contra `entusiasmo_lecturas` (última vez que cada quien vio el espacio del otro).
+  - **Agente de IA diario** (`lib/agente-entusiasmo.ts`): primer y único uso de un LLM en el proyecto. Corre dentro del cron diario único, con un calendario alternado (lunes/miércoles/viernes una semana, martes/jueves la siguiente, calculado desde una fecha ancla fija — nunca con número de semana ISO, para evitar el problema de los años de 53 semanas). Manda un mail con un párrafo reflexivo generado por el modelo (nunca resuelve nada, solo hace preguntas abiertas y deriva a Nicolás si detecta una decisión real) + la lista de tareas pendientes (armada por código, no por el modelo, para que nunca invente datos) + la frase del oráculo del día. Reglas de tono fijas + no-repetición (se le pasan las últimas frases ya enviadas a esa persona). Todo envío u omisión queda registrado en `entusiasmo_agente_mensajes`, y Nicolás recibe un informe diario por mail.
+
+- **Conectando Sentidos / Mentorías / Terapia** (`app/conectando-sentidos/`, `app/mentorias/`, `app/terapia/` + `components/espacios/EspacioAcompanamiento.tsx` + `lib/espacios.ts`): los otros 3 módulos de actividad. Cada uno con su espacio de acompañamiento (mensajes con hilos/respuestas y adjuntos — servidos por un proxy autenticado, no URLs públicas — y recursos), agenda embebida de solo lectura con link a `/agenda` para gestionar (la edición real vive solo en Agenda, para no duplicar). Terapia además maneja reserva de sesión y cobro por sesión reservada (sin prórroga mensual, a diferencia del resto).
+
+- **Admin** (`app/admin/*`):
+  - `/admin/usuarios`: ficha completa por persona — inscripciones a actividades, honorarios (precio estándar por actividad para CasaTalentos/Conectando Sentidos/Terapia/Membresía, con reparto automático si tiene el combo CT+CS; 100% manual para Mentoría, la única actividad sin precio uniforme) y estado de pago, más "Configuración de pagos" (precios base, días de prórroga por actividad).
+  - `/admin/comunicaciones`: wizard de 3 pasos (destinatarios → mensaje → enviar o programar), envíos programados y recurrentes (procesados por el cron diario), mails automáticos de aprobación/rechazo de pago, sección "Responder con formato Entheos" (sin recepción automática de mail — se evaluó y se descartó por el costo de Resend Pro que hubiera hecho falta).
+  - `/admin/consentimientos`: gestión de términos y condiciones por actividad.
+  - `/admin/pagos` y `/admin/grabaciones`/`/admin/casatalentos`/`/admin/conectando-sentidos` (estas 3 últimas ya no existen): `/admin/pagos` quedó como redirect a `/admin/usuarios`.
+
+- **Perfil** (`app/perfil/page.tsx`): datos propios, recuperación de clave self-service (link por mail, token de un solo uso), conectar/desconectar el Google Calendar personal (usado por Entusiasmento para sincronizar tareas directo, sin invitación por mail).
+
+- **Landing** (`app/landing/`, `components/landing/`, `lib/landing-content.ts`, `lib/institucional-content.ts`): página pública de marketing. Contenido y diseño son trabajo propio de Nicolás — las sesiones de Claude Code no lo tocan salvo que él lo pida explícitamente.
 
 ## Convenciones de código
 - Componentes `PascalCase.tsx`, funciones/variables `camelCase`, lógica de negocio nombrada **en español** (`autenticarUsuarioPlataforma`, `crearPreferenciaMercadoPago`, `asegurarActividadBase`).
 - Casi todas las páginas son `"use client"` de punta a punta; cargan datos con `useEffect` + `fetch` hacia sus propios route handlers (no Server Components para data fetching, no Server Actions).
 - Supabase se llama directo con `@supabase/supabase-js` (sin ORM/wrapper), tipado a mano con `type ...Row` local en cada archivo.
-- Sin design system de componentes (no hay `Button.tsx`/`Card.tsx` genéricos); el estilo se resuelve con clases utilitarias propias en `app/globals.css` (`workspace-hero`, `workspace-panel-soft`, etc.) + Tailwind inline.
+- Sin design system de componentes (no hay `Button.tsx`/`Card.tsx` genéricos); el estilo se resuelve con clases utilitarias propias en `app/globals.css` (`workspace-hero`, `workspace-panel-soft`, `workspace-button-primary/secondary/ghost`, etc.) + Tailwind inline.
 - Errores de API siempre en español, formato `{ error: "mensaje" }` + status HTTP, a veces con campo `detalle` para debug.
 - Sesión en frontend vía hook propio `useAppSession()` (`components/auth/AppSessionProvider.tsx`), no el `useSession` estándar de next-auth/react.
+- Patrón de trabajo establecido en todas las sesiones: implementar → `typecheck` + `lint` → probar en vivo con datos descartables (creados y borrados por completo, mostrando la limpieza) → documentar acá → **confirmación explícita de Nicolás antes de cada commit** → stage de archivos específicos (nunca `git add -A`) → commit + push.
+
+## Flags/interruptores activos hoy
+- `ENTUSIASMENTO_ABIERTO_A_PARTICIPANTES = true` (`lib/entusiasmo-acceso.ts`) — Entusiasmento abierto a todo el mundo. `ENTUSIASMENTO_BETA_EMAILS` queda como mecanismo histórico sin efecto real mientras el flag de arriba sea `true`.
+- `RESERVA_NUEVA_SESION_TERAPIA_HABILITADA` / `BIBLIOTECA_GRABACIONES_HABILITADA` — deshabilitan reserva propia y biblioteca de grabaciones para participantes de Terapia (el admin las sigue viendo).
+
+## Riesgos activos a tener en cuenta
+1. **Alto (pendiente, decisión consciente de Nicolás)** — `lib/auth.ts` tiene 3 usuarios de prueba hardcodeados (`admin@escuela.com` / `colaborador@escuela.com` / `participante@escuela.com`, password `"1234"`), deshabilitados solo si `process.env.NODE_ENV === "production"`. Verificar que esto quede realmente desactivado antes de cualquier despliegue público más allá de Vercel.
+2. **Medio** — Webhooks de MercadoPago (`app/api/mp-webhook/route.ts`, `app/api/pagos-mensuales/mp-webhook/route.ts`) no verifican la firma (`x-signature`) de MP, no validan el monto recibido contra el esperado, y no son idempotentes.
+3. **Medio** — No hay `middleware.ts`: la seguridad de cada endpoint nuevo depende de que el desarrollador recuerde llamar a `requireAuthenticatedActor`/`requirePermission` de `lib/authz.ts`.
+4. **Bajo** — `normalizarRole` degrada silenciosamente cualquier rol desconocido/con error a `"participante"` en vez de fallar o loguear.
+5. **Resuelto (histórico)** — los buckets `espacios-archivos` y `entusiasmo-producciones` eran públicos (URLs sin auth); ambos se pasaron a privados con lectura vía signed URL o proxy autenticado.
+
+## Cómo seguir leyendo este archivo
+Todo lo que sigue abajo (`---` en adelante) es un **log cronológico de sesiones de trabajo**, ordenado del más viejo al más nuevo. No hace falta leerlo entero para entender el proyecto — para eso está la sección de arriba — pero es la fuente de verdad para el *por qué* de una decisión puntual (por ejemplo, por qué el slug de Entusiasmento sigue siendo `casatalentos`, o por qué `/admin/pagos` es un redirect en vez de haberse borrado). Cuando una entrada vieja queda superada por una más nueva, se tacha con `~~texto~~` y se deja un puntero a la sesión que la reemplazó, en vez de borrarla.
 
 ---
 
@@ -1839,5 +1876,38 @@ Prueba visual real (Playwright, cuenta de Cuchulain, mismos datos descartables):
 - Limpieza confirmada al final: `GET /api/entusiasmo/producciones` y `GET /api/entusiasmo/aportes` para Cuchulain volvieron a devolver listas vacías, igual que antes de empezar.
 
 ## 6. Pendiente
-- **No se hizo commit todavía.**
 - Con esto, el pedido original de Nicolás ("tanto en tareas, producciones, coordenadas, y pitch... necesito que el aporte quede con el globito y el cartelito en las versiones anteriores para los participantes") queda completo en los 4 lugares.
+
+Commiteado y pusheado (`cb4d348`).
+
+---
+
+# Sesión de trabajo 2026-09-01 — Estado del proyecto reescrito + Mentorías redirige a Entusiasmento
+
+## 1. CLAUDE.md: sección "Estado del proyecto" reescrita de punta a punta
+Nicolás pidió que CLAUDE.md sirva para que una sesión nueva entienda de qué se trata **todo** el proyecto, no solo lo último que cambió. La sección de arriba databa del diagnóstico inicial (2026-07-21) y nunca se había vuelto a actualizar en el fondo — no mencionaba Entusiasmento (hoy el módulo más grande, construido después de esa fecha), ni Agenda, ni el sistema de puntos, ni el agente de IA, ni la recuperación de clave, ni nada posterior. Se reescribió por completo: qué es el proyecto, stack actualizado (incluida infra de Vercel/cron), cada módulo explicado con el detalle real de cómo funciona hoy (Entusiasmento en profundidad: Mi espacio/CoFruto/Coordenadas/Producciones/Pitch/Tareas/puntos/agente), flags activos, riesgos vigentes (dos ya resueltos se marcaron como tal), y una nota final aclarando que el log cronológico de sesiones que sigue abajo es la fuente del "por qué" de cada decisión puntual, no hace falta leerlo entero para entender el proyecto. El log de sesiones en sí no se tocó.
+
+## 2. Mentorías: los participantes pasan a usar Entusiasmento como su espacio de trabajo
+Nicolás aclaró que **no** se discontinúan las mentorías 1 a 1 (siguen agendándose y facturándose igual que siempre, vía Agenda) — lo que cambia es que el participante deja de usar la página `/mentorias` (mensajes/recursos) como su espacio de trabajo, y en cambio usa las herramientas de Entusiasmento (Coordenadas, Producciones, Pitch, Tareas semanales) para eso. Quién exactamente pasa a tener acceso a Entusiasmento lo va a ir configurando Nicolás mismo desde `/admin/usuarios` (altas de a una, no una migración masiva).
+
+**Relevado antes de tocar nada**: 9 participantes reales con inscripción activa a Mentorías (Martín Ernesto Fattor, Lucas Britos, Cuchulain Mago, Verónica Alejandra Saracho, Agostina Rimoldi, Cristian Ruggiero, Ana Felicia Payares Galvis, Alexis Alexandroff, Alex Bohorquez) — de los cuales 5 ya tenían también acceso a Entusiasmento y 4 todavía no (Martín, Lucas, Agostina, Ana Felicia). Ninguna inscripción ni honorario de Mentorías se tocó — sigue todo facturándose exactamente igual.
+
+**Qué se hizo** (alcance elegido por Nicolás: "ocultar del menú, backend intacto" — nada se borra ni se archiva):
+- `app/mentorias/page.tsx`: si quien entra **no es admin**, se lo redirige (`router.replace`) a `/casatalentos` en vez de mostrar `EspacioAcompanamiento`. Admin/colaborador siguen viendo la página tal cual (para gestionar mensajes/recursos/accesos de las mentorías que siguen en curso). `EspacioAcompanamiento` en sí no se tocó — sigue sirviendo a Terapia sin ningún cambio.
+- `components/AppNav.tsx`: se sacó el link "Mentorías" del menú de participantes (el de admin lo conserva).
+- `app/campus/page.tsx`: la tarjeta "Mentoría" del dashboard y el recordatorio de "próxima reunión" ahora apuntan a `/casatalentos` en vez de `/mentorias` (evita el salto extra de aterrizar en una página que solo redirige).
+- `app/pagos/page.tsx`: el acceso rápido "Ir a Mentorías" pasó a "Ir a Entusiasmento" (`/casatalentos`).
+
+## 3. Verificado en vivo
+Con un usuario 100% descartable (creado con hash scrypt válido para poder loguearse por NextAuth, inscripción activa a Mentorías, sin honorario — Mentoría da acceso incondicional sin pago):
+- Con **solo** acceso a Mentorías: el nav no muestra "Mentorías"; entrar directo a `/mentorias` redirige a `/casatalentos`, donde se ve el cartel estándar "Acceso no habilitado" (esperado — es exactamente lo que le va a pasar a un mentoreado real hasta que Nicolás le dé el alta a Entusiasmento).
+- Agregando también inscripción activa a Entusiasmento: la misma redirección aterriza en su "Mi espacio" real (Pitch, Coordenadas, etc.), confirmando el circuito completo de punta a punta.
+- Con la cuenta admin: el nav sigue mostrando "Mentorías", y `/mentorias` se sigue viendo exactamente igual que siempre (sin redirección), sin errores de consola.
+- Un error de hidratación que apareció en la primera corrida resultó ser el mismo patrón de siempre (servidor de desarrollo con caché stale tras varias ediciones seguidas) — confirmado al desaparecer tras reiniciar `npm run dev` con `.next/cache` borrado.
+- Usuario e inscripciones de prueba borrados por completo al final.
+
+`typecheck`/`lint` limpios, mismo baseline de 24 problemas preexistentes, sin warnings nuevos.
+
+## 4. Pendiente
+- **No se hizo commit todavía.**
+- Nicolás va dando de alta Entusiasmento a los mentoreados que quiera migrar, desde `/admin/usuarios`, a su propio ritmo — no requiere ningún cambio de código adicional.

@@ -141,7 +141,6 @@ export default function AppNav() {
         { href: "/campus", label: "Campus" },
         { href: "/casatalentos", label: "Entusiasmento" },
         { href: "/conectando-sentidos", label: "Conectando Sentidos" },
-        { href: "/mentorias", label: "Mentorías" },
         { href: "/terapia", label: "Terapia" },
         { href: "/pagos", label: "Pagos" },
         { href: "/perfil", label: "Perfil" },

@@ -309,7 +309,7 @@ export default function CampusPage() {
           items.push({
             actividad: actividadNombre,
             texto: textoFallback,
-            href: actividadSlug === "mentorias" ? "/mentorias" : "/terapia",
+            href: actividadSlug === "mentorias" ? "/casatalentos" : "/terapia",
           })
           return
         }
@@ -318,7 +318,7 @@ export default function CampusPage() {
         items.push({
           actividad: actividadNombre,
           texto: `${etiqueta}: ${formatearRecordatorio(fecha)}`,
-          href: actividadSlug === "mentorias" ? "/mentorias" : "/terapia",
+          href: actividadSlug === "mentorias" ? "/casatalentos" : "/terapia",
         })
       }
 
@@ -554,8 +554,8 @@ export default function CampusPage() {
           {accesoMentorias && (
             <Card
               titulo="Mentoría"
-              descripcion="Acceso a tu espacio de trabajo."
-              href="/mentorias"
+              descripcion="Tu espacio de trabajo ahora vive en Entusiasmento."
+              href="/casatalentos"
               subtitulo="Reuniones TMV"
             />
           )}
