@@ -1794,5 +1794,50 @@ Mientras se resolvía el tema de Google Calendar (ver sección de arriba), Nicol
 `typecheck`/`lint` limpios, mismo baseline de 24 problemas preexistentes, sin warnings nuevos.
 
 ## 4. Pendiente
+- ~~El pedido original mencionaba extender el mismo mecanismo de comentarios con historial a **Producciones** y **Pitch** — hoy esos dos no tienen ningún sistema de comentarios anclados (se confirmó que no existe nada construido ahí). Queda pendiente como una fase aparte, ya que es tan grande como lo que se hizo para Tareas en esta sesión.~~ **RESUELTO, ver sección siguiente.**
+
+---
+
+# Sesión de trabajo 2026-08-31 (continuación) — Comentarios de admin en Producciones y Pitch
+
+## 1. Objetivo
+Terminar de extender el mecanismo de comentarios anclados (globito 💬 + popup, sin duplicados) a los dos lugares que faltaban del pedido original: Producciones y Pitch. A diferencia de Tareas/Coordenadas, ninguno de los dos necesita versionado — se confirmó por código que hoy no existe ninguna forma de editar el contenido de una producción ya subida (el `PATCH` del endpoint acepta `titulo`/`contenido`, pero el frontend nunca lo llama salvo para el toggle de visibilidad) y el Pitch no tiene texto propio (es video/imagen), así que no hay "versión anterior" que perder.
+
+## 2. Extracción de helpers compartidos (prerrequisito)
+Antes de tocar Producciones, se extrajeron 3 funciones que Coordenadas y Tareas tenían duplicadas de forma casi idéntica (mismo bloque de JSX repetido 2 veces), en `app/casatalentos/page.tsx`:
+- `renderizarDisparadorComentarSeleccion(campo)`: el botón "💬 Comentar selección: '...'" que aparece tras seleccionar texto con el mouse.
+- `renderizarBotonDejarAporte(campo)`: **nuevo**, para contenido sin texto seleccionable (producciones que no son texto, y el Pitch) — abre el mismo formulario pero sin requerir una selección previa (`fragmento` queda vacío → comentario general, no anclado).
+- `renderizarFormularioAporte(campo)`: el textarea + Guardar/Cancelar, mostrando "Sobre: '...'" solo si hay texto seleccionado.
+
+`renderizarCampoLectura` (Coordenadas) y `renderizarContenidoTareaComentable` (Tareas) se reescribieron para usar estas 3 funciones en vez de tener el bloque duplicado — mismo comportamiento, menos código.
+
+## 3. Producciones
+- `campoDeProduccion(id)` (`\`produccion:${id}\``) + `renderizarNotasProduccion(id)` (lista plana de comentarios recibidos, mismo patrón que `renderizarNotasTarea` — sin filtro de versión, porque acá no hay versiones).
+- Dentro del `.map` de producciones (`app/casatalentos/page.tsx`): cuando el admin está viendo a un participante (`viendoEmail`):
+  - Tipo **texto**: el contenido se muestra con `renderizarSegmentosConAportes` (selección de texto + resaltado + globito, igual que Coordenadas/Tareas).
+  - Tipos **imagen/audio/video/link**: no hay texto para seleccionar, así que se ofrece `renderizarBotonDejarAporte` (comentario general, sin anclar a un fragmento).
+  - En los dos casos, `renderizarFormularioAporte` es el mismo formulario compartido.
+- En la vista propia del participante (`!viendoEmail`): se agregó `renderizarNotasProduccion(item.id)` debajo de cada producción, para que vea los comentarios recibidos — antes no había ningún lugar donde verlos.
+- **A propósito no se tocó** el toggle de visibilidad ni "Eliminar" (siguen sin gate de `viendoEmail`, comportamiento admin-only-en-el-backend ya documentado como intencional en una sesión anterior).
+
+## 4. Pitch
+- Como el Pitch es único por persona (no tiene id propio), se usó un campo fijo `CAMPO_PITCH = "pitch"` — distinto de `null` (que sigue siendo el "aporte general" viejo de la Fase A2, con su propia caja de colores rotativos debajo del Pitch, sin tocar).
+- `renderizarNotasPitch()`: mismo patrón que `renderizarNotasProduccion`, filtrando por `campo === "pitch"`.
+- Debajo del marco del Pitch: si `viendoEmail`, aparece `renderizarBotonDejarAporte(CAMPO_PITCH)` + `renderizarFormularioAporte(CAMPO_PITCH)` (siempre comentario general, nunca anclado — no hay texto que seleccionar). En la vista propia, `renderizarNotasPitch()` muestra lo que le dejaron.
+
+## 5. Verificado en vivo
+`typecheck`/`lint` limpios — mismo baseline de 24 problemas preexistentes (el warning nuevo de `renderizarBotonDejarAporte` sin uso, que había quedado tras crear el helper, desapareció al quedar wireado acá).
+
+Batería por API (datos descartables en la cuenta real de Cuchulain Mago, creados y borrados al final):
+- Producción de texto de prueba (id 59) + comentario anclado (`campo: "produccion:59"`, `fragmento` presente) → confirmado en la respuesta y por `GET`.
+- Comentario general en Pitch (`campo: "pitch"`, sin `fragmento`) → confirmado.
+
+Prueba visual real (Playwright, cuenta de Cuchulain, mismos datos descartables):
+- El comentario anclado en la producción de texto se ve con el fragmento resaltado en ámbar + el ícono 💬 + el popup al pasar el mouse (contenido, autor, fecha) — visualmente idéntico al mismo mecanismo ya usado en Coordenadas/Tareas.
+- El botón "💬 Dejar un aporte" aparece debajo del marco del Pitch (que hoy no tiene pitch cargado — "Todavía no subió su pitch.", sin relación con este cambio); al tocarlo abre el formulario sin ningún "Sobre: ...", se guarda, y el aporte queda registrado con `campo: "pitch"` y `fragmento: null`.
+- Cero errores de consola en las 2 corridas.
+- Limpieza confirmada al final: `GET /api/entusiasmo/producciones` y `GET /api/entusiasmo/aportes` para Cuchulain volvieron a devolver listas vacías, igual que antes de empezar.
+
+## 6. Pendiente
 - **No se hizo commit todavía.**
-- El pedido original mencionaba extender el mismo mecanismo de comentarios con historial a **Producciones** y **Pitch** — hoy esos dos no tienen ningún sistema de comentarios anclados (se confirmó que no existe nada construido ahí). Queda pendiente como una fase aparte, ya que es tan grande como lo que se hizo para Tareas en esta sesión.
+- Con esto, el pedido original de Nicolás ("tanto en tareas, producciones, coordenadas, y pitch... necesito que el aporte quede con el globito y el cartelito en las versiones anteriores para los participantes") queda completo en los 4 lugares.

@@ -1660,6 +1660,94 @@ export default function CasaTalentosPage() {
     )
   }
 
+  // Botón "💬 Comentar selección" (aparece tras seleccionar texto con el
+  // mouse) + el formulario para escribir y guardar el comentario — mismo
+  // bloque reutilizado en Coordenadas, Tareas y ahora Producciones/Pitch.
+  const renderizarDisparadorComentarSeleccion = (campo: string) => {
+    const hayTextoSeleccionadoAca = campoConSeleccion === campo && textoSeleccionado
+
+    if (!hayTextoSeleccionadoAca || comentandoCampo === campo) return null
+
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setComentandoCampo(campo)
+          setContenidoNotaAncla("")
+          setMensajeAporte("")
+        }}
+        className="workspace-button-secondary text-xs"
+      >
+        💬 Comentar selección: &ldquo;
+        {textoSeleccionado.length > 40 ? `${textoSeleccionado.slice(0, 40)}…` : textoSeleccionado}
+        &rdquo;
+      </button>
+    )
+  }
+
+  // Para campos sin texto para seleccionar (una producción de imagen/audio,
+  // el pitch) — un botón directo que abre el mismo formulario, sin pasar
+  // por una selección de texto primero (el comentario queda sin fragmento).
+  const renderizarBotonDejarAporte = (campo: string) => {
+    if (comentandoCampo === campo) return null
+
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setComentandoCampo(campo)
+          setCampoConSeleccion(null)
+          setTextoSeleccionado("")
+          setContenidoNotaAncla("")
+          setMensajeAporte("")
+        }}
+        className="workspace-button-secondary text-xs"
+      >
+        💬 Dejar un aporte
+      </button>
+    )
+  }
+
+  const renderizarFormularioAporte = (campo: string) => {
+    if (comentandoCampo !== campo) return null
+
+    return (
+      <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50/60 p-3">
+        {textoSeleccionado && (
+          <p className="text-xs text-gray-600">Sobre: &ldquo;{textoSeleccionado}&rdquo;</p>
+        )}
+        {mensajeAporte && <p className="text-xs text-red-600">{mensajeAporte}</p>}
+        <textarea
+          className="workspace-field min-h-16"
+          placeholder="Tu comentario..."
+          value={contenidoNotaAncla}
+          onChange={(e) => setContenidoNotaAncla(e.target.value)}
+        />
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={guardandoNotaAncla || !contenidoNotaAncla.trim()}
+            onClick={() => void guardarNotaAncla()}
+            className="workspace-button-secondary disabled:opacity-60"
+          >
+            {guardandoNotaAncla ? "Guardando..." : "Guardar comentario"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setComentandoCampo(null)
+              setCampoConSeleccion(null)
+              setTextoSeleccionado("")
+            }}
+            className="text-xs text-gray-500 underline"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   const renderizarNotasCampo = (campo: keyof CoordenadasForm) => {
     // Solo los comentarios todavía sobre el texto vigente (sin versión
     // asignada) — los que ya quedaron atados a una versión archivada se ven
@@ -1778,7 +1866,6 @@ export default function CasaTalentosPage() {
       // mientras la migración no esté corrida.
       (a) => a.campo === campo && a.fragmento && (a.version_id ?? null) === null
     )
-    const hayTextoSeleccionadoAca = campoConSeleccion === campo && textoSeleccionado
     const esNuevo = camposNuevosViendo.has(COLUMNA_POR_CAMPO_COORDENADAS[campo])
 
     return (
@@ -1804,57 +1891,8 @@ export default function CasaTalentosPage() {
           )}
         </p>
 
-        {hayTextoSeleccionadoAca && comentandoCampo !== campo && (
-          <button
-            type="button"
-            onClick={() => {
-              setComentandoCampo(campo)
-              setContenidoNotaAncla("")
-              setMensajeAporte("")
-            }}
-            className="workspace-button-secondary text-xs"
-          >
-            💬 Comentar selección: &ldquo;
-            {textoSeleccionado.length > 40
-              ? `${textoSeleccionado.slice(0, 40)}…`
-              : textoSeleccionado}
-            &rdquo;
-          </button>
-        )}
-
-        {comentandoCampo === campo && (
-          <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50/60 p-3">
-            <p className="text-xs text-gray-600">Sobre: &ldquo;{textoSeleccionado}&rdquo;</p>
-            {mensajeAporte && <p className="text-xs text-red-600">{mensajeAporte}</p>}
-            <textarea
-              className="workspace-field min-h-16"
-              placeholder="Tu comentario..."
-              value={contenidoNotaAncla}
-              onChange={(e) => setContenidoNotaAncla(e.target.value)}
-            />
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={guardandoNotaAncla || !contenidoNotaAncla.trim()}
-                onClick={() => void guardarNotaAncla()}
-                className="workspace-button-secondary disabled:opacity-60"
-              >
-                {guardandoNotaAncla ? "Guardando..." : "Guardar comentario"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setComentandoCampo(null)
-                  setCampoConSeleccion(null)
-                  setTextoSeleccionado("")
-                }}
-                className="text-xs text-gray-500 underline"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        )}
+        {renderizarDisparadorComentarSeleccion(campo)}
+        {renderizarFormularioAporte(campo)}
 
         {renderizarVersionesCampo(campo)}
       </div>
@@ -1876,6 +1914,60 @@ export default function CasaTalentosPage() {
     const notas = aportesRecibidos.filter(
       (a) => a.campo === campoDeTarea(tareaId) && (a.tarea_version_id ?? null) === null
     )
+
+    if (notas.length === 0) return null
+
+    return (
+      <div className="space-y-1">
+        {notas.map((n) => (
+          <div
+            key={n.id}
+            className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-gray-700"
+          >
+            {n.fragmento && (
+              <p className="italic text-gray-500">sobre: &ldquo;{n.fragmento}&rdquo;</p>
+            )}
+            <p>💬 {n.contenido}</p>
+            <p className="text-gray-500">— {n.autor_nombre || n.autor_email}</p>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  // Mismo mecanismo que campoDeTarea, para Producciones — sin versionado
+  // (hoy no existe forma de editar el contenido de una producción, así que
+  // no hace falta ningún "atado a versión archivada").
+  const campoDeProduccion = (produccionId: number) => `produccion:${produccionId}`
+
+  // El pitch es único por persona (no tiene id propio como una producción),
+  // así que el campo es un literal fijo — el admin no tiene texto para
+  // seleccionar (es video/imagen), por eso usa renderizarBotonDejarAporte
+  // en vez del flujo de selección.
+  const CAMPO_PITCH = "pitch"
+
+  const renderizarNotasPitch = () => {
+    const notas = aportesRecibidos.filter((a) => a.campo === CAMPO_PITCH)
+
+    if (notas.length === 0) return null
+
+    return (
+      <div className="space-y-1">
+        {notas.map((n) => (
+          <div
+            key={n.id}
+            className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-gray-700"
+          >
+            <p>💬 {n.contenido}</p>
+            <p className="text-gray-500">— {n.autor_nombre || n.autor_email}</p>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  const renderizarNotasProduccion = (produccionId: number) => {
+    const notas = aportesRecibidos.filter((a) => a.campo === campoDeProduccion(produccionId))
 
     if (notas.length === 0) return null
 
@@ -1975,7 +2067,6 @@ export default function CasaTalentosPage() {
     const notasDelCampo = aportesRecibidos.filter(
       (a) => a.campo === campo && a.fragmento && (a.tarea_version_id ?? null) === null
     )
-    const hayTextoSeleccionadoAca = campoConSeleccion === campo && textoSeleccionado
 
     return (
       <div className="space-y-2">
@@ -1988,57 +2079,8 @@ export default function CasaTalentosPage() {
           {renderizarSegmentosConAportes(tarea.contenido, notasDelCampo)}
         </p>
 
-        {hayTextoSeleccionadoAca && comentandoCampo !== campo && (
-          <button
-            type="button"
-            onClick={() => {
-              setComentandoCampo(campo)
-              setContenidoNotaAncla("")
-              setMensajeAporte("")
-            }}
-            className="workspace-button-secondary text-xs"
-          >
-            💬 Comentar selección: &ldquo;
-            {textoSeleccionado.length > 40
-              ? `${textoSeleccionado.slice(0, 40)}…`
-              : textoSeleccionado}
-            &rdquo;
-          </button>
-        )}
-
-        {comentandoCampo === campo && (
-          <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50/60 p-3">
-            <p className="text-xs text-gray-600">Sobre: &ldquo;{textoSeleccionado}&rdquo;</p>
-            {mensajeAporte && <p className="text-xs text-red-600">{mensajeAporte}</p>}
-            <textarea
-              className="workspace-field min-h-16"
-              placeholder="Tu comentario..."
-              value={contenidoNotaAncla}
-              onChange={(e) => setContenidoNotaAncla(e.target.value)}
-            />
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={guardandoNotaAncla || !contenidoNotaAncla.trim()}
-                onClick={() => void guardarNotaAncla()}
-                className="workspace-button-secondary disabled:opacity-60"
-              >
-                {guardandoNotaAncla ? "Guardando..." : "Guardar comentario"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setComentandoCampo(null)
-                  setCampoConSeleccion(null)
-                  setTextoSeleccionado("")
-                }}
-                className="text-xs text-gray-500 underline"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        )}
+        {renderizarDisparadorComentarSeleccion(campo)}
+        {renderizarFormularioAporte(campo)}
 
         {renderizarVersionesTarea(tarea.id)}
       </div>
@@ -3607,6 +3649,14 @@ export default function CasaTalentosPage() {
                           </div>
                         )}
                       </div>
+
+                      {viendoEmail && (
+                        <div className="space-y-2">
+                          {renderizarBotonDejarAporte(CAMPO_PITCH)}
+                          {renderizarFormularioAporte(CAMPO_PITCH)}
+                        </div>
+                      )}
+                      {!viendoEmail && renderizarNotasPitch()}
                     </div>
 
                     {aportesRecibidos.filter((a) => !a.campo).length > 0 && (
@@ -4002,10 +4052,38 @@ export default function CasaTalentosPage() {
                             )}
 
                             {item.tipo === "texto" && item.contenido && (
-                              <p className="whitespace-pre-wrap text-sm text-gray-700">
-                                {item.contenido}
-                              </p>
+                              viendoEmail ? (
+                                <p
+                                  className="cursor-text whitespace-pre-wrap text-sm text-gray-700"
+                                  onMouseUp={() => manejarSeleccionTexto(campoDeProduccion(item.id))}
+                                >
+                                  {renderizarSegmentosConAportes(
+                                    item.contenido,
+                                    aportesRecibidos.filter(
+                                      (a) => a.campo === campoDeProduccion(item.id)
+                                    )
+                                  )}
+                                </p>
+                              ) : (
+                                <p className="whitespace-pre-wrap text-sm text-gray-700">
+                                  {item.contenido}
+                                </p>
+                              )
                             )}
+
+                            {viendoEmail && item.tipo === "texto" && (
+                              <>
+                                {renderizarDisparadorComentarSeleccion(campoDeProduccion(item.id))}
+                                {renderizarFormularioAporte(campoDeProduccion(item.id))}
+                              </>
+                            )}
+                            {viendoEmail && item.tipo !== "texto" && (
+                              <>
+                                {renderizarBotonDejarAporte(campoDeProduccion(item.id))}
+                                {renderizarFormularioAporte(campoDeProduccion(item.id))}
+                              </>
+                            )}
+                            {!viendoEmail && renderizarNotasProduccion(item.id)}
 
                             <div className="flex items-center gap-3">
                               <button
