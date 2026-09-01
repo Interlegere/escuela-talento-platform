@@ -70,6 +70,7 @@ type ProyectoEntusiasmo = {
   resultado_anual: string | null
   habilidad_a_desarrollar: string | null
   que_te_entusiasma: string | null
+  que_te_frena: string | null
   pitch_contenido: string | null
   pitch_storage_path: string | null
   pitch_mime_type: string | null
@@ -89,6 +90,7 @@ type CoordenadasForm = {
   resultadoAnual: string
   habilidadADesarrollar: string
   queTeEntusiasma: string
+  queTeFrena: string
   pitchContenido: string
 }
 
@@ -103,6 +105,7 @@ const COORDENADAS_VACIAS: CoordenadasForm = {
   resultadoAnual: "",
   habilidadADesarrollar: "",
   queTeEntusiasma: "",
+  queTeFrena: "",
   pitchContenido: "",
 }
 
@@ -211,6 +214,7 @@ const CAMPOS_COORDENADAS: Array<keyof CoordenadasForm> = [
   "resultadoAnual",
   "habilidadADesarrollar",
   "queTeEntusiasma",
+  "queTeFrena",
 ]
 // Las versiones anteriores se guardan con el nombre de columna de la base
 // (snake_case), pero el formulario usa camelCase — este mapa traduce entre
@@ -226,6 +230,7 @@ const COLUMNA_POR_CAMPO_COORDENADAS: Record<keyof CoordenadasForm, string> = {
   resultadoAnual: "resultado_anual",
   habilidadADesarrollar: "habilidad_a_desarrollar",
   queTeEntusiasma: "que_te_entusiasma",
+  queTeFrena: "que_te_frena",
   pitchContenido: "pitch_contenido",
 }
 const CAMPOS_COORDENADAS_PRINCIPALES: Array<{
@@ -249,6 +254,7 @@ const CAMPOS_COORDENADAS_PRINCIPALES: Array<{
     etiqueta: "Talento/s que reconocés en vos y cuáles querés desarrollar",
   },
   { campo: "queTeEntusiasma", etiqueta: "¿Qué te entusiasma en la vida? ¡Chispa!" },
+  { campo: "queTeFrena", etiqueta: "¿Qué te frena?" },
 ]
 const CAMPOS_COORDENADAS_RESULTADOS: Array<{
   campo: keyof CoordenadasForm
@@ -712,6 +718,7 @@ export default function CasaTalentosPage() {
         resultadoAnual: cargado?.resultado_anual || "",
         habilidadADesarrollar: cargado?.habilidad_a_desarrollar || "",
         queTeEntusiasma: cargado?.que_te_entusiasma || "",
+        queTeFrena: cargado?.que_te_frena || "",
         pitchContenido: cargado?.pitch_contenido || "",
       })
     } catch {

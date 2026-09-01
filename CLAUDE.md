@@ -1909,5 +1909,21 @@ Con un usuario 100% descartable (creado con hash scrypt válido para poder logue
 `typecheck`/`lint` limpios, mismo baseline de 24 problemas preexistentes, sin warnings nuevos.
 
 ## 4. Pendiente
-- **No se hizo commit todavía.**
 - Nicolás va dando de alta Entusiasmento a los mentoreados que quiera migrar, desde `/admin/usuarios`, a su propio ritmo — no requiere ningún cambio de código adicional.
+
+Commiteado y pusheado (`8e52c25`).
+
+---
+
+# Sesión de trabajo 2026-09-01 (continuación) — Nuevo campo de Coordenadas: "¿Qué te frena?"
+
+## 1. Qué se hizo
+Campo nuevo en Coordenadas, mismo patrón ya usado para "Nombre del proyecto": `sql/2026-09-01_entusiasmo_proyectos_que_te_frena.sql` (columna nullable `que_te_frena` en `entusiasmo_proyectos`, corrida por Nicolás), `app/api/entusiasmo/proyecto/route.ts` (tipo `ProyectoRow`/`Body`, `CAMPOS_VERSIONABLES` — así queda con historial de versiones y comentarios anclados igual que el resto —, el `select` del existente y el `upsert`), y `app/casatalentos/page.tsx` (`CoordenadasForm`, `COORDENADAS_VACIAS`, `CAMPOS_COORDENADAS`, `COLUMNA_POR_CAMPO_COORDENADAS`, `CAMPOS_COORDENADAS_PRINCIPALES` con la etiqueta "¿Qué te frena?" justo después de "¿Qué te entusiasma en la vida? ¡Chispa!", y la carga desde la API). Como ambas vistas (edición propia y lectura del admin) recorren `CAMPOS_COORDENADAS_PRINCIPALES` de forma genérica, no hizo falta tocar JSX puntual en ningún lado más.
+
+**A diferencia de otras veces**: acá la degradación sin el SQL corrido no era graciosa — el `PUT` construye el `upsert` con el campo nuevo siempre incluido, así que sin la columna real Supabase devolvía error (`PGRST204`) y **rompía "Guardar coordenadas" para todo el mundo**, no solo para el campo nuevo. Se detectó probando en vivo antes de pushear nada, y se le avisó a Nicolás explícitamente que corriera el SQL antes de cualquier commit (a diferencia de otras columnas nuevas de este proyecto, que sí degradan solas).
+
+## 2. Verificado en vivo
+Con la columna ya creada, probado con la cuenta admin (sin usar un participante descartable — es un campo de texto simple, bajo riesgo, y se limpió el valor de prueba al final para no dejar residuo): `PUT` guarda el valor, `GET` lo lee de vuelta, y visualmente (Playwright) aparece "¿Qué te frena?" en la posición correcta, justo debajo de "¿Qué te entusiasma en la vida? ¡Chispa!", con el valor cargado y sin errores de consola. Valor de prueba limpiado (vuelto a `""`) al final. `typecheck`/`lint` limpios, mismo baseline de 24 problemas preexistentes.
+
+## 3. Pendiente
+- **No se hizo commit todavía.**

@@ -23,6 +23,7 @@ type ProyectoRow = {
   resultado_anual: string | null
   habilidad_a_desarrollar: string | null
   que_te_entusiasma: string | null
+  que_te_frena: string | null
   pitch_contenido: string | null
   pitch_storage_path: string | null
   pitch_mime_type: string | null
@@ -45,6 +46,7 @@ type Body = {
   resultadoAnual?: string
   habilidadADesarrollar?: string
   queTeEntusiasma?: string
+  queTeFrena?: string
   pitchContenido?: string
 }
 
@@ -118,6 +120,7 @@ const CAMPOS_VERSIONABLES: Array<{ campoBody: keyof Body; columna: string }> = [
   { campoBody: "resultadoAnual", columna: "resultado_anual" },
   { campoBody: "habilidadADesarrollar", columna: "habilidad_a_desarrollar" },
   { campoBody: "queTeEntusiasma", columna: "que_te_entusiasma" },
+  { campoBody: "queTeFrena", columna: "que_te_frena" },
 ]
 
 export async function PUT(req: Request) {
@@ -148,7 +151,7 @@ export async function PUT(req: Request) {
 
     const { data: existente } = await supabase
       .from("entusiasmo_proyectos")
-      .select("id, participante_nombre, nombre, que, para_que, problema_solucion, resultado_mensual, resultado_trimestral, resultado_anual, habilidad_a_desarrollar, que_te_entusiasma")
+      .select("id, participante_nombre, nombre, que, para_que, problema_solucion, resultado_mensual, resultado_trimestral, resultado_anual, habilidad_a_desarrollar, que_te_entusiasma, que_te_frena")
       .eq("participante_email", emailObjetivo)
       .maybeSingle()
 
@@ -172,6 +175,7 @@ export async function PUT(req: Request) {
           resultado_anual: body.resultadoAnual ?? null,
           habilidad_a_desarrollar: body.habilidadADesarrollar ?? null,
           que_te_entusiasma: body.queTeEntusiasma ?? null,
+          que_te_frena: body.queTeFrena ?? null,
           pitch_contenido: body.pitchContenido ?? null,
           updated_at: new Date().toISOString(),
         },
