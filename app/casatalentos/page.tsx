@@ -20,6 +20,7 @@ import { usePersistentState } from "@/hooks/usePersistentState"
 import { useSessionDraft } from "@/hooks/useSessionDraft"
 import RecursoCard from "@/components/recursos/RecursoCard"
 import { tieneContenidoRecurso } from "@/lib/recursos"
+import InstalarApp from "@/components/InstalarApp"
 
 type Recurso = {
   id: number
@@ -2941,6 +2942,7 @@ export default function CasaTalentosPage() {
 
   return (
       <main className="workspace-page space-y-6">
+        <InstalarApp />
         <WorkspaceHero title="Entusiasmento" subtitle="Espacio para Plasmar" />
 
         {puntosGrupales && (
