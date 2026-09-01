@@ -64,12 +64,15 @@ export default function InstalarApp() {
       setPromptDiferido(evento as BeforeInstallPromptEvent)
     }
 
+    const manejarAppInstalada = () => setInstalado(true)
+
     window.addEventListener("beforeinstallprompt", manejarPrompt)
-    window.addEventListener("appinstalled", () => setInstalado(true))
+    window.addEventListener("appinstalled", manejarAppInstalada)
 
     return () => {
       window.cancelAnimationFrame(frame)
       window.removeEventListener("beforeinstallprompt", manejarPrompt)
+      window.removeEventListener("appinstalled", manejarAppInstalada)
     }
   }, [])
 
@@ -96,7 +99,23 @@ export default function InstalarApp() {
 
   const puedeInstalarNativo = Boolean(promptDiferido)
 
-  if (!puedeInstalarNativo && !esiOS) return null
+  // Tres casos: prompt nativo disponible (Android/Chrome, cuando el
+  // navegador decide ofrecerlo), iOS (nunca tiene prompt nativo, siempre
+  // son pasos manuales), o ningún de los dos — el caso más común en la
+  // práctica sin service worker, donde beforeinstallprompt no dispara. Acá
+  // también se puede instalar (todo navegador moderno con manifest lo
+  // permite desde su propio menú), solo que no hay forma de saber el
+  // nombre exacto de la opción de memoria, así que se da la instrucción
+  // genérica del menú del navegador en vez de ocultar la banda entera.
+  const textoBoton = puedeInstalarNativo ? "Instalar" : "Cómo instalar"
+
+  const manejarClickBoton = () => {
+    if (puedeInstalarNativo) {
+      void instalar()
+      return
+    }
+    setInstruccionesAbiertas((v) => !v)
+  }
 
   // Banda compacta, en el flujo normal del documento (no "fixed") — a
   // propósito: un widget flotante sobre una página larga y con contenido a
@@ -116,10 +135,10 @@ export default function InstalarApp() {
         <span className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => (esiOS ? setInstruccionesAbiertas((v) => !v) : void instalar())}
+            onClick={manejarClickBoton}
             className="workspace-button-secondary px-3 py-1.5 text-xs"
           >
-            {esiOS ? "Cómo instalar" : "Instalar"}
+            {textoBoton}
           </button>
           <button
             type="button"
@@ -132,10 +151,20 @@ export default function InstalarApp() {
         </span>
       </div>
 
-      {esiOS && instruccionesAbiertas && (
+      {!puedeInstalarNativo && instruccionesAbiertas && (
         <p className="text-gray-700">
-          Tocá <strong>Compartir</strong> (el ícono con la flecha hacia
-          arriba) y después <strong>Agregar a inicio</strong>.
+          {esiOS ? (
+            <>
+              Tocá <strong>Compartir</strong> (el ícono con la flecha hacia
+              arriba) y después <strong>Agregar a inicio</strong>.
+            </>
+          ) : (
+            <>
+              Abrí el menú del navegador (⋮) y elegí{" "}
+              <strong>«Instalar app»</strong> o{" "}
+              <strong>«Agregar a pantalla principal»</strong>.
+            </>
+          )}
         </p>
       )}
     </div>
