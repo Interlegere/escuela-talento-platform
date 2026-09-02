@@ -171,6 +171,13 @@ async function crearOActualizarEventoDirecto(
     description: "Tarea de Entusiasmento — ENTHEOS",
     start: { dateTime: inicio.toISOString() },
     end: { dateTime: fin.toISOString() },
+    reminders: {
+      useDefault: false,
+      overrides: [
+        { method: "popup", minutes: 30 },
+        { method: "popup", minutes: 10 },
+      ],
+    },
   }
 
   try {
