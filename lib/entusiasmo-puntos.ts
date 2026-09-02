@@ -40,6 +40,24 @@ export async function otorgarPuntoSiCorresponde(
     fecha?: string
   }
 ) {
+  // Gate único para las ~7 acciones que otorgan puntos (Coordenadas,
+  // Tareas, Pitch, Producciones) — pensado para quienes vienen de
+  // Mentorías: usan las herramientas de Entusiasmento pero no participan
+  // de las reuniones grupales, así que sus acciones no deberían contar
+  // para esa meta. Si la columna todavía no existe (antes de correr la
+  // migración) o la persona no tiene proyecto todavía, `proyecto` queda
+  // null/undefined y se sigue otorgando el punto — mismo comportamiento
+  // de siempre, sin romper nada mientras se corre el SQL.
+  const { data: proyecto } = await supabase
+    .from("entusiasmo_proyectos")
+    .select("suma_puntos_grupales")
+    .eq("participante_email", params.participanteEmail)
+    .maybeSingle<{ suma_puntos_grupales: boolean | null }>()
+
+  if (proyecto?.suma_puntos_grupales === false) {
+    return
+  }
+
   const fecha = params.fecha || obtenerFechaISOArgentina()
   const puntos = PUNTOS_POR_CATEGORIA[params.categoria] ?? 0
 

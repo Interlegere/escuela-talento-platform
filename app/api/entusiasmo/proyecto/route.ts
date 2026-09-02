@@ -30,6 +30,7 @@ type ProyectoRow = {
   pitch_actualizado_at: string | null
   agente_recordatorio_texto: string | null
   agente_recordatorio_generado_at: string | null
+  suma_puntos_grupales: boolean
   created_at: string
   updated_at: string
 }
@@ -275,6 +276,70 @@ export async function PUT(req: Request) {
   } catch (error) {
     return NextResponse.json(
       { error: "Error interno guardando el proyecto.", detalle: String(error) },
+      { status: 500 }
+    )
+  }
+}
+
+// Solo el flag "suma puntos para la reunión grupal" — separado del PUT de
+// Coordenadas a propósito (ese manda el formulario completo del
+// participante; esto es una configuración admin-only sobre otra persona,
+// no debería poder pisarse ni pisar nada al guardarse).
+type PatchBody = {
+  participanteEmail?: string
+  sumaPuntosGrupales?: boolean
+}
+
+export async function PATCH(req: Request) {
+  try {
+    const auth = await requireActivityAccess(
+      "casatalentos",
+      getActivityAdminPermission("casatalentos")
+    )
+
+    if ("response" in auth) {
+      return auth.response
+    }
+
+    if (!hasPermission(auth.actor, "casatalentos.admin")) {
+      return NextResponse.json(
+        { error: "Solo el admin puede cambiar esta configuración." },
+        { status: 403 }
+      )
+    }
+
+    const body: PatchBody = await req.json()
+    const email = body.participanteEmail?.trim().toLowerCase()
+
+    if (!email || typeof body.sumaPuntosGrupales !== "boolean") {
+      return NextResponse.json(
+        { error: "Faltan datos (participanteEmail y sumaPuntosGrupales)." },
+        { status: 400 }
+      )
+    }
+
+    const supabase = createAdminSupabaseClient()
+
+    const { data, error } = await supabase
+      .from("entusiasmo_proyectos")
+      .upsert(
+        { participante_email: email, suma_puntos_grupales: body.sumaPuntosGrupales },
+        { onConflict: "participante_email" }
+      )
+      .select("id, participante_email, suma_puntos_grupales")
+      .single()
+
+    if (error) {
+      return NextResponse.json(
+        { error: "No se pudo guardar la configuración.", detalle: error },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({ ok: true, proyecto: data })
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Error interno guardando la configuración.", detalle: String(error) },
       { status: 500 }
     )
   }

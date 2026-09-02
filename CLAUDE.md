@@ -1926,4 +1926,42 @@ Campo nuevo en Coordenadas, mismo patrón ya usado para "Nombre del proyecto": `
 Con la columna ya creada, probado con la cuenta admin (sin usar un participante descartable — es un campo de texto simple, bajo riesgo, y se limpió el valor de prueba al final para no dejar residuo): `PUT` guarda el valor, `GET` lo lee de vuelta, y visualmente (Playwright) aparece "¿Qué te frena?" en la posición correcta, justo debajo de "¿Qué te entusiasma en la vida? ¡Chispa!", con el valor cargado y sin errores de consola. Valor de prueba limpiado (vuelto a `""`) al final. `typecheck`/`lint` limpios, mismo baseline de 24 problemas preexistentes.
 
 ## 3. Pendiente
+- Ninguno — commiteado y pusheado (`a1205b1`).
+
+---
+
+# Sesión de trabajo 2026-09-01 (continuación 2) — Red de seguridad + rama `pwa-instalable`
+
+## 1. Red de seguridad (commit `80ec034` en `main`)
+A pedido explícito de Nicolás, se commiteó en un solo paquete todo lo que llevaba tiempo pendiente sin subir: landing page completa (`app/landing/page.tsx`, `app/page.tsx`, `components/landing/`, `lib/landing-content.ts`, `lib/institucional-content.ts`, assets en `public/landing/` — contenido/diseño de Nicolás, no tocado por estas sesiones), `AppFooter` extraído a componente propio, la corrección de reglas de CasaTalentos en `AGENTS.md` (ya reflejada en este archivo desde antes), y el código de invitar participantes como asistentes de Google Calendar (`lib/google-calendar.ts`/`app/api/google/sync-serie/route.ts` — bloqueado por política de Workspace, no rompe nada, solo no logra invitar hasta que se resuelva del lado de Google).
+
+## 2. PWA instalable — vive en la rama `pwa-instalable`, NO en `main`
+Trabajo aditivo (manifest + ícono de instalación en Entusiasmento) armado en una rama aparte a pedido de Nicolás, con dos commits: `64eee0b` (manifest, íconos 192/512/512-maskable, `<InstalarApp />` montado en `app/casatalentos/page.tsx`) y `23e8327` (fix del ícono maskable — tenía un marco crema que Android recortaba mal, quedó con fondo blanco puro de borde a borde — y fix de `InstalarApp` para que se muestre también en Android real, no solo cuando el navegador dispara `beforeinstallprompt`). **Ninguno de los dos commits está en `main` todavía** — si una sesión futura no ve `app/manifest.ts`/`components/InstalarApp.tsx` en `main`, es porque siguen esperando que Nicolás revise y confirme el merge de esa rama.
+
+---
+
+# Sesión de trabajo 2026-09-02 — Distinguir quién suma puntos para la reunión grupal
+
+## 1. Objetivo
+Con la apertura de Entusiasmento a los mentoreados (sesión 2026-09-01), Nicolás notó un problema real: esas personas usan las herramientas (Coordenadas/Producciones/Pitch/Tareas) pero no participan de las reuniones grupales — así que sus acciones no deberían sumar hacia la meta grupal de "reunión extra" (`entusiasmo_puntos_eventos`/panel "Reunión extra del grupo"). Pidió una forma de marcar/desmarcar esto por persona, con dudas resueltas antes de programar (preguntó explícitamente): ubicación del control (dentro de Entusiasmento, en la solapa del participante — no en `/admin/usuarios`), si el panel de puntos se oculta para quien no suma (sí, se oculta), y si arranca todo en "suma" por defecto con Nicolás desmarcando a mano caso por caso a medida que da de alta a cada mentoreado (sí, eso).
+
+## 2. Qué se hizo
+- `sql/2026-09-02_entusiasmo_proyectos_suma_puntos.sql` (corrida por Nicolás): columna nueva `suma_puntos_grupales boolean not null default true` en `entusiasmo_proyectos` — default `true` para no restarle puntos a nadie que ya estaba sumando.
+- `lib/entusiasmo-puntos.ts`: `otorgarPuntoSiCorresponde` — la función única por la que pasan las ~7 acciones que otorgan puntos (Coordenadas, Tareas, Pitch, Producciones) — ahora consulta ese flag antes de insertar el evento y no hace nada si está en `false`. Gate centralizado en un solo lugar, sin tocar los 7 call sites. Si la columna no existe todavía (antes de correr el SQL) o la persona no tiene proyecto, se sigue otorgando el punto — mismo comportamiento de siempre, sin romper nada mientras se corre la migración.
+- `app/api/entusiasmo/proyecto/route.ts`: nuevo `PATCH` (admin-only, separado del `PUT` de Coordenadas a propósito — ese manda el formulario completo del participante, esto es una configuración administrativa sobre otra persona) que recibe `{ participanteEmail, sumaPuntosGrupales }` y hace upsert solo de esa columna.
+- `app/casatalentos/page.tsx`: el panel "Reunión extra del grupo" ahora se oculta para quien tiene `suma_puntos_grupales: false` en su propia vista (`!esAdmin`) — admin lo sigue viendo siempre, en cualquier solapa. Dentro del panel, cuando admin está viendo la solapa de un participante puntual, aparece un checkbox "{nombre} suma puntos para la reunión grupal" que llama al `PATCH` nuevo y recarga el proyecto al guardar.
+
+## 3. Verificado en vivo
+Con un participante 100% descartable (creado, dado de alta en Entusiasmento, y borrado por completo al final — incluidos su proyecto y cualquier evento de puntos):
+- Con el flag en `false`: guardar coordenadas **no** generó ningún evento en `entusiasmo_puntos_eventos` (confirmado contra la base, array vacío).
+- Reactivando el flag en `true`: la misma acción sí generó el evento (`categoria: "coordenadas", puntos: 1`).
+- El participante, con el flag en `false`, **no ve el panel** de "Reunión extra del grupo" en su propia página (confirmado visualmente, Playwright).
+- Admin sigue viendo el panel siempre, tanto en su propia solapa ("Yo") como en la del participante de prueba, con el checkbox presente y reflejando el estado real.
+- El click real desde la UI (no por API) togglea correctamente el checkbox y persiste el cambio (confirmado releyendo el estado tras el click).
+- Antes de pedirle a Nicolás que corriera el SQL, se probó que `GET`/`PUT` de Coordenadas (lo que ya usa todo el mundo) seguían funcionando exactamente igual sin la columna nueva — el único que fallaba era el `PATCH` nuevo (que nadie usa todavía), con un error 500 estructurado, no un crash.
+
+`typecheck`/`lint` limpios, mismo baseline de 24 problemas preexistentes, sin warnings nuevos. Cero errores de consola en las corridas de Playwright.
+
+## 4. Pendiente
 - **No se hizo commit todavía.**
+- Cuando Nicolás empiece a dar de alta a los mentoreados en Entusiasmento, tiene que acordarse de desmarcar el flag para cada uno desde su solapa — no hay automatismo que lo haga solo (decisión explícita, ver punto 1).

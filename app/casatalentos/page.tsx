@@ -77,6 +77,7 @@ type ProyectoEntusiasmo = {
   pitch_actualizado_at: string | null
   agente_recordatorio_texto: string | null
   agente_recordatorio_generado_at: string | null
+  suma_puntos_grupales: boolean
 }
 
 type CoordenadasForm = {
@@ -451,6 +452,8 @@ export default function CasaTalentosPage() {
   const [proximoEncuentro, setProximoEncuentro] = useState<ProximoEncuentro | null>(null)
   const [puntosGrupales, setPuntosGrupales] = useState<PuntosGrupales | null>(null)
   const [desglosePuntosAbierto, setDesglosePuntosAbierto] = useState(false)
+  const [guardandoSumaPuntos, setGuardandoSumaPuntos] = useState(false)
+  const [mensajeSumaPuntos, setMensajeSumaPuntos] = useState("")
   const [aportesRecibidos, setAportesRecibidos] = useState<AporteItem[]>([])
   const [hayAportesNuevos, setHayAportesNuevos] = useState(false)
   const [novedadesPorParticipante, setNovedadesPorParticipante] = useState<
@@ -733,6 +736,41 @@ export default function CasaTalentosPage() {
       void cargarProyecto()
     }
   }, [mounted, viendoEmail])
+
+  // Admin-only: marca/desmarca si la persona que se está viendo (solapa)
+  // suma sus acciones hacia la meta grupal de "reunión extra" — pensado
+  // para quienes vienen de Mentorías, que usan las herramientas de
+  // Entusiasmento pero no participan de esas reuniones.
+  const cambiarSumaPuntosGrupales = async (valor: boolean) => {
+    if (!viendoEmail) return
+
+    try {
+      setGuardandoSumaPuntos(true)
+      setMensajeSumaPuntos("")
+
+      const res = await fetch("/api/entusiasmo/proyecto", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          participanteEmail: viendoEmail,
+          sumaPuntosGrupales: valor,
+        }),
+      })
+
+      const data = await leerRespuestaJson<{ error?: string }>(res)
+
+      if (!res.ok) {
+        setMensajeSumaPuntos(data.error || "No se pudo guardar.")
+        return
+      }
+
+      await cargarProyecto()
+    } catch {
+      setMensajeSumaPuntos("Error guardando la configuración.")
+    } finally {
+      setGuardandoSumaPuntos(false)
+    }
+  }
 
   useEffect(() => {
     if (!mounted) return
@@ -2943,7 +2981,7 @@ export default function CasaTalentosPage() {
       <main className="workspace-page space-y-6">
         <WorkspaceHero title="Entusiasmento" subtitle="Espacio para Plasmar" />
 
-        {puntosGrupales && (
+        {puntosGrupales && (esAdmin || proyecto?.suma_puntos_grupales !== false) && (
           <div className="space-y-3 rounded-[1.5rem] border-2 border-emerald-300 bg-emerald-50/60 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -2994,6 +3032,23 @@ export default function CasaTalentosPage() {
                       <span className="font-semibold">{d.puntos} pts</span>
                     </div>
                   ))
+                )}
+              </div>
+            )}
+
+            {esAdmin && viendoEmail && (
+              <div className="space-y-1 border-t border-emerald-200 pt-2">
+                <label className="flex items-center gap-2 text-xs text-emerald-800">
+                  <input
+                    type="checkbox"
+                    checked={proyecto?.suma_puntos_grupales !== false}
+                    disabled={guardandoSumaPuntos}
+                    onChange={(e) => void cambiarSumaPuntosGrupales(e.target.checked)}
+                  />
+                  {nombrePitchMostrado} suma puntos para la reunión grupal
+                </label>
+                {mensajeSumaPuntos && (
+                  <p className="text-xs text-red-600">{mensajeSumaPuntos}</p>
                 )}
               </div>
             )}
