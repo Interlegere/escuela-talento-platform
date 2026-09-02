@@ -6,9 +6,10 @@ import { usePathname } from "next/navigation"
 export default function AppFooter() {
   const pathname = usePathname()
 
-  // Igual que AppNav: las rutas públicas (raíz institucional y landing) traen
-  // su propio pie de página.
-  if (pathname === "/landing" || pathname === "/") {
+  // Igual que AppNav: las rutas públicas (raíz institucional, landing, y la
+  // página de instalación pensada para abrirse desde WhatsApp) traen su
+  // propio pie de página o directamente no llevan ninguno.
+  if (pathname === "/landing" || pathname === "/" || pathname === "/app") {
     return null
   }
 

@@ -1,79 +1,28 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useDeteccionInstalacion } from "@/hooks/useDeteccionInstalacion"
 
 const STORAGE_OCULTO = "entusiasmo_instalar_app_oculto"
 
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>
-}
-
-function estaStandalone() {
-  if (typeof window === "undefined") return false
-
-  const navegadorConStandalone = window.navigator as Navigator & {
-    standalone?: boolean
-  }
-
-  return (
-    window.matchMedia?.("(display-mode: standalone)").matches === true ||
-    navegadorConStandalone.standalone === true
-  )
-}
-
-function esIOS() {
-  if (typeof window === "undefined") return false
-
-  const ua = window.navigator.userAgent
-
-  return (
-    /iphone|ipad|ipod/i.test(ua) ||
-    // iPadOS 13+ se identifica como Mac, pero soporta touch.
-    (window.navigator.platform === "MacIntel" && window.navigator.maxTouchPoints > 1)
-  )
-}
-
 export default function InstalarApp() {
-  const [mounted, setMounted] = useState(false)
-  const [instalado, setInstalado] = useState(false)
-  const [esiOS, setEsiOS] = useState(false)
-  const [promptDiferido, setPromptDiferido] = useState<BeforeInstallPromptEvent | null>(null)
+  const { mounted, instalado, plataforma, puedeInstalarNativo, instalar } =
+    useDeteccionInstalacion()
+  const esiOS = plataforma === "ios"
   const [oculto, setOculto] = useState(false)
   const [instruccionesAbiertas, setInstruccionesAbiertas] = useState(false)
 
   useEffect(() => {
-    // setState no se llama de forma síncrona en el cuerpo del efecto (dispara
-    // el lint react-hooks/set-state-in-effect) — se difiere un frame, mismo
-    // patrón ya usado en AppNav para su propio flag "mounted".
     const frame = window.requestAnimationFrame(() => {
-      setMounted(true)
-      setInstalado(estaStandalone())
-      setEsiOS(esIOS())
-
       try {
         setOculto(window.localStorage.getItem(STORAGE_OCULTO) === "1")
       } catch {
-        // Sin acceso a localStorage (ej. modo privado estricto): no rompe nada,
-        // simplemente no recuerda el descarte entre sesiones.
+        // Sin acceso a localStorage (ej. modo privado estricto): no rompe
+        // nada, simplemente no recuerda el descarte entre sesiones.
       }
     })
 
-    const manejarPrompt = (evento: Event) => {
-      evento.preventDefault()
-      setPromptDiferido(evento as BeforeInstallPromptEvent)
-    }
-
-    const manejarAppInstalada = () => setInstalado(true)
-
-    window.addEventListener("beforeinstallprompt", manejarPrompt)
-    window.addEventListener("appinstalled", manejarAppInstalada)
-
-    return () => {
-      window.cancelAnimationFrame(frame)
-      window.removeEventListener("beforeinstallprompt", manejarPrompt)
-      window.removeEventListener("appinstalled", manejarAppInstalada)
-    }
+    return () => window.cancelAnimationFrame(frame)
   }, [])
 
   const descartar = () => {
@@ -87,17 +36,7 @@ export default function InstalarApp() {
     }
   }
 
-  const instalar = async () => {
-    if (!promptDiferido) return
-
-    await promptDiferido.prompt()
-    await promptDiferido.userChoice
-    setPromptDiferido(null)
-  }
-
   if (!mounted || instalado || oculto) return null
-
-  const puedeInstalarNativo = Boolean(promptDiferido)
 
   // Tres casos: prompt nativo disponible (Android/Chrome, cuando el
   // navegador decide ofrecerlo), iOS (nunca tiene prompt nativo, siempre

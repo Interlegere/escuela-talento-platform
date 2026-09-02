@@ -29,13 +29,17 @@ export default function AppNav() {
   const role = session?.user?.role || "participante"
   const esAdmin = role === "admin"
   // Rutas públicas (sin sesión): la web institucional en la raíz, la landing,
-  // y el login. Landing/raíz traen su propio encabezado (LandingPublicNav); el
-  // login trae su propia marca chica (LoginBrand, en app/login/page.tsx) — en
-  // las tres, la fila completa de links de la plataforma no le sirve a nadie
-  // que todavía no inició sesión, y en el celular solo empuja el contenido
-  // real más abajo.
+  // el login, y la página de instalación de la app. Landing/raíz traen su
+  // propio encabezado (LandingPublicNav); login y /app traen su propia marca
+  // chica — en las cuatro, la fila completa de links de la plataforma no le
+  // sirve a nadie que todavía no inició sesión, y en el celular solo empuja
+  // el contenido real más abajo. /app en particular está pensada para abrirse
+  // desde un link de WhatsApp en el celular, una sola pantalla sin nada más.
   const esRutaPublicaSinNav =
-    pathname === "/landing" || pathname === "/" || pathname === "/login"
+    pathname === "/landing" ||
+    pathname === "/" ||
+    pathname === "/login" ||
+    pathname === "/app"
 
   useEffect(() => {
     if (!session) return
