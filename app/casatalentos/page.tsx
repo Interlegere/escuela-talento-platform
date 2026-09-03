@@ -11,7 +11,10 @@ import { useActivityAccess } from "@/components/auth/useActivityAccess"
 import EditorMensajeAdmin from "@/components/espacios/EditorMensajeAdmin"
 import type { EditorMensajeAdminHandle } from "@/components/espacios/EditorMensajeAdmin"
 import { isDevelopmentPreviewEnabled } from "@/lib/dev-flags"
-import { tieneAccesoEntusiasmento } from "@/lib/entusiasmo-acceso"
+import {
+  tieneAccesoEntusiasmento,
+  ENTUSIASMENTO_HERRAMIENTAS_IA_ABIERTAS_A_PARTICIPANTES,
+} from "@/lib/entusiasmo-acceso"
 import { supabase } from "@/lib/supabase"
 import WorkspaceHero from "@/components/ui/WorkspaceHero"
 import Hora24Input from "@/components/ui/Hora24Input"
@@ -3618,8 +3621,12 @@ export default function CasaTalentosPage() {
                       <p className="text-sm text-gray-600">Cargando tu proyecto...</p>
                     )}
 
-                    <MensajesAgente participanteEmail={viendoEmail} />
-                    <Buscador participanteEmail={viendoEmail} />
+                    {(esAdmin || ENTUSIASMENTO_HERRAMIENTAS_IA_ABIERTAS_A_PARTICIPANTES) && (
+                      <>
+                        <MensajesAgente participanteEmail={viendoEmail} />
+                        <Buscador participanteEmail={viendoEmail} />
+                      </>
+                    )}
 
                     <div className="space-y-3">
                       <div className="space-y-1">

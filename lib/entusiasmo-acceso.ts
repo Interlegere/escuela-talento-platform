@@ -18,3 +18,9 @@ export function tieneAccesoEntusiasmento(email: string, esAdmin: boolean) {
     ENTUSIASMENTO_BETA_EMAILS.includes(String(email || "").trim().toLowerCase())
   )
 }
+
+// "Mensajes del agente" y "Buscar en lo tuyo" (IA) quedan ocultos para
+// participantes hasta que haya más contenido de trabajo cargado como para
+// que valgan la pena — admin los sigue viendo siempre, para poder seguir
+// probándolos. Volver a `true` cuando se retome esa fase.
+export const ENTUSIASMENTO_HERRAMIENTAS_IA_ABIERTAS_A_PARTICIPANTES = false
