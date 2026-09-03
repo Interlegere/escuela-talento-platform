@@ -15,6 +15,7 @@ import {
 } from "@/components/proyecto-inposible/Iconos"
 import { formatearMontoArs, PRECIOS_ARS, TALLERES } from "@/lib/proyecto-inposible"
 import { FUENTES_CLASSNAME, FUENTE_CUERPO_VAR, FUENTE_TITULO_VAR } from "./fonts"
+import { TOKEN_TEXTO, TOKEN_TEXTO_CHICO } from "./tokens"
 
 const TITULO = "Proyecto In+Posible — ENTHEOS"
 const DESCRIPCION = "Plasmá en tres meses eso que venís postergando toda tu vida."
@@ -56,9 +57,13 @@ const H1 = `${TITULO_FONT} text-[clamp(40px,9vw,76px)] font-extrabold leading-[1
 const H2 = `${TITULO_FONT} text-[clamp(28px,5vw,44px)] font-bold tracking-[-0.01em]`
 const H3 = `${TITULO_FONT} text-[clamp(21px,3vw,26px)] font-bold`
 const MOMENTO = `${TITULO_FONT} text-[clamp(48px,9vw,72px)] font-extrabold leading-[1.05]`
-const PARRAFO = "max-w-[68ch] text-[18px] leading-[1.65] sm:text-[20px]"
-const PARRAFO_CHICO = "max-w-[68ch] text-[16px] leading-[1.6] sm:text-[17px]"
-const SMALL = "text-[15px]"
+// Único tamaño de cuerpo para las catorce secciones (19px desktop / 18px
+// mobile) y único ancho de lectura (680px) — las cuatro excepciones
+// permitidas (frase de "Qué es", los tres destacados de los ejes, los
+// cuatro momentos grandes, y los números del bloque de precio) se escriben
+// con su propio tamaño puntual, no con este token.
+const TEXTO = TOKEN_TEXTO
+const TEXTO_CHICO = TOKEN_TEXTO_CHICO
 
 function BotonCTA() {
   return (
@@ -92,7 +97,7 @@ function TarjetaComoFunciona({
         {icono}
       </div>
       <h3 className={`${H3} mt-5`}>{titulo}</h3>
-      <div className={`${PARRAFO_CHICO} mt-3 space-y-3 opacity-85`}>{children}</div>
+      <div className={`${TEXTO} mt-3 space-y-3 opacity-85`}>{children}</div>
     </div>
   )
 }
@@ -101,27 +106,24 @@ function FilaEje({
   numero,
   taller,
   titulo,
-  color = "naranja",
   children,
 }: {
   numero: string
   taller: string
   titulo: string
-  color?: "naranja" | "verde"
   children: React.ReactNode
 }) {
-  const colorAcento = color === "verde" ? "text-[var(--verde-brote)]" : "text-[var(--naranja)]"
   return (
     <div className="flex flex-col gap-5 sm:flex-row sm:gap-10">
       <div className="shrink-0 sm:w-52">
-        <span className={`${TITULO_FONT} text-6xl font-extrabold leading-none sm:text-7xl ${colorAcento}`}>
+        <span className={`${TITULO_FONT} text-6xl font-extrabold leading-none text-[var(--naranja)] sm:text-7xl`}>
           {numero}
         </span>
-        <p className={`${SMALL} mt-2 font-semibold uppercase tracking-[0.12em] opacity-60`}>{taller}</p>
+        <p className={`${TEXTO_CHICO} mt-2 font-semibold uppercase tracking-[0.12em] opacity-60`}>{taller}</p>
       </div>
       <div className="flex-1 rounded-3xl bg-white p-6 shadow-[0_18px_40px_rgba(74,50,39,0.08)] sm:p-8">
         <h3 className={H3}>{titulo}</h3>
-        <div className={`${PARRAFO_CHICO} mt-3 space-y-3 opacity-85`}>{children}</div>
+        <div className={`${TEXTO} mt-3 space-y-3 opacity-85`}>{children}</div>
       </div>
     </div>
   )
@@ -133,7 +135,7 @@ export default function ProyectoInPosiblePage() {
       {/* 1 · Hero */}
       <SeccionAnimada fondo="crema" separador={false} className="bg-gradient-to-b from-[var(--crema)] to-[var(--arena)]">
         <div className="text-center">
-          <p className={`${SMALL} font-semibold uppercase tracking-[0.35em] opacity-60`}>ENTHEOS</p>
+          <p className={`${TEXTO_CHICO} font-semibold uppercase tracking-[0.35em] opacity-60`}>ENTHEOS</p>
           <h1 className={`${H1} mt-5`}>
             Proyecto In<span className="text-[var(--naranja)]">+</span>Posible
           </h1>
@@ -160,7 +162,7 @@ export default function ProyectoInPosiblePage() {
 
       {/* 3 · El problema */}
       <SeccionAnimada fondo="crema">
-        <div className={`${PARRAFO} space-y-6`}>
+        <div className={`${TEXTO} space-y-6`}>
           <p>
             Lo pensaste muchas veces... lo anotaste en algún cuaderno... se lo contaste a alguien de
             confianza y te dijo &ldquo;¡qué buena idea!&rdquo;. Y ahí quedó.
@@ -213,7 +215,6 @@ export default function ProyectoInPosiblePage() {
             numero="3"
             taller="TALLER 3 · LUNES 9 DE NOVIEMBRE"
             titulo="Semilla y primeros brotes"
-            color="verde"
           >
             <p>
               Dicen que en el interior de la semilla se encuentra la energía y el potencial para dar
@@ -230,7 +231,7 @@ export default function ProyectoInPosiblePage() {
               necesitamos proteger y darle mucho amor a lo que hacés nacer, para que... de aquí a un
               año... recuerdes este momento y valores:
             </p>
-            <PullQuote color="verde">
+            <PullQuote>
               &ldquo;¡Qué lindo es dedicar mi tiempo a lo que amo hacer!&rdquo;
             </PullQuote>
           </FilaEje>
@@ -294,13 +295,13 @@ export default function ProyectoInPosiblePage() {
             <IconoWhatsapp className="h-5 w-5" />
           </div>
           <h3 className={`${H3} mt-5`}>Soporte por WhatsApp</h3>
-          <p className={`${PARRAFO_CHICO} mt-3 opacity-85`}>
+          <p className={`${TEXTO} mt-3 opacity-85`}>
             Es muy común encontrarse con cursos enlatados de teoría totalmente impersonalizados.
           </p>
           <p className={`${MOMENTO} my-6 text-[clamp(32px,7vw,56px)] text-[var(--tierra)]`}>
             NO ES LO QUE PASA AQUÍ.
           </p>
-          <p className={`${PARRAFO_CHICO} opacity-85`}>
+          <p className={`${TEXTO} opacity-85`}>
             Vas a disponer de atención de 9 a 18 hs durante la semana por WhatsApp para que saques tus
             dudas, preguntes y no necesites patear a futuro tus avances.
           </p>
@@ -311,7 +312,7 @@ export default function ProyectoInPosiblePage() {
             <IconoGrupo className="h-5 w-5" />
           </div>
           <h3 className={`${H3} mt-5`}>El todos mejora gracias al cada uno</h3>
-          <div className={`${PARRAFO_CHICO} mt-3 space-y-3 opacity-85`}>
+          <div className={`${TEXTO} mt-3 space-y-3 opacity-85`}>
             <p>
               Trabajamos en contexto grupal, como ocurre en el mundo, en la sociedad, en la familia y en
               los diferentes ámbitos de la vida...
@@ -328,7 +329,7 @@ export default function ProyectoInPosiblePage() {
           <PullQuote>
             ¿Te animás a la aventura de encontrar lo más valioso de vos sin perderte en los otros?
           </PullQuote>
-          <div className={`${PARRAFO_CHICO} space-y-3 opacity-85`}>
+          <div className={`${TEXTO} space-y-3 opacity-85`}>
             <p>Y... por si fuera poco...</p>
             <p>
               Contacto con talentos en el deporte, el arte, los emprendimientos, empresas, naturaleza,
@@ -344,7 +345,7 @@ export default function ProyectoInPosiblePage() {
       <SeccionAnimada fondo="tierra">
         <h2 className={H2}>¡Usamos la IA! Diferencialmente...</h2>
         <p className="mt-3 text-xl font-semibold opacity-90 sm:text-2xl">Una herramienta, no un reemplazo</p>
-        <div className={`${PARRAFO} mt-6 space-y-5 opacity-90`}>
+        <div className={`${TEXTO} mt-6 space-y-5 opacity-90`}>
           <p>
             Vas a aprender usos concretos de la inteligencia artificial para avanzar más rápido:
             ordenar lo que tenés disperso, probar versiones, resolver en una tarde cosas que antes te
@@ -394,7 +395,7 @@ export default function ProyectoInPosiblePage() {
           ].map((item, i) => (
             <li key={i} className="flex gap-4">
               <span className={`${TITULO_FONT} shrink-0 text-3xl font-extrabold text-[var(--naranja)]`}>+</span>
-              <span className={PARRAFO}>
+              <span className={TEXTO}>
                 <strong>{item.fuerte}</strong>
                 {item.resto}
               </span>
@@ -403,8 +404,8 @@ export default function ProyectoInPosiblePage() {
         </ul>
       </SeccionAnimada>
 
-      {/* 8 · No esperás al 14 para empezar — banda naranja corta */}
-      <SeccionAnimada fondo="naranja" corta className="text-center">
+      {/* 8 · No esperás al 14 para empezar — banda naranja */}
+      <SeccionAnimada fondo="naranja" className="text-center">
         <h2 className={H2}>No esperás al 14 para empezar</h2>
         <p className="mx-auto mt-4 max-w-2xl text-lg opacity-95 sm:text-xl">
           Apenas reservás tu lugar, arrancamos. Vas a recibir instrucciones por mail, contenido en video
@@ -434,7 +435,7 @@ export default function ProyectoInPosiblePage() {
               ].map((t) => (
                 <li key={t} className="flex gap-3">
                   <span className="mt-0.5 shrink-0 text-xl font-bold text-[var(--verde-brote)]">✓</span>
-                  <span className={PARRAFO_CHICO}>{t}</span>
+                  <span className={TEXTO}>{t}</span>
                 </li>
               ))}
             </ul>
@@ -455,7 +456,7 @@ export default function ProyectoInPosiblePage() {
               ].map((t, i) => (
                 <li key={i} className="flex gap-3">
                   <span className={`${TITULO_FONT} shrink-0 text-xl font-bold text-[var(--naranja)]`}>+</span>
-                  <span className={PARRAFO_CHICO}>{t}</span>
+                  <span className={TEXTO}>{t}</span>
                 </li>
               ))}
             </ul>
@@ -479,7 +480,7 @@ export default function ProyectoInPosiblePage() {
           <div>
             <h3 className={H3}>Nicolás Busico</h3>
             <p className="text-sm font-medium text-[var(--coral)]">Licenciado en Psicología</p>
-            <div className={`${PARRAFO_CHICO} mt-4 space-y-3 opacity-85`}>
+            <div className={`${TEXTO} mt-4 space-y-3 opacity-85`}>
               <p>
                 Hace más de 8 años acompaña a personas que necesitan definir un rumbo y animarse a crear
                 proyectos propios a partir de sus talentos y de lo que les gusta hacer.
@@ -494,7 +495,7 @@ export default function ProyectoInPosiblePage() {
         </div>
         <div className="mt-9">
           <h3 className={H3}>Equipo de ENTHEOS</h3>
-          <p className={`${PARRAFO_CHICO} mt-3 opacity-85`}>
+          <p className={`${TEXTO} mt-3 opacity-85`}>
             Participantes activos que apoyan desde la experiencia misma de atravesar los propios
             desafíos y de lograr, cada vez más, hacer crecer sus talentos y proyectos.
           </p>
@@ -568,7 +569,7 @@ export default function ProyectoInPosiblePage() {
               </tbody>
             </table>
           </div>
-          <p className={`${PARRAFO_CHICO} mt-5 opacity-80`}>
+          <p className={`${TEXTO} mt-5 opacity-80`}>
             <strong>Desde otros países:</strong> USD 500 o EUR 500 el pago único, USD 180 o EUR 180 por
             mes, por transferencia internacional.
           </p>
@@ -580,7 +581,7 @@ export default function ProyectoInPosiblePage() {
 
         <div className="mt-14">
           <h3 className={H3}>Por qué vale esto</h3>
-          <div className={`${PARRAFO} mt-4 space-y-4 opacity-90`}>
+          <div className={`${TEXTO} mt-4 space-y-4 opacity-90`}>
             <p>
               No es un programa de prueba. Hace más de ocho años que Nicolás acompaña estos procesos, y
               los proyectos que salieron de ahí están funcionando hoy: los viste recién, uno por uno, con
@@ -598,7 +599,7 @@ export default function ProyectoInPosiblePage() {
       {/* 13 · Cómo reservás tu lugar + formulario */}
       <SeccionAnimada fondo="arena" id="inscripcion" ancho="ancho">
         <h2 className={H2}>Cómo reservás tu lugar</h2>
-        <ol className={`${PARRAFO} mt-5 space-y-3`}>
+        <ol className={`${TEXTO} mt-5 space-y-3`}>
           <li>
             <strong>1.</strong> Completás el formulario de inscripción.
           </li>

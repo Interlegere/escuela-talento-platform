@@ -24,9 +24,10 @@ const PROYECTOS: Proyecto[] = [
   { nombre: "Ser Refugio", archivo: "ser-refugio.jpg", instagram: null },
 ]
 
-// Tarjetas chicas (110-130px desktop, ~90px mobile) y la tira triplicada:
-// con 7 logos, una copia sola ya mide más que el contenedor (max-w 900px),
-// así que nunca se alcanza a ver el mismo logo dos veces a la vez.
+// Tarjetas chicas (130px de paso en desktop, 90px en mobile): siete logos
+// miden 910px en desktop, más que la ventana visible de 860px — así que una
+// copia sola ya no entra completa en pantalla y nunca se alcanza a ver el
+// mismo logo dos veces a la vez.
 function TarjetaProyecto({ proyecto }: { proyecto: Proyecto }) {
   const contenido = (
     <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--tierra)]/10 bg-white shadow-sm sm:h-[92px] sm:w-[92px]">
@@ -89,7 +90,10 @@ export default function CarruselProyectos() {
   const proyectosTriplicados = [...PROYECTOS, ...PROYECTOS, ...PROYECTOS]
 
   return (
-    <div className="mx-auto max-w-[900px] px-4">
+    // Ventana visible fija en 860px (= TOKEN_ANCHO_ANCHO_PX en tokens.ts),
+    // centrada, en todos los anchos de pantalla — sin padding interno que
+    // la angoste todavía más, para que la medida sea exactamente esa.
+    <div className="mx-auto w-[860px] max-w-full">
       <div
         ref={trackRef}
         onMouseEnter={() => {

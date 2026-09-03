@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { TOKEN_PAD_SECCION } from "@/app/proyecto-inposible/tokens"
 
 // Fondo por sección — el ritmo de fondos es lo que convierte el scroll en
 // una secuencia de lugares distintos en vez de un documento único. Solo dos
@@ -15,11 +16,18 @@ const FONDOS: Record<Fondo, string> = {
   blanco: "bg-white text-[var(--tierra)]",
 }
 
+// --ancho (680px, todo párrafo corrido) y --ancho-ancho (860px, tablas de
+// precio, filas de los ejes, carrusel) — únicos dos valores de ancho de
+// toda la página.
 type Ancho = "normal" | "ancho" | "completo"
 
+// Tailwind necesita las clases como strings literales (no puede generar
+// CSS para un valor interpolado en runtime) — por eso acá van escritas a
+// mano, pero deben coincidir siempre con TOKEN_ANCHO_PX/TOKEN_ANCHO_ANCHO_PX
+// en tokens.ts, que es de donde toma el valor cualquier cálculo en JS.
 const ANCHOS: Record<Ancho, string> = {
-  normal: "max-w-3xl px-4 sm:px-6",
-  ancho: "max-w-5xl px-4 sm:px-6",
+  normal: "max-w-[680px] px-4 sm:px-6", // = TOKEN_ANCHO_PX
+  ancho: "max-w-[860px] px-4 sm:px-6", // = TOKEN_ANCHO_ANCHO_PX
   completo: "",
 }
 
@@ -32,10 +40,6 @@ type Props = {
   // El separador "+" va arriba, dentro del propio fondo de la sección, para
   // que nunca se note una costura de color entre dos secciones distintas.
   separador?: boolean
-  // Padding vertical corto — solo para la banda "No esperás al 14", la
-  // única sección explícitamente pensada como banda corta. El resto usa
-  // siempre el mismo padding (72px mobile / 112px desktop).
-  corta?: boolean
 }
 
 export default function SeccionAnimada({
@@ -45,7 +49,6 @@ export default function SeccionAnimada({
   id,
   className = "",
   separador = true,
-  corta = false,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
@@ -81,15 +84,17 @@ export default function SeccionAnimada({
   return (
     <section id={id} className={`w-full ${FONDOS[fondo]} ${className}`}>
       {separador && (
-        <div aria-hidden className="flex justify-center pt-8 sm:pt-10">
+        <div aria-hidden className="flex justify-center py-8 sm:py-10">
           <span className="text-2xl font-bold text-[var(--naranja)] sm:text-3xl">+</span>
         </div>
       )}
+      {/* --pad-seccion: 112px desktop / 72px mobile, arriba Y abajo, en las
+          catorce secciones, sin excepciones. */}
       <div
         ref={ref}
-        className={`mx-auto transition-all duration-700 ease-out ${
-          corta ? "py-10 sm:py-14" : "py-[72px] md:py-[112px]"
-        } ${ANCHOS[ancho]} ${visible ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"}`}
+        className={`mx-auto ${TOKEN_PAD_SECCION} transition-all duration-700 ease-out ${ANCHOS[ancho]} ${
+          visible ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"
+        }`}
       >
         {children}
       </div>
