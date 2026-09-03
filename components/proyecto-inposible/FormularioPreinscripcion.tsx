@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   calcularMontos,
@@ -42,6 +42,16 @@ export default function FormularioPreinscripcion() {
   const [mensajeError, setMensajeError] = useState("")
 
   const abierta = estaInscripcionAbierta()
+
+  // España paga en EUR por defecto, cualquier otro país fuera de Argentina
+  // paga en USD — la persona puede corregirlo igual con los botones de abajo.
+  useEffect(() => {
+    if (esArgentina(pais)) return
+    const frame = window.requestAnimationFrame(() => {
+      setMonedaInternacional(pais.trim().toLowerCase() === "españa" ? "EUR" : "USD")
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [pais])
 
   const montos = useMemo(() => {
     if (!planPago) return null
@@ -105,9 +115,9 @@ export default function FormularioPreinscripcion() {
 
   if (!abierta) {
     return (
-      <div className="workspace-panel-soft rounded-3xl p-6 text-center">
-        <p className="text-lg font-semibold text-gray-800">La inscripción ya cerró.</p>
-        <p className="mt-2 text-sm text-gray-600">
+      <div className="rounded-3xl border border-[var(--azul-noche)]/10 bg-[var(--arena)] p-6 text-center">
+        <p className="text-lg font-semibold text-[var(--azul-noche)]">La inscripción ya cerró.</p>
+        <p className="mt-2 text-sm text-[var(--azul-noche)]/70">
           Esta camada de Proyecto In+Posible completó su cupo. Escribinos si querés que te avisemos de la próxima.
         </p>
       </div>
@@ -115,40 +125,40 @@ export default function FormularioPreinscripcion() {
   }
 
   return (
-    <form onSubmit={enviar} className="space-y-4 rounded-3xl border border-[var(--line)] bg-[var(--surface-strong)] p-5 shadow-sm sm:p-7">
+    <form onSubmit={enviar} className="space-y-5 rounded-3xl border border-[var(--azul-noche)]/10 bg-white p-6 shadow-[0_20px_50px_rgba(46,52,64,0.08)] sm:p-8">
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-1.5">
-          <span className="text-sm font-medium text-gray-700">Nombre</span>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-[var(--azul-noche)]/80">Nombre</span>
           <input
-            className="workspace-field"
+            className="w-full rounded-2xl border border-[var(--azul-noche)]/15 bg-white px-4 py-3 text-[16px] text-[var(--azul-noche)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             required
           />
         </label>
-        <label className="space-y-1.5">
-          <span className="text-sm font-medium text-gray-700">Apellido</span>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-[var(--azul-noche)]/80">Apellido</span>
           <input
-            className="workspace-field"
+            className="w-full rounded-2xl border border-[var(--azul-noche)]/15 bg-white px-4 py-3 text-[16px] text-[var(--azul-noche)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15"
             value={apellido}
             onChange={(e) => setApellido(e.target.value)}
             required
           />
         </label>
-        <label className="space-y-1.5">
-          <span className="text-sm font-medium text-gray-700">Email</span>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-[var(--azul-noche)]/80">Email</span>
           <input
             type="email"
-            className="workspace-field"
+            className="w-full rounded-2xl border border-[var(--azul-noche)]/15 bg-white px-4 py-3 text-[16px] text-[var(--azul-noche)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
         </label>
-        <label className="space-y-1.5">
-          <span className="text-sm font-medium text-gray-700">WhatsApp</span>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-[var(--azul-noche)]/80">WhatsApp</span>
           <input
-            className="workspace-field"
+            className="w-full rounded-2xl border border-[var(--azul-noche)]/15 bg-white px-4 py-3 text-[16px] text-[var(--azul-noche)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15"
             placeholder="+54 9 ..."
             value={whatsapp}
             onChange={(e) => setWhatsapp(e.target.value)}
@@ -157,9 +167,9 @@ export default function FormularioPreinscripcion() {
         </label>
       </div>
 
-      <label className="block space-y-1.5">
-        <span className="text-sm font-medium text-gray-700">País</span>
-        <select className="workspace-field" value={pais} onChange={(e) => setPais(e.target.value)}>
+      <label className="flex flex-col gap-1.5">
+        <span className="text-sm font-medium text-[var(--azul-noche)]/80">País</span>
+        <select className="w-full rounded-2xl border border-[var(--azul-noche)]/15 bg-white px-4 py-3 text-[16px] text-[var(--azul-noche)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15" value={pais} onChange={(e) => setPais(e.target.value)}>
           {PAISES.map((p) => (
             <option key={p} value={p}>
               {p}
@@ -177,8 +187,8 @@ export default function FormularioPreinscripcion() {
               onClick={() => setMonedaInternacional(m)}
               className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                 monedaInternacional === m
-                  ? "bg-[var(--accent)] text-white"
-                  : "border border-[var(--line)] text-gray-600"
+                  ? "bg-[var(--naranja)] text-white"
+                  : "border border-[var(--azul-noche)]/20 text-[var(--azul-noche)]/70"
               }`}
             >
               Prefiero pagar en {m}
@@ -188,7 +198,7 @@ export default function FormularioPreinscripcion() {
       )}
 
       <fieldset className="space-y-1.5">
-        <legend className="text-sm font-medium text-gray-700">¿Tenés un proyecto en mente?</legend>
+        <legend className="text-sm font-medium text-[var(--azul-noche)]/80">¿Tenés un proyecto en mente?</legend>
         <div className="flex flex-wrap gap-2">
           {OPCIONES_TIENE_PROYECTO.map((op) => (
             <button
@@ -197,8 +207,8 @@ export default function FormularioPreinscripcion() {
               onClick={() => setTieneProyecto(op.valor)}
               className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                 tieneProyecto === op.valor
-                  ? "bg-[var(--accent)] text-white"
-                  : "border border-[var(--line)] text-gray-600"
+                  ? "bg-[var(--naranja)] text-white"
+                  : "border border-[var(--azul-noche)]/20 text-[var(--azul-noche)]/70"
               }`}
             >
               {op.etiqueta}
@@ -207,19 +217,19 @@ export default function FormularioPreinscripcion() {
         </div>
       </fieldset>
 
-      <label className="block space-y-1.5">
-        <span className="text-sm font-medium text-gray-700">
-          Contame en una línea de qué se trata <span className="text-gray-400">(opcional)</span>
+      <label className="flex flex-col gap-1.5">
+        <span className="text-sm font-medium text-[var(--azul-noche)]/80">
+          Contame en una línea de qué se trata <span className="text-[var(--azul-noche)]/40">(opcional)</span>
         </span>
         <textarea
-          className="workspace-field min-h-16"
+          className="min-h-16 w-full rounded-2xl border border-[var(--azul-noche)]/15 bg-white px-4 py-3 text-[16px] text-[var(--azul-noche)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15"
           value={proyectoDescripcion}
           onChange={(e) => setProyectoDescripcion(e.target.value)}
         />
       </label>
 
       <fieldset className="space-y-1.5">
-        <legend className="text-sm font-medium text-gray-700">¿Cómo querés pagarlo?</legend>
+        <legend className="text-sm font-medium text-[var(--azul-noche)]/80">¿Cómo querés pagarlo?</legend>
         <div className="flex flex-wrap gap-2">
           {OPCIONES_PLAN_PAGO.map((op) => (
             <button
@@ -228,8 +238,8 @@ export default function FormularioPreinscripcion() {
               onClick={() => setPlanPago(op.valor)}
               className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                 planPago === op.valor
-                  ? "bg-[var(--accent)] text-white"
-                  : "border border-[var(--line)] text-gray-600"
+                  ? "bg-[var(--naranja)] text-white"
+                  : "border border-[var(--azul-noche)]/20 text-[var(--azul-noche)]/70"
               }`}
             >
               {op.etiqueta}
@@ -239,16 +249,16 @@ export default function FormularioPreinscripcion() {
       </fieldset>
 
       {montos && (
-        <div className="rounded-2xl border border-[var(--line)] bg-[rgba(255,250,242,0.7)] p-4">
+        <div className="rounded-2xl border border-[var(--naranja)]/25 bg-[var(--arena)]/50 p-4">
           {montos.esInternacional ? (
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-[var(--azul-noche)]">
               Por transferencia internacional:{" "}
               <span className="font-semibold">
                 {formatearMontoInternacional(montos.monto, montos.moneda)}
               </span>
             </p>
           ) : (
-            <div className="flex flex-wrap gap-4 text-sm text-gray-700">
+            <div className="flex flex-wrap gap-4 text-sm text-[var(--azul-noche)]">
               <p>
                 Por transferencia:{" "}
                 <span className="font-semibold">{formatearMontoArs(montos.transferencia)}</span>
@@ -267,8 +277,7 @@ export default function FormularioPreinscripcion() {
       <button
         type="submit"
         disabled={estado === "enviando"}
-        className="workspace-button-primary w-full disabled:opacity-60"
-        style={{ color: "#fff" }}
+        className="w-full rounded-full bg-[var(--naranja)] px-6 py-4 text-base font-semibold text-white transition hover:bg-[var(--terracota)] disabled:opacity-60"
       >
         {estado === "enviando" ? "Enviando..." : "Quiero mi lugar"}
       </button>
