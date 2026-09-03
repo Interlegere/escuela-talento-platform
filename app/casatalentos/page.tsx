@@ -22,6 +22,7 @@ import RecursoCard from "@/components/recursos/RecursoCard"
 import { tieneContenidoRecurso } from "@/lib/recursos"
 import InstalarApp from "@/components/InstalarApp"
 import MensajesAgente from "@/components/entusiasmo/MensajesAgente"
+import Buscador from "@/components/entusiasmo/Buscador"
 
 type Recurso = {
   id: number
@@ -3618,6 +3619,7 @@ export default function CasaTalentosPage() {
                     )}
 
                     <MensajesAgente participanteEmail={viendoEmail} />
+                    <Buscador participanteEmail={viendoEmail} />
 
                     <div className="space-y-3">
                       <div className="space-y-1">
