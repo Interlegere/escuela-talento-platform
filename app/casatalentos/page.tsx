@@ -21,6 +21,7 @@ import { useSessionDraft } from "@/hooks/useSessionDraft"
 import RecursoCard from "@/components/recursos/RecursoCard"
 import { tieneContenidoRecurso } from "@/lib/recursos"
 import InstalarApp from "@/components/InstalarApp"
+import MensajesAgente from "@/components/entusiasmo/MensajesAgente"
 
 type Recurso = {
   id: number
@@ -3615,6 +3616,8 @@ export default function CasaTalentosPage() {
                     {cargandoProyecto && (
                       <p className="text-sm text-gray-600">Cargando tu proyecto...</p>
                     )}
+
+                    <MensajesAgente participanteEmail={viendoEmail} />
 
                     <div className="space-y-3">
                       <div className="space-y-1">
