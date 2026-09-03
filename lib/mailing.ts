@@ -17,6 +17,42 @@ type RecuperacionClaveParams = {
   resetUrl: string
 }
 
+export type PreinscripcionInstruccionesPago =
+  | {
+      esInternacional: false
+      transferencia: { montoTexto: string; alias: string; cvu: string; titular: string }
+      mercadopago: { montoTexto: string; link: string }
+    }
+  | {
+      esInternacional: true
+      montoTexto: string
+      titular: string
+      banco: string
+      tipoCuenta: string
+      cuenta: string
+      ruta: string
+      direccion: string
+    }
+
+type PreinscripcionParticipanteParams = {
+  nombre: string
+  email: string
+  planPagoTexto: string
+  pago: PreinscripcionInstruccionesPago
+}
+
+type PreinscripcionAdminParams = {
+  nombre: string
+  apellido: string
+  email: string
+  whatsapp: string
+  pais: string
+  tieneProyectoTexto: string
+  proyectoDescripcion: string
+  planPagoTexto: string
+  montoTexto: string
+}
+
 type MailingResult =
   | { enviado: true; proveedor: string; proveedorId?: string | null }
   | { enviado: false; motivo: string }
@@ -217,6 +253,144 @@ function crearContenidoRecuperacionClave(params: RecuperacionClaveParams) {
 
   return {
     subject: "Recuperar tu clave de acceso a ENTHEOS",
+    text,
+    html,
+  }
+}
+
+function crearContenidoPreinscripcionParticipante(params: PreinscripcionParticipanteParams) {
+  const nombre = params.nombre.trim() || "hola"
+  const talleres = [
+    "Lunes 14 de septiembre",
+    "Lunes 12 de octubre",
+    "Lunes 9 de noviembre",
+  ]
+
+  const bloquePago = params.pago.esInternacional
+    ? `
+      <div style="margin: 0 0 16px; padding: 16px; border: 1px solid #eadfc9; border-radius: 16px; background: #fffdf8;">
+        <p style="margin: 0 0 6px; font-weight: 700; color: #18202a;">Transferencia internacional — ${escapeHtml(params.pago.montoTexto)}</p>
+        <p style="margin: 0; font-size: 14px; color: #4b5563; line-height: 1.6;">
+          Titular: ${escapeHtml(params.pago.titular)}<br />
+          Banco: ${escapeHtml(params.pago.banco)}<br />
+          Tipo de cuenta: ${escapeHtml(params.pago.tipoCuenta)}<br />
+          Cuenta: ${escapeHtml(params.pago.cuenta)}<br />
+          Ruta: ${escapeHtml(params.pago.ruta)}<br />
+          Dirección: ${escapeHtml(params.pago.direccion)}
+        </p>
+      </div>
+    `
+    : `
+      <div style="display: flex; gap: 12px; flex-wrap: wrap; margin: 0 0 16px;">
+        <div style="flex: 1; min-width: 220px; padding: 16px; border: 1px solid #eadfc9; border-radius: 16px; background: #fffdf8;">
+          <p style="margin: 0 0 6px; font-weight: 700; color: #18202a;">Por transferencia — ${escapeHtml(params.pago.transferencia.montoTexto)}</p>
+          <p style="margin: 0; font-size: 14px; color: #4b5563; line-height: 1.6;">
+            Alias: ${escapeHtml(params.pago.transferencia.alias)}<br />
+            CVU: ${escapeHtml(params.pago.transferencia.cvu)}<br />
+            Titular: ${escapeHtml(params.pago.transferencia.titular)}
+          </p>
+        </div>
+        <div style="flex: 1; min-width: 220px; padding: 16px; border: 1px solid #eadfc9; border-radius: 16px; background: #fffdf8;">
+          <p style="margin: 0 0 6px; font-weight: 700; color: #18202a;">Por Mercado Pago — ${escapeHtml(params.pago.mercadopago.montoTexto)}</p>
+          <p style="margin: 0 0 10px; font-size: 14px; color: #4b5563;">Pagás con tarjeta o el medio que prefieras.</p>
+          <a href="${params.pago.mercadopago.link}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #c98b1b; color: #ffffff; font-weight: 700; text-decoration: none; font-size: 14px;">
+            Pagar con Mercado Pago
+          </a>
+        </div>
+      </div>
+    `
+
+  const text = [
+    `Hola ${nombre},`,
+    "",
+    "Ya reservamos tu lugar en Proyecto In+Posible.",
+    "",
+    `Elegiste el plan: ${params.planPagoTexto}.`,
+    "",
+    "Los tres talleres en vivo son:",
+    ...talleres.map((t) => `- ${t}, 19 hs`),
+    "",
+    "En las próximas horas te llega el primer material de la inducción.",
+  ].join("\n")
+
+  const html = `
+    <div style="margin: 0; padding: 32px 16px; background: #f6efe2; font-family: Arial, sans-serif; color: #1f2933;">
+      <div style="max-width: 640px; margin: 0 auto; background: #fffdf8; border: 1px solid #eadfc9; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(77, 54, 18, 0.08);">
+        <div style="padding: 32px 32px 20px; background: linear-gradient(135deg, rgba(250,244,229,1) 0%, rgba(255,250,240,1) 55%, rgba(248,237,210,1) 100%);">
+          <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: #8a6a2f; font-weight: 700;">ENTHEOS</p>
+          <h1 style="margin: 0 0 10px; font-size: 30px; line-height: 1.15; color: #18202a;">Tu lugar en Proyecto In+Posible</h1>
+          <p style="margin: 0; color: #6b7280; font-size: 16px; line-height: 1.5;">Plan elegido: ${escapeHtml(params.planPagoTexto)}</p>
+        </div>
+
+        <div style="padding: 28px 32px 32px; line-height: 1.7;">
+          <p style="margin: 0 0 14px;">Hola ${escapeHtml(nombre)},</p>
+          <p style="margin: 0 0 20px;">
+            Reservamos tu lugar. Así podés señarlo:
+          </p>
+
+          ${bloquePago}
+
+          <p style="margin: 0 0 8px; font-weight: 700; color: #18202a;">Los tres talleres en vivo, 19 hs</p>
+          <p style="margin: 0 0 20px; font-size: 14px; color: #4b5563;">
+            ${talleres.map((t) => escapeHtml(t)).join("<br />")}
+          </p>
+
+          <p style="margin: 0;">
+            En las próximas horas te llega el primer material de la inducción, para llegar al primer taller con algo ya movido.
+          </p>
+        </div>
+      </div>
+    </div>
+  `
+
+  return {
+    subject: "Tu lugar en Proyecto In+Posible",
+    text,
+    html,
+  }
+}
+
+function crearContenidoPreinscripcionAdmin(params: PreinscripcionAdminParams) {
+  const filas: Array<[string, string]> = [
+    ["Nombre", `${params.nombre} ${params.apellido}`],
+    ["Email", params.email],
+    ["WhatsApp", params.whatsapp],
+    ["País", params.pais],
+    ["¿Tiene proyecto?", params.tieneProyectoTexto],
+    ["Proyecto", params.proyectoDescripcion || "(sin descripción)"],
+    ["Plan de pago", params.planPagoTexto],
+    ["Monto", params.montoTexto],
+  ]
+
+  const text = filas.map(([k, v]) => `${k}: ${v}`).join("\n")
+
+  const html = `
+    <div style="margin: 0; padding: 32px 16px; background: #f6efe2; font-family: Arial, sans-serif; color: #1f2933;">
+      <div style="max-width: 640px; margin: 0 auto; background: #fffdf8; border: 1px solid #eadfc9; border-radius: 24px; overflow: hidden;">
+        <div style="padding: 24px 32px; background: linear-gradient(135deg, rgba(250,244,229,1) 0%, rgba(255,250,240,1) 100%);">
+          <p style="margin: 0 0 6px; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: #8a6a2f; font-weight: 700;">Proyecto In+Posible</p>
+          <h1 style="margin: 0; font-size: 24px; color: #18202a;">Nueva preinscripción</h1>
+        </div>
+        <div style="padding: 24px 32px 28px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            ${filas
+              .map(
+                ([k, v]) => `
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #f0e6d2; color: #6b7280; width: 160px;">${escapeHtml(k)}</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #f0e6d2; color: #18202a;">${escapeHtml(v)}</td>
+              </tr>
+            `
+              )
+              .join("")}
+          </table>
+        </div>
+      </div>
+    </div>
+  `
+
+  return {
+    subject: `Nueva preinscripción: ${params.nombre}`,
     text,
     html,
   }
@@ -426,6 +600,32 @@ export async function enviarRecuperacionClaveUsuario(
 
   return enviarEmail({
     to: params.email,
+    subject: contenido.subject,
+    text: contenido.text,
+    html: contenido.html,
+  })
+}
+
+export async function enviarPreinscripcionParticipante(
+  params: PreinscripcionParticipanteParams
+): Promise<MailingResult> {
+  const contenido = crearContenidoPreinscripcionParticipante(params)
+
+  return enviarEmail({
+    to: params.email,
+    subject: contenido.subject,
+    text: contenido.text,
+    html: contenido.html,
+  })
+}
+
+export async function enviarPreinscripcionAdmin(
+  params: PreinscripcionAdminParams
+): Promise<MailingResult> {
+  const contenido = crearContenidoPreinscripcionAdmin(params)
+
+  return enviarEmail({
+    to: "nicolasbusico@entheosescuela.com",
     subject: contenido.subject,
     text: contenido.text,
     html: contenido.html,

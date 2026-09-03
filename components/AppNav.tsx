@@ -39,7 +39,8 @@ export default function AppNav() {
     pathname === "/landing" ||
     pathname === "/" ||
     pathname === "/login" ||
-    pathname === "/app"
+    pathname === "/app" ||
+    pathname.startsWith("/proyecto-inposible")
 
   useEffect(() => {
     if (!session) return
