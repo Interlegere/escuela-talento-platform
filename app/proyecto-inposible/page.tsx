@@ -5,6 +5,7 @@ import FormularioPreinscripcion from "@/components/proyecto-inposible/Formulario
 import CarruselProyectos from "@/components/proyecto-inposible/CarruselProyectos"
 import SeccionAnimada from "@/components/proyecto-inposible/SeccionAnimada"
 import PullQuote from "@/components/proyecto-inposible/PullQuote"
+import Collage from "@/components/proyecto-inposible/Collage"
 import {
   IconoCalendario,
   IconoCelular,
@@ -13,6 +14,7 @@ import {
   IconoGrupo,
 } from "@/components/proyecto-inposible/Iconos"
 import { formatearMontoArs, PRECIOS_ARS, TALLERES } from "@/lib/proyecto-inposible"
+import { FUENTES_CLASSNAME, FUENTE_CUERPO_VAR, FUENTE_TITULO_VAR } from "./fonts"
 
 const TITULO = "Proyecto In+Posible — ENTHEOS"
 const DESCRIPCION = "Plasmá en tres meses eso que venís postergando toda tu vida."
@@ -33,59 +35,39 @@ export const metadata: Metadata = {
   },
 }
 
-// Paleta de esta sola página, sacada de la foto del atardecer — se define
-// acá, en un wrapper local, para no tocar los tokens globales que usa el
-// resto del portal (--accent, --background, etc. en app/globals.css).
+// Paleta de esta sola página — se define acá, en un wrapper local, para no
+// tocar los tokens globales que usa el resto del portal. El azul noche del
+// prompt anterior queda completamente retirado del proyecto.
 const PALETA = {
-  "--naranja": "#E4855B",
-  "--terracota": "#BD6D53",
-  "--arena": "#EAE1C8",
-  "--crema": "#F7F4EE",
-  "--azul-noche": "#2E3440",
-  "--gris-cielo": "#BFC1CF",
+  "--naranja": "#E4783C",
+  "--coral": "#C9512F",
+  "--dorado": "#F2B441",
+  "--arena": "#F2E6CE",
+  "--crema": "#FCF8F1",
+  "--tierra": "#4A3227",
+  "--verde-brote": "#4E7C59",
+  "--font-titulo": FUENTE_TITULO_VAR,
+  "--font-cuerpo": FUENTE_CUERPO_VAR,
 } as React.CSSProperties
 
-const P_CLARO = "text-[18px] leading-[1.68] text-[var(--azul-noche)] sm:text-[20px]"
-const P_CLARO_CHICO = "text-[17px] leading-[1.65] text-[var(--azul-noche)] sm:text-[18px]"
-const P_OSCURO = "text-[18px] leading-[1.68] text-[var(--gris-cielo)] sm:text-[20px]"
+// Escala tipográfica única para toda la página.
+const TITULO_FONT = "[font-family:var(--font-titulo)]"
+const H1 = `${TITULO_FONT} text-[clamp(40px,9vw,76px)] font-extrabold leading-[1.02] tracking-[-0.02em]`
+const H2 = `${TITULO_FONT} text-[clamp(28px,5vw,44px)] font-bold tracking-[-0.01em]`
+const H3 = `${TITULO_FONT} text-[clamp(21px,3vw,26px)] font-bold`
+const MOMENTO = `${TITULO_FONT} text-[clamp(48px,9vw,72px)] font-extrabold leading-[1.05]`
+const PARRAFO = "max-w-[68ch] text-[18px] leading-[1.65] sm:text-[20px]"
+const PARRAFO_CHICO = "max-w-[68ch] text-[16px] leading-[1.6] sm:text-[17px]"
+const SMALL = "text-[15px]"
 
-function BotonCTA({ children = "Quiero mi lugar" }: { children?: string }) {
+function BotonCTA() {
   return (
     <a
       href="#inscripcion"
-      className="inline-flex items-center justify-center rounded-full bg-[var(--naranja)] px-8 py-4 text-base font-semibold text-white transition hover:bg-[var(--terracota)]"
+      className="inline-flex min-h-[52px] items-center justify-center rounded-full bg-[var(--naranja)] px-8 text-base font-semibold text-[var(--crema)] transition hover:bg-[var(--coral)]"
     >
-      {children}
+      ¡Quiero mi lugar!
     </a>
-  )
-}
-
-function TarjetaEje({
-  numero,
-  fecha,
-  titulo,
-  children,
-}: {
-  numero: string
-  fecha: string
-  titulo: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-1 flex-col rounded-3xl bg-white p-7 shadow-[0_18px_40px_rgba(46,52,64,0.08)] sm:p-8">
-      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--terracota)]">
-        {fecha}
-      </span>
-      <span className="font-display mt-2 text-6xl font-bold leading-none text-[var(--naranja)] sm:text-7xl">
-        {numero}
-      </span>
-      <h3 className="font-display mt-4 text-xl font-semibold text-[var(--azul-noche)] sm:text-2xl">
-        {titulo}
-      </h3>
-      <div className="mt-3 space-y-3 text-[16px] leading-[1.65] text-[var(--azul-noche)]/85 sm:text-[17px]">
-        {children}
-      </div>
-    </div>
   )
 }
 
@@ -102,18 +84,44 @@ function TarjetaComoFunciona({
 }) {
   return (
     <div
-      className={`rounded-3xl bg-white p-7 shadow-[0_18px_40px_rgba(46,52,64,0.06)] sm:p-8 ${
+      className={`rounded-3xl bg-white p-7 shadow-[0_18px_40px_rgba(74,50,39,0.06)] sm:p-8 ${
         ancha ? "sm:col-span-2" : ""
       }`}
     >
-      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--arena)] text-[var(--terracota)]">
+      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--arena)] text-[var(--coral)]">
         {icono}
       </div>
-      <h3 className="font-display mt-5 text-xl font-semibold text-[var(--azul-noche)] sm:text-2xl">
-        {titulo}
-      </h3>
-      <div className="mt-3 space-y-3 text-[16px] leading-[1.65] text-[var(--azul-noche)]/85 sm:text-[17px]">
-        {children}
+      <h3 className={`${H3} mt-5`}>{titulo}</h3>
+      <div className={`${PARRAFO_CHICO} mt-3 space-y-3 opacity-85`}>{children}</div>
+    </div>
+  )
+}
+
+function FilaEje({
+  numero,
+  taller,
+  titulo,
+  color = "naranja",
+  children,
+}: {
+  numero: string
+  taller: string
+  titulo: string
+  color?: "naranja" | "verde"
+  children: React.ReactNode
+}) {
+  const colorAcento = color === "verde" ? "text-[var(--verde-brote)]" : "text-[var(--naranja)]"
+  return (
+    <div className="flex flex-col gap-5 sm:flex-row sm:gap-10">
+      <div className="shrink-0 sm:w-52">
+        <span className={`${TITULO_FONT} text-6xl font-extrabold leading-none sm:text-7xl ${colorAcento}`}>
+          {numero}
+        </span>
+        <p className={`${SMALL} mt-2 font-semibold uppercase tracking-[0.12em] opacity-60`}>{taller}</p>
+      </div>
+      <div className="flex-1 rounded-3xl bg-white p-6 shadow-[0_18px_40px_rgba(74,50,39,0.08)] sm:p-8">
+        <h3 className={H3}>{titulo}</h3>
+        <div className={`${PARRAFO_CHICO} mt-3 space-y-3 opacity-85`}>{children}</div>
       </div>
     </div>
   )
@@ -121,31 +129,38 @@ function TarjetaComoFunciona({
 
 export default function ProyectoInPosiblePage() {
   return (
-    <div style={PALETA}>
+    <div className={`${FUENTES_CLASSNAME} [font-family:var(--font-cuerpo)]`} style={PALETA}>
       {/* 1 · Hero */}
-      <SeccionAnimada fondo="noche" separador={false} className="flex min-h-[86vh] items-center">
+      <SeccionAnimada fondo="crema" separador={false} className="bg-gradient-to-b from-[var(--crema)] to-[var(--arena)]">
         <div className="text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--gris-cielo)]">
-            ENTHEOS
-          </p>
-          <h1 className="font-display mt-5 text-6xl font-bold leading-[1.02] tracking-tight text-[var(--crema)] sm:text-8xl">
+          <p className={`${SMALL} font-semibold uppercase tracking-[0.35em] opacity-60`}>ENTHEOS</p>
+          <h1 className={`${H1} mt-5`}>
             Proyecto In<span className="text-[var(--naranja)]">+</span>Posible
           </h1>
-          <p className="mx-auto mt-7 max-w-xl text-xl font-medium text-[var(--gris-cielo)] sm:text-2xl">
+          <p className="mx-auto mt-7 max-w-xl text-xl font-medium opacity-80 sm:text-2xl">
             Plasmá en tres meses eso que venís postergando toda tu vida.
           </p>
-          <p className="mt-4 text-[var(--gris-cielo)]/80">
-            Arranca el lunes 14 de septiembre. Cupos dedicados.
-          </p>
+          <p className="mt-4 opacity-60">Arranca el lunes 14 de septiembre. Cupos dedicados.</p>
           <div className="mt-9">
             <BotonCTA />
           </div>
         </div>
       </SeccionAnimada>
 
-      {/* 2 · El problema */}
+      {/* 2 · Qué es (sube al segundo lugar) */}
+      <SeccionAnimada fondo="arena">
+        <div className="border-l-8 border-[var(--naranja)] pl-6 sm:pl-8">
+          <p className="text-2xl font-medium leading-snug sm:text-3xl">
+            <strong className="font-bold">Proyecto In+Posible</strong> es un programa de mentoría
+            personalizada y grupal, para descubrir, encender y poner en marcha tu talento, trabajando
+            sobre un proyecto concreto que parece imposible de lograr... ¡hasta ahora!
+          </p>
+        </div>
+      </SeccionAnimada>
+
+      {/* 3 · El problema */}
       <SeccionAnimada fondo="crema">
-        <div className={`${P_CLARO} space-y-6`}>
+        <div className={`${PARRAFO} space-y-6`}>
           <p>
             Lo pensaste muchas veces... lo anotaste en algún cuaderno... se lo contaste a alguien de
             confianza y te dijo &ldquo;¡qué buena idea!&rdquo;. Y ahí quedó.
@@ -160,24 +175,18 @@ export default function ProyectoInPosiblePage() {
             por perdido, estás ante una puerta de entrada que es la más difícil de abrir... pero...
           </p>
         </div>
-        <p className="font-display mt-2 text-5xl font-bold text-[var(--naranja)] sm:text-7xl">
-          ¡se abre!
-        </p>
-      </SeccionAnimada>
-
-      {/* 3 · Qué es */}
-      <SeccionAnimada fondo="arena">
-        <p className="font-display text-center text-2xl font-medium leading-snug text-[var(--azul-noche)] sm:text-4xl">
-          <strong className="font-semibold">Proyecto In+Posible</strong> es un programa de mentoría
-          personalizada y grupal, para descubrir, encender y poner en marcha tu talento, trabajando
-          sobre un proyecto concreto que parece imposible de lograr... ¡hasta ahora!
-        </p>
+        <p className={`${MOMENTO} mt-2 text-[var(--naranja)]`}>¡se abre!</p>
       </SeccionAnimada>
 
       {/* 4 · Los tres ejes */}
-      <SeccionAnimada fondo="crema" ancho="ancho">
-        <div className="flex flex-col gap-6 sm:flex-row">
-          <TarjetaEje numero="1" fecha="14/09" titulo="Las coordenadas">
+      <SeccionAnimada fondo="arena" ancho="ancho">
+        <h2 className={H2}>Los tres ejes</h2>
+        <p className="mt-3 text-xl font-medium opacity-70 sm:text-2xl">
+          Uno por taller. En septiembre, en octubre y en noviembre.
+        </p>
+
+        <div className="mt-10 space-y-10 border-l-2 border-[var(--naranja)] pl-6 sm:pl-10">
+          <FilaEje numero="1" taller="TALLER 1 · LUNES 14 DE SEPTIEMBRE" titulo="Las coordenadas">
             <p>
               Claves y coordenadas para empezar tu viaje con un GPS orientado hacia el crecimiento: a
               qué apuntar, por dónde ir, cuáles son los primeros resultados a lograr y... lo más
@@ -187,9 +196,10 @@ export default function ProyectoInPosiblePage() {
               Porque para dar el primer paso queremos sentirnos seguros — y a la vez es dar el primer
               paso lo que te vuelve seguro de verdad.
             </p>
-          </TarjetaEje>
+            <PullQuote>es dar el primer paso lo que te vuelve seguro de verdad.</PullQuote>
+          </FilaEje>
 
-          <TarjetaEje numero="2" fecha="12/10" titulo="Empezar sin esperar a estar listo">
+          <FilaEje numero="2" taller="TALLER 2 · LUNES 12 DE OCTUBRE" titulo="Empezar sin esperar a estar listo">
             <p>
               Es en el viaje, caminando, donde nos damos cuenta de qué tenemos que ajustar y actualizar
               en nuestros objetivos. Esperar a tenerlo todo claro y resuelto para dar el primer paso es
@@ -197,62 +207,48 @@ export default function ProyectoInPosiblePage() {
               importante: ¿voy a prepararme eternamente para nunca empezar? o...
             </p>
             <PullQuote>¡Avanzo para darme cuenta de qué rumbo estoy tomando!</PullQuote>
-          </TarjetaEje>
+          </FilaEje>
 
-          <TarjetaEje numero="3" fecha="09/11" titulo="Semilla y primeros brotes">
+          <FilaEje
+            numero="3"
+            taller="TALLER 3 · LUNES 9 DE NOVIEMBRE"
+            titulo="Semilla y primeros brotes"
+            color="verde"
+          >
             <p>
               Dicen que en el interior de la semilla se encuentra la energía y el potencial para dar
               lugar a toda una vida... que, con el deseo y la decisión de ir más allá, emerge de la
               tierra en sus primeros y más delicados brotes.
             </p>
-            <PullQuote>
-              Un primer paso que, si lo descuidamos, lo olvidamos y lo abandonamos... no crece.
-            </PullQuote>
+            <p>
+              <strong>
+                Un primer paso que, si lo descuidamos, lo olvidamos y lo abandonamos... no crece.
+              </strong>
+            </p>
             <p>
               Es aquí donde se juegan los recaudos más importantes y el éxito de tu proyecto:
               necesitamos proteger y darle mucho amor a lo que hacés nacer, para que... de aquí a un
-              año... recuerdes este momento y valores: &ldquo;¡Qué lindo es dedicar mi tiempo a lo que
-              amo hacer!&rdquo;.
+              año... recuerdes este momento y valores:
             </p>
-          </TarjetaEje>
+            <PullQuote color="verde">
+              &ldquo;¡Qué lindo es dedicar mi tiempo a lo que amo hacer!&rdquo;
+            </PullQuote>
+          </FilaEje>
+        </div>
+
+        <div className="mt-10">
+          <BotonCTA />
         </div>
       </SeccionAnimada>
 
-      {/* 5 · IA — el bloque más diferencial */}
-      <SeccionAnimada fondo="noche">
-        <p className="text-xs font-semibold tracking-[0.18em] text-[var(--naranja)]">
-          ¡Usamos la IA! Diferencialmente...
-        </p>
-        <h2 className="font-display mt-3 text-3xl font-semibold text-[var(--crema)] sm:text-5xl">
-          Una herramienta, no un reemplazo
-        </h2>
-        <div className={`${P_OSCURO} mt-6 space-y-5`}>
-          <p>
-            Vas a aprender usos concretos de la inteligencia artificial para avanzar más rápido:
-            ordenar lo que tenés disperso, probar versiones, resolver en una tarde cosas que antes te
-            frenaban semanas. Pero NUNCA le pediremos que piense ni defina lo que nosotros tenemos que
-            decidir.
-          </p>
-          <p>
-            La condición que no negociamos: ser los creadores de punta a punta. En un mundo perdido por
-            el caos de las dependencias políticas, económicas y científicas... encontramos la solución:
-            el aporte particular y subjetivo que cada quien le hace al mundo.
-          </p>
-          <p>
-            Por eso, vas a aprender a usar la IA como herramienta, aun si nunca la usaste, y poniéndola
-            a favor de tu proyecto.
-          </p>
-        </div>
-      </SeccionAnimada>
+      {/* 5 · Cómo funciona (+ collage al final) */}
+      <SeccionAnimada fondo="crema" ancho="ancho" separador={false}>
+        <h2 className={H2}>Cómo funciona</h2>
 
-      {/* 6 · Cómo funciona */}
-      <SeccionAnimada fondo="crema" ancho="ancho">
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="mt-8 grid gap-5 sm:grid-cols-2">
           <TarjetaComoFunciona icono={<IconoCalendario className="h-5 w-5" />} titulo="Un taller creativo por mes">
             <p>Tres encuentros en vivo, los lunes a las 19 hs:</p>
-            <p className="font-semibold text-[var(--azul-noche)]">
-              {TALLERES.map((t) => t.etiqueta).join(" · ")}
-            </p>
+            <p className="font-semibold opacity-100">{TALLERES.map((t) => t.etiqueta).join(" · ")}</p>
             <p>Cada taller creativo de los lunes proporciona 2 hs. de expansión.</p>
             <p>
               En cada uno trabajamos un eje, con claves concretas y casos reales. Te llevás lo necesario
@@ -290,25 +286,32 @@ export default function ProyectoInPosiblePage() {
               en hacer crecer tu talento y tu proyecto.
             </p>
           </TarjetaComoFunciona>
-
-          <TarjetaComoFunciona icono={<IconoWhatsapp className="h-5 w-5" />} titulo="Soporte por WhatsApp">
-            <p>
-              Es muy común encontrarse con cursos enlatados de teoría totalmente impersonalizados.
-            </p>
-            <p>
-              Vas a disponer de atención de 9 a 18 hs durante la semana por WhatsApp para que saques tus
-              dudas, preguntes y no necesites patear a futuro tus avances.
-            </p>
-          </TarjetaComoFunciona>
         </div>
 
-        {/* El único grito de toda la página */}
-        <p className="font-display my-10 text-center text-5xl font-bold text-[var(--azul-noche)] sm:text-7xl">
-          NO ES LO QUE PASA AQUÍ.
-        </p>
+        {/* El único grito de la página — adentro de su propia tarjeta */}
+        <div className="mt-5 rounded-3xl bg-white p-7 shadow-[0_18px_40px_rgba(74,50,39,0.06)] sm:p-8">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--arena)] text-[var(--coral)]">
+            <IconoWhatsapp className="h-5 w-5" />
+          </div>
+          <h3 className={`${H3} mt-5`}>Soporte por WhatsApp</h3>
+          <p className={`${PARRAFO_CHICO} mt-3 opacity-85`}>
+            Es muy común encontrarse con cursos enlatados de teoría totalmente impersonalizados.
+          </p>
+          <p className={`${MOMENTO} my-6 text-[clamp(32px,7vw,56px)] text-[var(--tierra)]`}>
+            NO ES LO QUE PASA AQUÍ.
+          </p>
+          <p className={`${PARRAFO_CHICO} opacity-85`}>
+            Vas a disponer de atención de 9 a 18 hs durante la semana por WhatsApp para que saques tus
+            dudas, preguntes y no necesites patear a futuro tus avances.
+          </p>
+        </div>
 
-        <div className="grid gap-5 sm:grid-cols-2">
-          <TarjetaComoFunciona icono={<IconoGrupo className="h-5 w-5" />} titulo="El todos mejora gracias al cada uno" ancha>
+        <div className="mt-5 rounded-3xl bg-white p-7 shadow-[0_18px_40px_rgba(74,50,39,0.06)] sm:p-8">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--arena)] text-[var(--coral)]">
+            <IconoGrupo className="h-5 w-5" />
+          </div>
+          <h3 className={`${H3} mt-5`}>El todos mejora gracias al cada uno</h3>
+          <div className={`${PARRAFO_CHICO} mt-3 space-y-3 opacity-85`}>
             <p>
               Trabajamos en contexto grupal, como ocurre en el mundo, en la sociedad, en la familia y en
               los diferentes ámbitos de la vida...
@@ -317,77 +320,111 @@ export default function ProyectoInPosiblePage() {
               Y creemos que la clave del cambio y el crecimiento está en lograr la mejor versión de cada
               quien que se involucra en el conjunto.
             </p>
-            <p>Vas a encontrarte con personas que apuntan a un mismo objetivo: crecer diferencialmente juntos...</p>
-          </TarjetaComoFunciona>
+            <p>
+              Vas a encontrarte con personas que apuntan a un mismo objetivo: crecer diferencialmente
+              juntos...
+            </p>
+          </div>
+          <PullQuote>
+            ¿Te animás a la aventura de encontrar lo más valioso de vos sin perderte en los otros?
+          </PullQuote>
+          <div className={`${PARRAFO_CHICO} space-y-3 opacity-85`}>
+            <p>Y... por si fuera poco...</p>
+            <p>
+              Contacto con talentos en el deporte, el arte, los emprendimientos, empresas, naturaleza,
+              etc., etc.
+            </p>
+          </div>
         </div>
+      </SeccionAnimada>
 
-        <PullQuote>
-          ¿Te animás a la aventura de encontrar lo más valioso de vos sin perderte en los otros?
-        </PullQuote>
+      <Collage />
 
-        <div className={`${P_CLARO} space-y-3`}>
-          <p>Y... por si fuera poco...</p>
+      {/* 6 · ¡Usamos la IA! (baja después de Cómo funciona) */}
+      <SeccionAnimada fondo="tierra">
+        <h2 className={H2}>¡Usamos la IA! Diferencialmente...</h2>
+        <p className="mt-3 text-xl font-semibold opacity-90 sm:text-2xl">Una herramienta, no un reemplazo</p>
+        <div className={`${PARRAFO} mt-6 space-y-5 opacity-90`}>
           <p>
-            Contacto con talentos en el deporte, el arte, los emprendimientos, empresas, naturaleza,
-            etc., etc.
+            Vas a aprender usos concretos de la inteligencia artificial para avanzar más rápido:
+            ordenar lo que tenés disperso, probar versiones, resolver en una tarde cosas que antes te
+            frenaban semanas. Pero NUNCA le pediremos que piense ni defina lo que nosotros tenemos que
+            decidir.
+          </p>
+          <p>
+            La condición que no negociamos: ser los creadores de punta a punta. En un mundo perdido por
+            el caos de las dependencias políticas, económicas y científicas... encontramos la solución:
+            el aporte particular y subjetivo que cada quien le hace al mundo.
+          </p>
+          <p>
+            Por eso, vas a aprender a usar la IA como herramienta, aun si nunca la usaste, y poniéndola
+            a favor de tu proyecto.
           </p>
         </div>
+        <div className="mt-8">
+          <BotonCTA />
+        </div>
       </SeccionAnimada>
 
-      {/* 7 · No esperás al 14 */}
+      {/* 7 · Qué te llevás */}
       <SeccionAnimada fondo="arena">
-        <h2 className="font-display text-2xl font-semibold text-[var(--azul-noche)] sm:text-4xl">
-          No esperás al 14 para empezar
-        </h2>
-        <p className={`${P_CLARO} mt-4`}>
-          Apenas reservás tu lugar arranca el trabajo previo. Vas a recibir la inducción por mail, en
-          video y por WhatsApp: lo necesario para llegar al primer taller con algo ya movido.
-        </p>
-      </SeccionAnimada>
-
-      {/* 8 · Qué te vas a llevar */}
-      <SeccionAnimada fondo="crema">
-        <h2 className="font-display text-2xl font-semibold text-[var(--azul-noche)] sm:text-4xl">
-          Qué te vas a llevar
-        </h2>
-        <ul className="mt-7 space-y-5">
+        <h2 className={H2}>Qué te llevás</h2>
+        <ul className="mt-8 space-y-6">
           {[
-            <>
-              <strong>Tu proyecto va a existir afuera de tu cabeza.</strong> No un plan: primeros pasos
-              dados, a la vista.
-            </>,
-            <>
-              <strong>Vas a haber empezado eso que no te animabas.</strong> Mostrarlo, decirlo,
-              ofrecerlo, compartirlo, venderlo... — lo que en tu caso sea.
-            </>,
-            <>
-              <strong>Vas a saber cuál es tu talento</strong>, poder nombrarlo con tus palabras y señalar
-              dónde lo pusiste a trabajar.
-            </>,
-            <>
-              <strong>Vas a aprender un estilo de trabajo que impulsa la continuidad:</strong> ritmo
-              propio, autónomo y responsable.
-            </>,
-            <>
-              <strong>¡Aliados!</strong> Otras personas que te vieron crecer y se encuentran para
-              impulsarse mutuamente.
-            </>,
+            {
+              fuerte: "Tu proyecto va a existir",
+              resto: ", desde tu cabeza a lo concreto. Construiremos un plan y... vas a dar primeros pasos, concretos y medibles.",
+            },
+            {
+              fuerte: "Atravesar miedos que antes te frenaban.",
+              resto: " Mostrar lo que hacés, hablar de eso, ofrecerlo, compartirlo, venderlo y... ¡disfrutar!",
+            },
+            {
+              fuerte: "Vas a descifrar y decidir tu talento",
+              resto: ", nombrarlo con tus palabras y ponerlo en marcha.",
+            },
+            {
+              fuerte: "Vas a aprender un estilo de trabajo que impulsa la continuidad:",
+              resto: " ritmo propio, autónomo y responsable.",
+            },
+            {
+              fuerte: "¡Aliados!",
+              resto: " Otras personas que se entienden en el crecimiento y se encuentran para impulsarse mutuamente.",
+            },
           ].map((item, i) => (
             <li key={i} className="flex gap-4">
-              <span className="font-display shrink-0 text-2xl font-bold text-[var(--naranja)]">+</span>
-              <span className={P_CLARO}>{item}</span>
+              <span className={`${TITULO_FONT} shrink-0 text-3xl font-extrabold text-[var(--naranja)]`}>+</span>
+              <span className={PARRAFO}>
+                <strong>{item.fuerte}</strong>
+                {item.resto}
+              </span>
             </li>
           ))}
         </ul>
       </SeccionAnimada>
 
+      {/* 8 · No esperás al 14 para empezar — banda naranja corta */}
+      <SeccionAnimada fondo="naranja" corta className="text-center">
+        <h2 className={H2}>No esperás al 14 para empezar</h2>
+        <p className="mx-auto mt-4 max-w-2xl text-lg opacity-95 sm:text-xl">
+          Apenas reservás tu lugar, arrancamos. Vas a recibir instrucciones por mail, contenido en video
+          y soporte por WhatsApp: lo necesario para llegar al primer taller preparado.
+        </p>
+        <div className="mt-7">
+          <a
+            href="#inscripcion"
+            className="inline-flex min-h-[52px] items-center justify-center rounded-full bg-[var(--tierra)] px-8 text-base font-semibold text-[var(--crema)] transition hover:opacity-90"
+          >
+            ¡Quiero mi lugar!
+          </a>
+        </div>
+      </SeccionAnimada>
+
       {/* 9 · Para quién es */}
-      <SeccionAnimada fondo="arena" ancho="ancho">
+      <SeccionAnimada fondo="crema" ancho="ancho">
         <div className="grid gap-10 sm:grid-cols-2">
           <div>
-            <h2 className="font-display text-xl font-semibold text-[var(--azul-noche)] sm:text-2xl">
-              Es para vos si:
-            </h2>
+            <h2 className={H3}>Es para vos si:</h2>
             <ul className="mt-5 space-y-4">
               {[
                 "Tenés un proyecto dando vueltas hace tiempo y no lo arrancás.",
@@ -396,16 +433,14 @@ export default function ProyectoInPosiblePage() {
                 "Estás dispuesto a ganar disfrute con lo que hacés.",
               ].map((t) => (
                 <li key={t} className="flex gap-3">
-                  <span className="font-display shrink-0 text-xl font-bold text-[var(--naranja)]">+</span>
-                  <span className={P_CLARO_CHICO}>{t}</span>
+                  <span className="mt-0.5 shrink-0 text-xl font-bold text-[var(--verde-brote)]">✓</span>
+                  <span className={PARRAFO_CHICO}>{t}</span>
                 </li>
               ))}
             </ul>
           </div>
           <div>
-            <h2 className="font-display text-xl font-semibold text-[var(--azul-noche)] sm:text-2xl">
-              No es para vos si:
-            </h2>
+            <h2 className={H3}>No es para vos si:</h2>
             <ul className="mt-5 space-y-4">
               {[
                 <>
@@ -419,8 +454,8 @@ export default function ProyectoInPosiblePage() {
                 </>,
               ].map((t, i) => (
                 <li key={i} className="flex gap-3">
-                  <span className="font-display shrink-0 text-xl font-bold text-[var(--naranja)]">+</span>
-                  <span className={P_CLARO_CHICO}>{t}</span>
+                  <span className={`${TITULO_FONT} shrink-0 text-xl font-bold text-[var(--naranja)]`}>+</span>
+                  <span className={PARRAFO_CHICO}>{t}</span>
                 </li>
               ))}
             </ul>
@@ -429,10 +464,8 @@ export default function ProyectoInPosiblePage() {
       </SeccionAnimada>
 
       {/* 10 · Quiénes te acompañamos */}
-      <SeccionAnimada fondo="crema">
-        <h2 className="font-display text-2xl font-semibold text-[var(--azul-noche)] sm:text-4xl">
-          Quiénes te acompañamos
-        </h2>
+      <SeccionAnimada fondo="arena">
+        <h2 className={H2}>Quiénes te acompañamos</h2>
         <div className="mt-7 flex flex-col gap-7 sm:flex-row sm:items-start">
           <div className="mx-auto w-40 shrink-0 overflow-hidden rounded-3xl sm:mx-0 sm:w-48">
             <Image
@@ -444,11 +477,9 @@ export default function ProyectoInPosiblePage() {
             />
           </div>
           <div>
-            <h3 className="font-display text-lg font-semibold text-[var(--azul-noche)]">
-              Nicolás Busico
-            </h3>
-            <p className="text-sm font-medium text-[var(--terracota)]">Licenciado en Psicología</p>
-            <div className={`${P_CLARO_CHICO} mt-4 space-y-3`}>
+            <h3 className={H3}>Nicolás Busico</h3>
+            <p className="text-sm font-medium text-[var(--coral)]">Licenciado en Psicología</p>
+            <div className={`${PARRAFO_CHICO} mt-4 space-y-3 opacity-85`}>
               <p>
                 Hace más de 8 años acompaña a personas que necesitan definir un rumbo y animarse a crear
                 proyectos propios a partir de sus talentos y de lo que les gusta hacer.
@@ -462,10 +493,8 @@ export default function ProyectoInPosiblePage() {
           </div>
         </div>
         <div className="mt-9">
-          <h3 className="font-display text-lg font-semibold text-[var(--azul-noche)]">
-            Equipo de ENTHEOS
-          </h3>
-          <p className={`${P_CLARO_CHICO} mt-3`}>
+          <h3 className={H3}>Equipo de ENTHEOS</h3>
+          <p className={`${PARRAFO_CHICO} mt-3 opacity-85`}>
             Participantes activos que apoyan desde la experiencia misma de atravesar los propios
             desafíos y de lograr, cada vez más, hacer crecer sus talentos y proyectos.
           </p>
@@ -475,140 +504,112 @@ export default function ProyectoInPosiblePage() {
       {/* 11 · Proyectos que pasaron por acá */}
       <SeccionAnimada fondo="blanco" ancho="completo">
         <div className="mx-auto max-w-5xl px-4 sm:px-6">
-          <h2 className="font-display text-2xl font-semibold text-[var(--azul-noche)] sm:text-4xl">
-            Proyectos que pasaron por acá
-          </h2>
+          <h2 className={H2}>Proyectos que pasaron por acá</h2>
         </div>
         <div className="mt-7">
           <CarruselProyectos />
         </div>
       </SeccionAnimada>
 
-      {/* 12 · Qué incluye + 13 · Precio */}
-      <SeccionAnimada fondo="noche" ancho="ancho">
-        <h2 className="font-display text-2xl font-semibold text-[var(--crema)] sm:text-4xl">
-          Qué incluye, y qué vale cada cosa
-        </h2>
-        <div className="mt-6 overflow-x-auto rounded-2xl border border-white/10">
-          <table className="w-full min-w-[420px] border-collapse text-sm">
+      {/* 12 · Todo lo que entra en los tres meses → precio → Por qué vale esto */}
+      <SeccionAnimada fondo="crema" ancho="ancho">
+        <h2 className={H2}>Todo lo que entra en los tres meses</h2>
+        <div className="mt-8 overflow-x-auto rounded-2xl border border-[var(--tierra)]/10">
+          <table className="w-full min-w-[420px] border-collapse">
             <tbody>
-              <tr className="border-b border-white/10">
-                <td className="p-4 text-[var(--gris-cielo)]">
-                  Entusiasmento — tu espacio propio, los tres meses
-                </td>
-                <td className="p-4 text-right font-semibold text-[var(--crema)]">$480.000</td>
-              </tr>
-              <tr className="border-b border-white/10">
-                <td className="p-4 text-[var(--gris-cielo)]">
-                  Tres talleres creativos en vivo — 6 horas, con las grabaciones
-                </td>
-                <td className="p-4 text-right font-semibold text-[var(--crema)]">$150.000</td>
-              </tr>
-              <tr className="border-b border-white/10">
-                <td className="p-4 text-[var(--gris-cielo)]">Una sesión 1 a 1 con Nicolás</td>
-                <td className="p-4 text-right font-semibold text-[var(--crema)]">$55.000</td>
-              </tr>
-              <tr className="border-b border-white/10">
-                <td className="p-4 text-[var(--gris-cielo)]">
-                  Soporte por WhatsApp, de 9 a 18, doce semanas
-                </td>
-                <td className="p-4 text-right font-semibold text-[var(--crema)]">incluido</td>
-              </tr>
-              <tr className="border-b border-white/10">
-                <td className="p-4 text-[var(--gris-cielo)]">
-                  El grupo: hasta 15 aliados haciendo el mismo camino
-                </td>
-                <td className="p-4 text-right font-semibold text-[var(--crema)]">incluido</td>
-              </tr>
-              <tr className="bg-white/5">
-                <td className="p-4 font-semibold text-[var(--crema)]">Todo eso, por separado</td>
-                <td className="p-4 text-right text-lg font-bold text-[var(--crema)]">$685.000</td>
-              </tr>
+              {[
+                ["Entusiasmento — tu espacio propio, los tres meses", "$480.000"],
+                ["Tres talleres creativos en vivo — 6 horas, con las grabaciones", "$150.000"],
+                ["Una sesión 1 a 1 con Nicolás", "$55.000"],
+                ["Soporte por WhatsApp, de 9 a 18, doce semanas", "incluido"],
+                ["El grupo: hasta 15 aliados haciendo el mismo camino", "incluido"],
+              ].map(([nombre, precio]) => (
+                <tr key={nombre} className="border-b border-[var(--tierra)]/10 last:border-0">
+                  <td className="p-4 text-xl font-bold sm:text-2xl">{nombre}</td>
+                  <td className="p-4 text-right text-lg opacity-70 sm:text-xl">{precio}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
-        <p className="mt-3 text-sm text-[var(--gris-cielo)]/80">
-          Para referencia: la mentoría personalizada individual sale $350.000 por mes.
+        <p className="mt-6">
+          Por separado, cada cosa:{" "}
+          <span className={`${TITULO_FONT} text-4xl font-extrabold sm:text-5xl`}>$685.000</span>
         </p>
 
         <div className="mt-14">
-          <h2 className="font-display text-2xl font-semibold text-[var(--crema)] sm:text-4xl">
-            Precio de primera camada
-          </h2>
-          <p className={`${P_OSCURO} mt-4`}>
-            Esta es la primera vez que corre Proyecto In+Posible. El precio de arranque no se repite: en
-            enero sube.
-          </p>
-          <p className="mt-2 font-semibold text-[var(--crema)]">
-            Inscripción abierta hasta el viernes 11 de septiembre.
-          </p>
-
-          <p className="font-display my-8 text-6xl font-bold text-[var(--naranja)] sm:text-8xl">
-            {formatearMontoArs(PRECIOS_ARS.unico.transferencia)}
-          </p>
-          <p className="-mt-6 mb-8 text-sm text-[var(--gris-cielo)]">
-            pago único, los tres meses, por transferencia
-          </p>
-
-          <div className="overflow-x-auto rounded-2xl border border-white/10">
+          <h2 className={H2}>Entrás por</h2>
+          <div className="mt-6 overflow-x-auto rounded-2xl border border-[var(--tierra)]/10">
             <table className="w-full min-w-[480px] border-collapse text-sm">
               <thead>
-                <tr className="border-b border-white/10 bg-white/5 text-left">
-                  <th className="p-4 font-semibold text-[var(--crema)]"> </th>
-                  <th className="p-4 font-semibold text-[var(--crema)]">Por transferencia</th>
-                  <th className="p-4 font-semibold text-[var(--crema)]">Por Mercado Pago</th>
+                <tr className="border-b border-[var(--tierra)]/10 bg-white/40 text-left">
+                  <th className="p-4 font-semibold"> </th>
+                  <th className="p-4 font-semibold">Por transferencia</th>
+                  <th className="p-4 font-semibold">Por Mercado Pago</th>
                 </tr>
               </thead>
               <tbody>
-                <tr className="border-b border-white/10">
-                  <td className="p-4 text-[var(--gris-cielo)]">Pago único — los tres meses</td>
-                  <td className="p-4 font-bold text-[var(--naranja)]">
+                <tr className="border-b border-[var(--tierra)]/10">
+                  <td className="p-4 opacity-80">Pago único — los tres meses</td>
+                  <td className="p-4 text-[28px] font-bold sm:text-[32px]">
                     {formatearMontoArs(PRECIOS_ARS.unico.transferencia)}
                   </td>
-                  <td className="p-4 text-[var(--gris-cielo)]">
-                    {formatearMontoArs(PRECIOS_ARS.unico.mercadopago)}
-                  </td>
+                  <td className="p-4 opacity-70">{formatearMontoArs(PRECIOS_ARS.unico.mercadopago)}</td>
                 </tr>
                 <tr>
-                  <td className="p-4 text-[var(--gris-cielo)]">
-                    Mes a mes — septiembre, octubre y noviembre
-                  </td>
-                  <td className="p-4 font-bold text-[var(--naranja)]">
+                  <td className="p-4 opacity-80">Mes a mes</td>
+                  <td className="p-4 text-[28px] font-bold sm:text-[32px]">
                     {formatearMontoArs(PRECIOS_ARS.mensual.transferencia)} por mes
                   </td>
-                  <td className="p-4 text-[var(--gris-cielo)]">
+                  <td className="p-4 opacity-70">
                     {formatearMontoArs(PRECIOS_ARS.mensual.mercadopago)} por mes
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
+          <p className={`${PARRAFO_CHICO} mt-5 opacity-80`}>
+            <strong>Desde otros países:</strong> USD 500 o EUR 500 el pago único, USD 180 o EUR 180 por
+            mes, por transferencia internacional.
+          </p>
+          <p className="mt-3 font-semibold">Inscripción abierta hasta el viernes 11 de septiembre.</p>
+          <div className="mt-7">
+            <BotonCTA />
+          </div>
+        </div>
 
-          <p className={`${P_OSCURO} mt-5`}>
-            Señás tu lugar con el primer mes, o con el 50% si vas por el pago único.
-          </p>
-          <p className="mt-3 text-sm text-[var(--gris-cielo)]">
-            <strong className="text-[var(--crema)]">Desde afuera de Argentina:</strong> USD 500 o EUR
-            500 el pago único, USD 180 o EUR 180 por mes, por transferencia internacional.
-          </p>
+        <div className="mt-14">
+          <h3 className={H3}>Por qué vale esto</h3>
+          <div className={`${PARRAFO} mt-4 space-y-4 opacity-90`}>
+            <p>
+              No es un programa de prueba. Hace más de ocho años que Nicolás acompaña estos procesos, y
+              los proyectos que salieron de ahí están funcionando hoy: los viste recién, uno por uno, con
+              nombre propio.
+            </p>
+            <p>
+              Lo nuevo es el formato — los tres talleres, Entusiasmento y la sesión 1 a 1 reunidos en un
+              mismo recorrido de tres meses. Este es el precio con el que abre. En enero, cuando arranque
+              el próximo ciclo, sube.
+            </p>
+          </div>
         </div>
       </SeccionAnimada>
 
-      {/* 14 · Cómo reservás tu lugar */}
-      <SeccionAnimada fondo="crema" id="inscripcion" ancho="ancho">
-        <h2 className="font-display text-2xl font-semibold text-[var(--azul-noche)] sm:text-4xl">
-          Cómo reservás tu lugar
-        </h2>
-        <ol className={`${P_CLARO} mt-5 space-y-3`}>
+      {/* 13 · Cómo reservás tu lugar + formulario */}
+      <SeccionAnimada fondo="arena" id="inscripcion" ancho="ancho">
+        <h2 className={H2}>Cómo reservás tu lugar</h2>
+        <ol className={`${PARRAFO} mt-5 space-y-3`}>
           <li>
             <strong>1.</strong> Completás el formulario de inscripción.
           </li>
           <li>
-            <strong>2.</strong> Señás tu lugar por transferencia o por Mercado Pago.
+            <strong>2.</strong> Reservás tu lugar con el pago. Al terminar el formulario te aparecen las
+            instrucciones: Mercado Pago o transferencia, nacional o internacional.
           </li>
           <li>
-            <strong>3.</strong> Empezás antes del 14. Desde que reservás arranca la inducción: mails,
-            videos y WhatsApp con trabajo previo, para que el primer taller no te agarre desde cero.
+            <strong>3.</strong> ¡Comenzamos desde ya! Antes del 14 te enviaremos instrucciones por mail,
+            contenido de video y soporte por WhatsApp: lo necesario para llegar al primer taller
+            preparado.
           </li>
         </ol>
 
@@ -617,19 +618,17 @@ export default function ProyectoInPosiblePage() {
         </div>
       </SeccionAnimada>
 
-      {/* 15 · Cierre */}
-      <SeccionAnimada fondo="noche" separador={false} className="text-center">
-        <p className="font-display mx-auto max-w-3xl text-4xl font-bold leading-tight text-[var(--crema)] sm:text-6xl">
+      {/* 14 · Cierre */}
+      <SeccionAnimada fondo="tierra" separador={false} className="text-center">
+        <p className={`${MOMENTO} mx-auto max-w-3xl`}>
           El momento llegó, no esperes a estar listo/a... ¿damos el paso que transforma la vida misma?
         </p>
         <div className="mt-9">
           <BotonCTA />
         </div>
-        <p className="mt-4 text-sm text-[var(--gris-cielo)]">
-          Inscripción abierta hasta el viernes 11 de septiembre
-        </p>
+        <p className="mt-4 text-sm opacity-70">Inscripción abierta hasta el viernes 11 de septiembre</p>
 
-        <p className="mt-16 text-xs text-[var(--gris-cielo)]/60">
+        <p className="mt-16 text-xs opacity-50">
           <Link href="/" className="underline">
             ENTHEOS
           </Link>

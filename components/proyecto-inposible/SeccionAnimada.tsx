@@ -3,14 +3,16 @@
 import { useEffect, useRef, useState } from "react"
 
 // Fondo por sección — el ritmo de fondos es lo que convierte el scroll en
-// una secuencia de lugares distintos en vez de un documento único.
-type Fondo = "noche" | "crema" | "arena" | "blanco"
+// una secuencia de lugares distintos en vez de un documento único. Solo dos
+// secciones oscuras en toda la página (tierra): IA y el cierre.
+type Fondo = "tierra" | "naranja" | "crema" | "arena" | "blanco"
 
 const FONDOS: Record<Fondo, string> = {
-  noche: "bg-[var(--azul-noche)] text-[var(--crema)]",
-  crema: "bg-[var(--crema)] text-[var(--azul-noche)]",
-  arena: "bg-[var(--arena)] text-[var(--azul-noche)]",
-  blanco: "bg-white text-[var(--azul-noche)]",
+  tierra: "bg-[var(--tierra)] text-[var(--crema)]",
+  naranja: "bg-[var(--naranja)] text-[var(--crema)]",
+  crema: "bg-[var(--crema)] text-[var(--tierra)]",
+  arena: "bg-[var(--arena)] text-[var(--tierra)]",
+  blanco: "bg-white text-[var(--tierra)]",
 }
 
 type Ancho = "normal" | "ancho" | "completo"
@@ -30,6 +32,10 @@ type Props = {
   // El separador "+" va arriba, dentro del propio fondo de la sección, para
   // que nunca se note una costura de color entre dos secciones distintas.
   separador?: boolean
+  // Padding vertical corto — solo para la banda "No esperás al 14", la
+  // única sección explícitamente pensada como banda corta. El resto usa
+  // siempre el mismo padding (72px mobile / 112px desktop).
+  corta?: boolean
 }
 
 export default function SeccionAnimada({
@@ -39,6 +45,7 @@ export default function SeccionAnimada({
   id,
   className = "",
   separador = true,
+  corta = false,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
@@ -80,9 +87,9 @@ export default function SeccionAnimada({
       )}
       <div
         ref={ref}
-        className={`mx-auto py-10 transition-all duration-700 ease-out sm:py-14 ${ANCHOS[ancho]} ${
-          visible ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"
-        }`}
+        className={`mx-auto transition-all duration-700 ease-out ${
+          corta ? "py-10 sm:py-14" : "py-[72px] md:py-[112px]"
+        } ${ANCHOS[ancho]} ${visible ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"}`}
       >
         {children}
       </div>

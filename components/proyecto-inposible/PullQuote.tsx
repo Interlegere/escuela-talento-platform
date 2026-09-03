@@ -1,7 +1,18 @@
 // Frase sacada del párrafo y destacada — mismo texto, nunca reescrito.
-export default function PullQuote({ children }: { children: React.ReactNode }) {
+// color="verde" solo se usa en el eje 3 (semilla y primeros brotes).
+export default function PullQuote({
+  children,
+  color = "naranja",
+}: {
+  children: React.ReactNode
+  color?: "naranja" | "verde"
+}) {
   return (
-    <p className="font-display my-8 text-2xl font-semibold leading-snug text-[var(--naranja)] sm:text-3xl">
+    <p
+      className={`[font-family:var(--font-titulo)] my-6 text-2xl font-bold leading-snug sm:text-3xl ${
+        color === "verde" ? "text-[var(--verde-brote)]" : "text-[var(--naranja)]"
+      }`}
+    >
       {children}
     </p>
   )

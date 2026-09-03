@@ -118,8 +118,8 @@ export default function GraciasContenido() {
       </h1>
       <p className="mt-3 text-gray-600">
         {datos
-          ? "Ya guardamos tu preinscripción. Señá tu lugar con cualquiera de estas opciones."
-          : "Estos son los datos para señar tu lugar en Proyecto In+Posible."}
+          ? "Ya guardamos tu preinscripción. Completá el pago con cualquiera de estas opciones."
+          : "Estos son los datos para completar el pago de Proyecto In+Posible."}
       </p>
 
       <div className="mt-8 space-y-8">
@@ -140,7 +140,7 @@ export default function GraciasContenido() {
               <BloquePagoArs planPago="mensual" />
             </div>
             <div>
-              <p className="mb-3 text-sm font-semibold text-gray-700">Desde afuera de Argentina</p>
+              <p className="mb-3 text-sm font-semibold text-gray-700">Desde otros países</p>
               <BloquePagoInternacional planPago="unico" moneda="USD" />
             </div>
           </>

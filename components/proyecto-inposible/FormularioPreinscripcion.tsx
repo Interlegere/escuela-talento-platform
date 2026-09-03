@@ -115,9 +115,9 @@ export default function FormularioPreinscripcion() {
 
   if (!abierta) {
     return (
-      <div className="rounded-3xl border border-[var(--azul-noche)]/10 bg-[var(--arena)] p-6 text-center">
-        <p className="text-lg font-semibold text-[var(--azul-noche)]">La inscripción ya cerró.</p>
-        <p className="mt-2 text-sm text-[var(--azul-noche)]/70">
+      <div className="rounded-3xl border border-[var(--tierra)]/10 bg-[var(--arena)] p-6 text-center">
+        <p className="text-lg font-semibold text-[var(--tierra)]">La inscripción ya cerró.</p>
+        <p className="mt-2 text-sm text-[var(--tierra)]/70">
           Esta camada de Proyecto In+Posible completó su cupo. Escribinos si querés que te avisemos de la próxima.
         </p>
       </div>
@@ -125,40 +125,40 @@ export default function FormularioPreinscripcion() {
   }
 
   return (
-    <form onSubmit={enviar} className="space-y-5 rounded-3xl border border-[var(--azul-noche)]/10 bg-white p-6 shadow-[0_20px_50px_rgba(46,52,64,0.08)] sm:p-8">
+    <form onSubmit={enviar} className="space-y-5 rounded-3xl border border-[var(--tierra)]/10 bg-white p-6 shadow-[0_20px_50px_rgba(74,50,39,0.08)] sm:p-8">
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-[var(--azul-noche)]/80">Nombre</span>
+          <span className="text-sm font-medium text-[var(--tierra)]/80">Nombre</span>
           <input
-            className="w-full rounded-2xl border border-[var(--azul-noche)]/15 bg-white px-4 py-3 text-[16px] text-[var(--azul-noche)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15"
+            className="w-full rounded-2xl border border-[var(--tierra)]/15 bg-white px-4 py-3 text-[16px] text-[var(--tierra)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             required
           />
         </label>
         <label className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-[var(--azul-noche)]/80">Apellido</span>
+          <span className="text-sm font-medium text-[var(--tierra)]/80">Apellido</span>
           <input
-            className="w-full rounded-2xl border border-[var(--azul-noche)]/15 bg-white px-4 py-3 text-[16px] text-[var(--azul-noche)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15"
+            className="w-full rounded-2xl border border-[var(--tierra)]/15 bg-white px-4 py-3 text-[16px] text-[var(--tierra)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15"
             value={apellido}
             onChange={(e) => setApellido(e.target.value)}
             required
           />
         </label>
         <label className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-[var(--azul-noche)]/80">Email</span>
+          <span className="text-sm font-medium text-[var(--tierra)]/80">Email</span>
           <input
             type="email"
-            className="w-full rounded-2xl border border-[var(--azul-noche)]/15 bg-white px-4 py-3 text-[16px] text-[var(--azul-noche)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15"
+            className="w-full rounded-2xl border border-[var(--tierra)]/15 bg-white px-4 py-3 text-[16px] text-[var(--tierra)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
         </label>
         <label className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-[var(--azul-noche)]/80">WhatsApp</span>
+          <span className="text-sm font-medium text-[var(--tierra)]/80">WhatsApp</span>
           <input
-            className="w-full rounded-2xl border border-[var(--azul-noche)]/15 bg-white px-4 py-3 text-[16px] text-[var(--azul-noche)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15"
+            className="w-full rounded-2xl border border-[var(--tierra)]/15 bg-white px-4 py-3 text-[16px] text-[var(--tierra)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15"
             placeholder="+54 9 ..."
             value={whatsapp}
             onChange={(e) => setWhatsapp(e.target.value)}
@@ -168,8 +168,8 @@ export default function FormularioPreinscripcion() {
       </div>
 
       <label className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium text-[var(--azul-noche)]/80">País</span>
-        <select className="w-full rounded-2xl border border-[var(--azul-noche)]/15 bg-white px-4 py-3 text-[16px] text-[var(--azul-noche)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15" value={pais} onChange={(e) => setPais(e.target.value)}>
+        <span className="text-sm font-medium text-[var(--tierra)]/80">País</span>
+        <select className="w-full rounded-2xl border border-[var(--tierra)]/15 bg-white px-4 py-3 text-[16px] text-[var(--tierra)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15" value={pais} onChange={(e) => setPais(e.target.value)}>
           {PAISES.map((p) => (
             <option key={p} value={p}>
               {p}
@@ -188,7 +188,7 @@ export default function FormularioPreinscripcion() {
               className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                 monedaInternacional === m
                   ? "bg-[var(--naranja)] text-white"
-                  : "border border-[var(--azul-noche)]/20 text-[var(--azul-noche)]/70"
+                  : "border border-[var(--tierra)]/20 text-[var(--tierra)]/70"
               }`}
             >
               Prefiero pagar en {m}
@@ -198,7 +198,7 @@ export default function FormularioPreinscripcion() {
       )}
 
       <fieldset className="space-y-1.5">
-        <legend className="text-sm font-medium text-[var(--azul-noche)]/80">¿Tenés un proyecto en mente?</legend>
+        <legend className="text-sm font-medium text-[var(--tierra)]/80">¿Tenés un proyecto en mente?</legend>
         <div className="flex flex-wrap gap-2">
           {OPCIONES_TIENE_PROYECTO.map((op) => (
             <button
@@ -208,7 +208,7 @@ export default function FormularioPreinscripcion() {
               className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                 tieneProyecto === op.valor
                   ? "bg-[var(--naranja)] text-white"
-                  : "border border-[var(--azul-noche)]/20 text-[var(--azul-noche)]/70"
+                  : "border border-[var(--tierra)]/20 text-[var(--tierra)]/70"
               }`}
             >
               {op.etiqueta}
@@ -218,18 +218,18 @@ export default function FormularioPreinscripcion() {
       </fieldset>
 
       <label className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium text-[var(--azul-noche)]/80">
-          Contame en una línea de qué se trata <span className="text-[var(--azul-noche)]/40">(opcional)</span>
+        <span className="text-sm font-medium text-[var(--tierra)]/80">
+          Contame en una línea de qué se trata <span className="text-[var(--tierra)]/40">(opcional)</span>
         </span>
         <textarea
-          className="min-h-16 w-full rounded-2xl border border-[var(--azul-noche)]/15 bg-white px-4 py-3 text-[16px] text-[var(--azul-noche)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15"
+          className="min-h-16 w-full rounded-2xl border border-[var(--tierra)]/15 bg-white px-4 py-3 text-[16px] text-[var(--tierra)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15"
           value={proyectoDescripcion}
           onChange={(e) => setProyectoDescripcion(e.target.value)}
         />
       </label>
 
       <fieldset className="space-y-1.5">
-        <legend className="text-sm font-medium text-[var(--azul-noche)]/80">¿Cómo querés pagarlo?</legend>
+        <legend className="text-sm font-medium text-[var(--tierra)]/80">¿Cómo querés pagarlo?</legend>
         <div className="flex flex-wrap gap-2">
           {OPCIONES_PLAN_PAGO.map((op) => (
             <button
@@ -239,7 +239,7 @@ export default function FormularioPreinscripcion() {
               className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                 planPago === op.valor
                   ? "bg-[var(--naranja)] text-white"
-                  : "border border-[var(--azul-noche)]/20 text-[var(--azul-noche)]/70"
+                  : "border border-[var(--tierra)]/20 text-[var(--tierra)]/70"
               }`}
             >
               {op.etiqueta}
@@ -251,14 +251,14 @@ export default function FormularioPreinscripcion() {
       {montos && (
         <div className="rounded-2xl border border-[var(--naranja)]/25 bg-[var(--arena)]/50 p-4">
           {montos.esInternacional ? (
-            <p className="text-sm text-[var(--azul-noche)]">
+            <p className="text-sm text-[var(--tierra)]">
               Por transferencia internacional:{" "}
               <span className="font-semibold">
                 {formatearMontoInternacional(montos.monto, montos.moneda)}
               </span>
             </p>
           ) : (
-            <div className="flex flex-wrap gap-4 text-sm text-[var(--azul-noche)]">
+            <div className="flex flex-wrap gap-4 text-sm text-[var(--tierra)]">
               <p>
                 Por transferencia:{" "}
                 <span className="font-semibold">{formatearMontoArs(montos.transferencia)}</span>
@@ -277,7 +277,7 @@ export default function FormularioPreinscripcion() {
       <button
         type="submit"
         disabled={estado === "enviando"}
-        className="w-full rounded-full bg-[var(--naranja)] px-6 py-4 text-base font-semibold text-white transition hover:bg-[var(--terracota)] disabled:opacity-60"
+        className="w-full rounded-full bg-[var(--naranja)] px-6 py-4 text-base font-semibold text-white transition hover:bg-[var(--coral)] disabled:opacity-60"
       >
         {estado === "enviando" ? "Enviando..." : "Quiero mi lugar"}
       </button>

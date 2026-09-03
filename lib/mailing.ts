@@ -325,7 +325,7 @@ function crearContenidoPreinscripcionParticipante(params: PreinscripcionParticip
         <div style="padding: 28px 32px 32px; line-height: 1.7;">
           <p style="margin: 0 0 14px;">Hola ${escapeHtml(nombre)},</p>
           <p style="margin: 0 0 20px;">
-            Reservamos tu lugar. Así podés señarlo:
+            Reservamos tu lugar. Así podés completar el pago:
           </p>
 
           ${bloquePago}

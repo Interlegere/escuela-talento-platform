@@ -24,21 +24,24 @@ const PROYECTOS: Proyecto[] = [
   { nombre: "Ser Refugio", archivo: "ser-refugio.jpg", instagram: null },
 ]
 
+// Tarjetas chicas (110-130px desktop, ~90px mobile) y la tira triplicada:
+// con 7 logos, una copia sola ya mide más que el contenedor (max-w 900px),
+// así que nunca se alcanza a ver el mismo logo dos veces a la vez.
 function TarjetaProyecto({ proyecto }: { proyecto: Proyecto }) {
   const contenido = (
-    <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--line)] bg-white shadow-sm sm:h-28 sm:w-28">
+    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--tierra)]/10 bg-white shadow-sm sm:h-[92px] sm:w-[92px]">
       <Image
         src={`/proyectos/${proyecto.archivo}`}
         alt={proyecto.nombre}
-        width={112}
-        height={112}
+        width={92}
+        height={92}
         className="h-full w-full object-cover"
       />
     </div>
   )
 
   return (
-    <div className="flex shrink-0 flex-col items-center gap-2 px-3">
+    <div className="flex w-[90px] shrink-0 flex-col items-center gap-2 px-1 sm:w-[130px]">
       {proyecto.instagram ? (
         <a
           href={proyecto.instagram}
@@ -51,7 +54,7 @@ function TarjetaProyecto({ proyecto }: { proyecto: Proyecto }) {
       ) : (
         contenido
       )}
-      <span className="text-xs font-medium text-gray-600">{proyecto.nombre}</span>
+      <span className="text-center text-xs font-medium text-[var(--tierra)]/70">{proyecto.nombre}</span>
     </div>
   )
 }
@@ -67,8 +70,8 @@ export default function CarruselProyectos() {
     let frame: number
     const paso = () => {
       if (!pausadoRef.current) {
-        track.scrollLeft += 0.6
-        if (track.scrollLeft >= track.scrollWidth / 2) {
+        track.scrollLeft += 0.5
+        if (track.scrollLeft >= track.scrollWidth / 3) {
           track.scrollLeft = 0
         }
       }
@@ -79,23 +82,28 @@ export default function CarruselProyectos() {
     return () => cancelAnimationFrame(frame)
   }, [])
 
-  // Duplicado para que el loop se sienta continuo, no un salto brusco.
-  const proyectosDuplicados = [...PROYECTOS, ...PROYECTOS]
+  // Triplicado (no solo duplicado): con el contenedor angosto de ahora, una
+  // sola copia de los 7 logos ya es más ancha que el contenedor visible, así
+  // que la tercera copia da margen de sobra para que el loop nunca muestre
+  // el mismo logo dos veces en pantalla a la vez.
+  const proyectosTriplicados = [...PROYECTOS, ...PROYECTOS, ...PROYECTOS]
 
   return (
-    <div
-      ref={trackRef}
-      onMouseEnter={() => {
-        pausadoRef.current = true
-      }}
-      onMouseLeave={() => {
-        pausadoRef.current = false
-      }}
-      className="flex overflow-x-hidden py-2"
-    >
-      {proyectosDuplicados.map((proyecto, indice) => (
-        <TarjetaProyecto key={`${proyecto.nombre}-${indice}`} proyecto={proyecto} />
-      ))}
+    <div className="mx-auto max-w-[900px] px-4">
+      <div
+        ref={trackRef}
+        onMouseEnter={() => {
+          pausadoRef.current = true
+        }}
+        onMouseLeave={() => {
+          pausadoRef.current = false
+        }}
+        className="flex overflow-x-hidden py-2"
+      >
+        {proyectosTriplicados.map((proyecto, indice) => (
+          <TarjetaProyecto key={`${proyecto.nombre}-${indice}`} proyecto={proyecto} />
+        ))}
+      </div>
     </div>
   )
 }
