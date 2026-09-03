@@ -9,7 +9,12 @@ export default function AppFooter() {
   // Igual que AppNav: las rutas públicas (raíz institucional, landing, y la
   // página de instalación pensada para abrirse desde WhatsApp) traen su
   // propio pie de página o directamente no llevan ninguno.
-  if (pathname === "/landing" || pathname === "/" || pathname === "/app") {
+  if (
+    pathname === "/landing" ||
+    pathname === "/" ||
+    pathname === "/app" ||
+    pathname.startsWith("/proyecto-inposible")
+  ) {
     return null
   }
 
