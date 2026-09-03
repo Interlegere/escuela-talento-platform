@@ -277,7 +277,7 @@ export default function FormularioPreinscripcion() {
       <button
         type="submit"
         disabled={estado === "enviando"}
-        className="w-full rounded-full bg-[var(--naranja)] px-6 py-4 text-base font-semibold text-white transition hover:bg-[var(--coral)] disabled:opacity-60"
+        className="w-full rounded-full bg-[var(--naranja)] px-6 py-4 text-[19px] font-bold text-[var(--tierra)] transition hover:bg-[var(--coral)] hover:text-[var(--crema)] disabled:opacity-60"
       >
         {estado === "enviando" ? "Enviando..." : "¡Quiero mi lugar!"}
       </button>

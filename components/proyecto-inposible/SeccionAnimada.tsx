@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from "react"
 import { TOKEN_PAD_SECCION } from "@/app/proyecto-inposible/tokens"
 
 // Fondo por sección — el ritmo de fondos es lo que convierte el scroll en
-// una secuencia de lugares distintos en vez de un documento único. Solo dos
-// secciones oscuras en toda la página (tierra): IA y el cierre.
-type Fondo = "tierra" | "naranja" | "crema" | "arena" | "blanco"
+// una secuencia de lugares distintos en vez de un documento único. #4A3227
+// (tierra) ya no se usa como fondo de ninguna sección — queda solo como
+// color de texto. El único bloque de color pleno es la banda naranja.
+type Fondo = "tierra" | "naranja" | "crema" | "arena" | "blanco" | "ocre"
 
 const FONDOS: Record<Fondo, string> = {
   tierra: "bg-[var(--tierra)] text-[var(--crema)]",
@@ -14,6 +15,7 @@ const FONDOS: Record<Fondo, string> = {
   crema: "bg-[var(--crema)] text-[var(--tierra)]",
   arena: "bg-[var(--arena)] text-[var(--tierra)]",
   blanco: "bg-white text-[var(--tierra)]",
+  ocre: "bg-[var(--ocre)] text-[var(--tierra)]",
 }
 
 // --ancho (680px, todo párrafo corrido) y --ancho-ancho (860px, tablas de
@@ -37,9 +39,17 @@ type Props = {
   ancho?: Ancho
   id?: string
   className?: string
-  // El separador "+" va arriba, dentro del propio fondo de la sección, para
-  // que nunca se note una costura de color entre dos secciones distintas.
+  // El separador "+" solo tiene sentido cuando dos secciones consecutivas
+  // comparten fondo (el cambio de color ya separa lo suficiente por sí
+  // solo) — por eso el default es false. Cuando se pasa true, va DENTRO del
+  // padding de la sección, como primer hijo, nunca como bloque propio que
+  // suma su propio alto.
   separador?: boolean
+  // Override puntual del padding uniforme (TOKEN_PAD_SECCION) — pensado
+  // para la única excepción explícita de la página, la banda "No esperás
+  // al 14" (56px/72px en vez de 56px/80px).
+  padding?: string
+  centrado?: boolean
 }
 
 export default function SeccionAnimada({
@@ -48,7 +58,9 @@ export default function SeccionAnimada({
   ancho = "normal",
   id,
   className = "",
-  separador = true,
+  separador = false,
+  padding,
+  centrado = false,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
@@ -81,21 +93,24 @@ export default function SeccionAnimada({
     return () => observer.disconnect()
   }, [])
 
+  // --pad-seccion: 80px desktop / 56px mobile, arriba Y abajo, en las
+  // catorce secciones — única excepción explícita: la banda "No esperás al
+  // 14" pasa su propio `padding` (56px/72px) por prop.
+  const paddingClase = padding ?? TOKEN_PAD_SECCION
+
   return (
     <section id={id} className={`w-full ${FONDOS[fondo]} ${className}`}>
-      {separador && (
-        <div aria-hidden className="flex justify-center py-8 sm:py-10">
-          <span className="text-2xl font-bold text-[var(--naranja)] sm:text-3xl">+</span>
-        </div>
-      )}
-      {/* --pad-seccion: 112px desktop / 72px mobile, arriba Y abajo, en las
-          catorce secciones, sin excepciones. */}
       <div
         ref={ref}
-        className={`mx-auto ${TOKEN_PAD_SECCION} transition-all duration-700 ease-out ${ANCHOS[ancho]} ${
-          visible ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"
-        }`}
+        className={`mx-auto transition-all duration-700 ease-out ${ANCHOS[ancho]} ${
+          centrado ? "flex min-h-[86svh] flex-col justify-center py-14" : paddingClase
+        } ${visible ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"}`}
       >
+        {separador && (
+          <div aria-hidden className="mb-6 flex justify-center sm:mb-8">
+            <span className="text-2xl font-bold text-[var(--naranja)] sm:text-3xl">+</span>
+          </div>
+        )}
         {children}
       </div>
     </section>

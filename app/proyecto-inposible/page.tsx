@@ -6,6 +6,7 @@ import CarruselProyectos from "@/components/proyecto-inposible/CarruselProyectos
 import SeccionAnimada from "@/components/proyecto-inposible/SeccionAnimada"
 import PullQuote from "@/components/proyecto-inposible/PullQuote"
 import Collage from "@/components/proyecto-inposible/Collage"
+import GrupoFilasAnimadas from "@/components/proyecto-inposible/GrupoFilasAnimadas"
 import {
   IconoCalendario,
   IconoCelular,
@@ -47,6 +48,9 @@ const PALETA = {
   "--crema": "#FCF8F1",
   "--tierra": "#4A3227",
   "--verde-brote": "#4E7C59",
+  // Reemplaza a "tierra" como fondo — #4A3227 ya no se usa como fondo de
+  // ninguna sección, queda solo como color de texto.
+  "--ocre": "#C49A6C",
   "--font-titulo": FUENTE_TITULO_VAR,
   "--font-cuerpo": FUENTE_CUERPO_VAR,
 } as React.CSSProperties
@@ -56,48 +60,86 @@ const TITULO_FONT = "[font-family:var(--font-titulo)]"
 const H1 = `${TITULO_FONT} text-[clamp(40px,9vw,76px)] font-extrabold leading-[1.02] tracking-[-0.02em]`
 const H2 = `${TITULO_FONT} text-[clamp(28px,5vw,44px)] font-bold tracking-[-0.01em]`
 const H3 = `${TITULO_FONT} text-[clamp(21px,3vw,26px)] font-bold`
-const MOMENTO = `${TITULO_FONT} text-[clamp(48px,9vw,72px)] font-extrabold leading-[1.05]`
 // Único tamaño de cuerpo para las catorce secciones (19px desktop / 18px
-// mobile) y único ancho de lectura (680px) — las cuatro excepciones
-// permitidas (frase de "Qué es", los tres destacados de los ejes, los
-// cuatro momentos grandes, y los números del bloque de precio) se escriben
-// con su propio tamaño puntual, no con este token.
+// mobile) y único ancho de lectura (680px) — las excepciones puntuales
+// (frase de "Qué es", los destacados de los ejes, el nombre del hero, la
+// pregunta del cierre, y los números del bloque de precio) se escriben con
+// su propio tamaño, no con este token.
 const TEXTO = TOKEN_TEXTO
 const TEXTO_CHICO = TOKEN_TEXTO_CHICO
 
-function BotonCTA() {
+// Tres fondos usan este botón (crema, ocre, arena/naranja) — el color de
+// fondo de cada sección decide qué variante mantiene el contraste correcto.
+function BotonCTA({
+  variante = "naranja",
+  className,
+  style,
+}: {
+  variante?: "naranja" | "tierra" | "coral"
+  className?: string
+  style?: React.CSSProperties
+}) {
+  // Contraste medido sobre los 3 fondos reales: naranja solo pasa AA como
+  // texto grande (19px/700) con texto tierra (3,97:1) — con crema da
+  // 2,81:1, peor. Coral y tierra sí sostienen crema (4,22:1 y 11,2:1).
+  // El "!" es necesario: app/globals.css tiene `a { color: inherit }` sin
+  // @layer, así que gana por reglas de cascade layers a cualquier utility
+  // de Tailwind (que sí van en layer) aunque tengan más especificidad —
+  // sin el important, todos estos botones heredaban el color de su
+  // sección en vez de usar el suyo propio.
+  const estilos = {
+    naranja: "bg-[var(--naranja)] text-[var(--tierra)]! hover:bg-[var(--coral)] hover:text-[var(--crema)]!",
+    tierra: "bg-[var(--tierra)] text-[var(--crema)]! hover:opacity-90",
+    coral: "bg-[var(--coral)] text-[var(--crema)]! hover:opacity-90",
+  }[variante]
   return (
     <a
       href="#inscripcion"
-      className="inline-flex min-h-[52px] items-center justify-center rounded-full bg-[var(--naranja)] px-8 text-base font-semibold text-[var(--crema)] transition hover:bg-[var(--coral)]"
+      style={style}
+      className={`inline-flex min-h-[52px] items-center justify-center rounded-full px-8 text-[19px] font-bold transition ${estilos} ${
+        className ?? ""
+      }`}
     >
       ¡Quiero mi lugar!
     </a>
   )
 }
 
-function TarjetaComoFunciona({
+// Mismo esqueleto que FilaEje — fila a ancho completo, columna angosta a la
+// izquierda (acá un ícono + rótulo en vez de un número), tarjeta a la
+// derecha. Que las dos secciones compartan esta forma es lo que hace que la
+// página se lea como un sistema. `extra` es el único hueco puntual: las
+// capturas de Entusiasmento, solo en la fila "Tu espacio propio".
+function FilaComoFunciona({
   icono,
+  rotulo,
   titulo,
   children,
-  ancha,
+  extra,
+  className,
+  style,
 }: {
   icono: React.ReactNode
+  rotulo: string
   titulo: string
   children: React.ReactNode
-  ancha?: boolean
+  extra?: React.ReactNode
+  className?: string
+  style?: React.CSSProperties
 }) {
   return (
-    <div
-      className={`rounded-3xl bg-white p-7 shadow-[0_18px_40px_rgba(74,50,39,0.06)] sm:p-8 ${
-        ancha ? "sm:col-span-2" : ""
-      }`}
-    >
-      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--arena)] text-[var(--coral)]">
-        {icono}
+    <div className={`flex flex-col gap-5 sm:flex-row sm:gap-10 ${className ?? ""}`} style={style}>
+      <div className="flex shrink-0 flex-row items-center gap-3 sm:w-48 sm:flex-col sm:items-start">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--arena)] text-[var(--coral)]">
+          {icono}
+        </div>
+        <p className={`${TEXTO_CHICO} font-semibold uppercase tracking-[0.12em] opacity-60`}>{rotulo}</p>
       </div>
-      <h3 className={`${H3} mt-5`}>{titulo}</h3>
-      <div className={`${TEXTO} mt-3 space-y-3 opacity-85`}>{children}</div>
+      <div className="flex-1 rounded-3xl bg-white p-6 shadow-[0_18px_40px_rgba(74,50,39,0.08)] sm:p-8">
+        <h3 className={H3}>{titulo}</h3>
+        <div className={`${TEXTO} mt-3 space-y-3 opacity-85`}>{children}</div>
+        {extra}
+      </div>
     </div>
   )
 }
@@ -107,15 +149,19 @@ function FilaEje({
   taller,
   titulo,
   children,
+  className,
+  style,
 }: {
   numero: string
   taller: string
   titulo: string
   children: React.ReactNode
+  className?: string
+  style?: React.CSSProperties
 }) {
   return (
-    <div className="flex flex-col gap-5 sm:flex-row sm:gap-10">
-      <div className="shrink-0 sm:w-52">
+    <div className={`flex flex-col gap-5 sm:flex-row sm:gap-10 ${className ?? ""}`} style={style}>
+      <div className="shrink-0 sm:w-48">
         <span className={`${TITULO_FONT} text-6xl font-extrabold leading-none text-[var(--naranja)] sm:text-7xl`}>
           {numero}
         </span>
@@ -129,11 +175,22 @@ function FilaEje({
   )
 }
 
+function MarcoTelefono({ src, alt }: { src: string; alt: string }) {
+  // 135px en desktop es el máximo que entran los 3 en una sola fila
+  // dentro del ancho real de la tarjeta (540px, con su padding) — con
+  // 170px pasaban a 2+1, exactamente lo que se pidió evitar.
+  return (
+    <div className="w-[90px] shrink-0 overflow-hidden rounded-[18px] border-[3px] border-[var(--tierra)] shadow-[0_12px_28px_rgba(74,50,39,0.18)] sm:w-[135px]">
+      <Image src={src} alt={alt} width={280} height={606} className="h-auto w-full object-cover" />
+    </div>
+  )
+}
+
 export default function ProyectoInPosiblePage() {
   return (
     <div className={`${FUENTES_CLASSNAME} [font-family:var(--font-cuerpo)]`} style={PALETA}>
-      {/* 1 · Hero */}
-      <SeccionAnimada fondo="crema" separador={false} className="bg-gradient-to-b from-[var(--crema)] to-[var(--arena)]">
+      {/* 1 · Hero — una sola pantalla, contenido centrado verticalmente */}
+      <SeccionAnimada fondo="crema" centrado className="bg-gradient-to-b from-[var(--crema)] to-[var(--arena)]">
         <div className="text-center">
           <p className={`${TEXTO_CHICO} font-semibold uppercase tracking-[0.35em] opacity-60`}>ENTHEOS</p>
           <h1 className={`${H1} mt-5`}>
@@ -142,7 +199,11 @@ export default function ProyectoInPosiblePage() {
           <p className="mx-auto mt-7 max-w-xl text-xl font-medium opacity-80 sm:text-2xl">
             Plasmá en tres meses eso que venís postergando toda tu vida.
           </p>
-          <p className="mt-4 opacity-60">Arranca el lunes 14 de septiembre. Cupos dedicados.</p>
+          <p className="mt-4 text-[15px] font-medium opacity-80 sm:text-base">
+            <span className="block">Programa de mentoría de tres meses</span>
+            <span className="block">Arranca el lunes 14 de septiembre</span>
+            <span className="block">Cupos dedicados</span>
+          </p>
           <div className="mt-9">
             <BotonCTA />
           </div>
@@ -150,8 +211,8 @@ export default function ProyectoInPosiblePage() {
       </SeccionAnimada>
 
       {/* 2 · Qué es (sube al segundo lugar) */}
-      <SeccionAnimada fondo="arena">
-        <div className="border-l-8 border-[var(--naranja)] pl-6 sm:pl-8">
+      <SeccionAnimada fondo="arena" ancho="ancho">
+        <div className="max-w-[680px] border-l-8 border-[var(--naranja)] pl-6 sm:pl-8">
           <p className="text-2xl font-medium leading-snug sm:text-3xl">
             <strong className="font-bold">Proyecto In+Posible</strong> es un programa de mentoría
             personalizada y grupal, para descubrir, encender y poner en marcha tu talento, trabajando
@@ -161,7 +222,7 @@ export default function ProyectoInPosiblePage() {
       </SeccionAnimada>
 
       {/* 3 · El problema */}
-      <SeccionAnimada fondo="crema">
+      <SeccionAnimada fondo="crema" ancho="ancho">
         <div className={`${TEXTO} space-y-6`}>
           <p>
             Lo pensaste muchas veces... lo anotaste en algún cuaderno... se lo contaste a alguien de
@@ -177,28 +238,28 @@ export default function ProyectoInPosiblePage() {
             por perdido, estás ante una puerta de entrada que es la más difícil de abrir... pero...
           </p>
         </div>
-        <p className={`${MOMENTO} mt-2 text-[var(--naranja)]`}>¡se abre!</p>
+        <p className={`${TITULO_FONT} mt-2 text-[44px] font-extrabold leading-[1.05] text-[var(--naranja)]`}>
+          ¡se abre!
+        </p>
       </SeccionAnimada>
 
       {/* 4 · Los tres ejes */}
       <SeccionAnimada fondo="arena" ancho="ancho">
-        <h2 className={H2}>Los tres ejes</h2>
+        <h2 className={H2}>Los tres ejes del programa</h2>
         <p className="mt-3 text-xl font-medium opacity-70 sm:text-2xl">
-          Uno por taller. En septiembre, en octubre y en noviembre.
+          Un eje por taller: lo que vamos a trabajar en septiembre, en octubre y en noviembre.
         </p>
 
-        <div className="mt-10 space-y-10 border-l-2 border-[var(--naranja)] pl-6 sm:pl-10">
+        <div className="mt-10">
+        <GrupoFilasAnimadas conLinea>
           <FilaEje numero="1" taller="TALLER 1 · LUNES 14 DE SEPTIEMBRE" titulo="Las coordenadas">
             <p>
               Claves y coordenadas para empezar tu viaje con un GPS orientado hacia el crecimiento: a
               qué apuntar, por dónde ir, cuáles son los primeros resultados a lograr y... lo más
               importante: ¡quién lo está haciendo!
             </p>
-            <p>
-              Porque para dar el primer paso queremos sentirnos seguros — y a la vez es dar el primer
-              paso lo que te vuelve seguro de verdad.
-            </p>
-            <PullQuote>es dar el primer paso lo que te vuelve seguro de verdad.</PullQuote>
+            <p>Porque para dar el primer paso queremos sentirnos seguros.</p>
+            <PullQuote>Y a la vez, es dar el primer paso lo que te vuelve seguro de verdad.</PullQuote>
           </FilaEje>
 
           <FilaEje numero="2" taller="TALLER 2 · LUNES 12 DE OCTUBRE" titulo="Empezar sin esperar a estar listo">
@@ -235,6 +296,7 @@ export default function ProyectoInPosiblePage() {
               &ldquo;¡Qué lindo es dedicar mi tiempo a lo que amo hacer!&rdquo;
             </PullQuote>
           </FilaEje>
+        </GrupoFilasAnimadas>
         </div>
 
         <div className="mt-10">
@@ -242,12 +304,14 @@ export default function ProyectoInPosiblePage() {
         </div>
       </SeccionAnimada>
 
-      {/* 5 · Cómo funciona (+ collage al final) */}
-      <SeccionAnimada fondo="crema" ancho="ancho" separador={false}>
+      {/* 5 · Cómo funciona (+ collage al final) — mismo esqueleto de filas
+          que "Los tres ejes", para que se lea como un sistema */}
+      <SeccionAnimada fondo="crema" ancho="ancho">
         <h2 className={H2}>Cómo funciona</h2>
 
-        <div className="mt-8 grid gap-5 sm:grid-cols-2">
-          <TarjetaComoFunciona icono={<IconoCalendario className="h-5 w-5" />} titulo="Un taller creativo por mes">
+        <div className="mt-10">
+        <GrupoFilasAnimadas conLinea>
+          <FilaComoFunciona icono={<IconoCalendario className="h-5 w-5" />} rotulo="TALLERES" titulo="Un taller creativo por mes">
             <p>Tres encuentros en vivo, los lunes a las 19 hs:</p>
             <p className="font-semibold opacity-100">{TALLERES.map((t) => t.etiqueta).join(" · ")}</p>
             <p>Cada taller creativo de los lunes proporciona 2 hs. de expansión.</p>
@@ -259,9 +323,20 @@ export default function ProyectoInPosiblePage() {
                 siguientes.
               </strong>
             </p>
-          </TarjetaComoFunciona>
+          </FilaComoFunciona>
 
-          <TarjetaComoFunciona icono={<IconoCelular className="h-5 w-5" />} titulo="Tu espacio propio, durante todo el proceso">
+          <FilaComoFunciona
+            icono={<IconoCelular className="h-5 w-5" />}
+            rotulo="TU ESPACIO"
+            titulo="Tu espacio propio, durante todo el proceso"
+            extra={
+              <div className="mt-5 flex flex-wrap gap-4">
+                <MarcoTelefono src="/entusiasmo/captura-1.jpg" alt="Coordenadas y tareas semanales de un participante en su espacio de Entusiasmento" />
+                <MarcoTelefono src="/entusiasmo/captura-2.jpg" alt="El pitch de un participante en su espacio de Entusiasmento" />
+                <MarcoTelefono src="/entusiasmo/captura-3.jpg" alt="Producciones de un participante en su espacio de Entusiasmento" />
+              </div>
+            }
+          >
             <p>
               Vas a tener una app propia y personalizada que abrís desde el celular y tenés a mano
               todos los días. Ahí vas subiendo lo que producís —lo que escribís, grabás, bocetás, pensás
@@ -274,9 +349,9 @@ export default function ProyectoInPosiblePage() {
               y ver el camino entero — y eso, cuando arrancás algo que parecía imposible, es la prueba de
               que se movió.
             </p>
-          </TarjetaComoFunciona>
+          </FilaComoFunciona>
 
-          <TarjetaComoFunciona icono={<IconoDosPersonas className="h-5 w-5" />} titulo="Sesión 1 a 1">
+          <FilaComoFunciona icono={<IconoDosPersonas className="h-5 w-5" />} rotulo="SESIÓN 1 A 1" titulo="Sesión 1 a 1">
             <p>
               Es la oportunidad analítica brindada por Nicolás para profundizar al máximo tanto en las
               cuestiones por las que sí avanzás, como en aquellas por las que, desde lo más escondido y
@@ -286,33 +361,19 @@ export default function ProyectoInPosiblePage() {
               Vas a poder consultar y hablar de lo más delicado, lo que más te cuesta expresar, con foco
               en hacer crecer tu talento y tu proyecto.
             </p>
-          </TarjetaComoFunciona>
-        </div>
+          </FilaComoFunciona>
 
-        {/* El único grito de la página — adentro de su propia tarjeta */}
-        <div className="mt-5 rounded-3xl bg-white p-7 shadow-[0_18px_40px_rgba(74,50,39,0.06)] sm:p-8">
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--arena)] text-[var(--coral)]">
-            <IconoWhatsapp className="h-5 w-5" />
-          </div>
-          <h3 className={`${H3} mt-5`}>Soporte por WhatsApp</h3>
-          <p className={`${TEXTO} mt-3 opacity-85`}>
-            Es muy común encontrarse con cursos enlatados de teoría totalmente impersonalizados.
-          </p>
-          <p className={`${MOMENTO} my-6 text-[clamp(32px,7vw,56px)] text-[var(--tierra)]`}>
-            NO ES LO QUE PASA AQUÍ.
-          </p>
-          <p className={`${TEXTO} opacity-85`}>
-            Vas a disponer de atención de 9 a 18 hs durante la semana por WhatsApp para que saques tus
-            dudas, preguntes y no necesites patear a futuro tus avances.
-          </p>
-        </div>
+          {/* El único grito de la página — a 19px, mismo tamaño que el párrafo */}
+          <FilaComoFunciona icono={<IconoWhatsapp className="h-5 w-5" />} rotulo="WHATSAPP" titulo="Soporte por WhatsApp">
+            <p>Es muy común encontrarse con cursos enlatados de teoría totalmente impersonalizados.</p>
+            <p className="font-bold">NO ES LO QUE PASA AQUÍ.</p>
+            <p>
+              Vas a disponer de atención de 9 a 18 hs durante la semana por WhatsApp para que saques tus
+              dudas, preguntes y no necesites patear a futuro tus avances.
+            </p>
+          </FilaComoFunciona>
 
-        <div className="mt-5 rounded-3xl bg-white p-7 shadow-[0_18px_40px_rgba(74,50,39,0.06)] sm:p-8">
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--arena)] text-[var(--coral)]">
-            <IconoGrupo className="h-5 w-5" />
-          </div>
-          <h3 className={`${H3} mt-5`}>El todos mejora gracias al cada uno</h3>
-          <div className={`${TEXTO} mt-3 space-y-3 opacity-85`}>
+          <FilaComoFunciona icono={<IconoGrupo className="h-5 w-5" />} rotulo="EL GRUPO" titulo="El todos mejora gracias al cada uno">
             <p>
               Trabajamos en contexto grupal, como ocurre en el mundo, en la sociedad, en la familia y en
               los diferentes ámbitos de la vida...
@@ -325,24 +386,23 @@ export default function ProyectoInPosiblePage() {
               Vas a encontrarte con personas que apuntan a un mismo objetivo: crecer diferencialmente
               juntos...
             </p>
-          </div>
-          <PullQuote>
-            ¿Te animás a la aventura de encontrar lo más valioso de vos sin perderte en los otros?
-          </PullQuote>
-          <div className={`${TEXTO} space-y-3 opacity-85`}>
+            <PullQuote>
+              ¿Te animás a la aventura de encontrar lo más valioso de vos sin perderte en los otros?
+            </PullQuote>
             <p>Y... por si fuera poco...</p>
             <p>
               Contacto con talentos en el deporte, el arte, los emprendimientos, empresas, naturaleza,
               etc., etc.
             </p>
-          </div>
+          </FilaComoFunciona>
+        </GrupoFilasAnimadas>
         </div>
       </SeccionAnimada>
 
       <Collage />
 
       {/* 6 · ¡Usamos la IA! (baja después de Cómo funciona) */}
-      <SeccionAnimada fondo="tierra">
+      <SeccionAnimada fondo="ocre" ancho="ancho">
         <h2 className={H2}>¡Usamos la IA! Diferencialmente...</h2>
         <p className="mt-3 text-xl font-semibold opacity-90 sm:text-2xl">Una herramienta, no un reemplazo</p>
         <div className={`${TEXTO} mt-6 space-y-5 opacity-90`}>
@@ -363,12 +423,12 @@ export default function ProyectoInPosiblePage() {
           </p>
         </div>
         <div className="mt-8">
-          <BotonCTA />
+          <BotonCTA variante="tierra" />
         </div>
       </SeccionAnimada>
 
       {/* 7 · Qué te llevás */}
-      <SeccionAnimada fondo="arena">
+      <SeccionAnimada fondo="arena" ancho="ancho">
         <h2 className={H2}>Qué te llevás</h2>
         <ul className="mt-8 space-y-6">
           {[
@@ -404,20 +464,19 @@ export default function ProyectoInPosiblePage() {
         </ul>
       </SeccionAnimada>
 
-      {/* 8 · No esperás al 14 para empezar — banda naranja */}
-      <SeccionAnimada fondo="naranja" className="text-center">
-        <h2 className={H2}>No esperás al 14 para empezar</h2>
-        <p className="mx-auto mt-4 max-w-2xl text-lg opacity-95 sm:text-xl">
+      {/* 8 · No esperás al 14 para empezar — banda naranja, compacta.
+          Única excepción de padding de toda la página: 56px/72px en vez
+          del 56px/80px uniforme. */}
+      <SeccionAnimada fondo="naranja" className="text-center" padding="py-[56px] md:py-[72px]">
+        <h2 className={`${TITULO_FONT} text-[28px] font-bold leading-tight tracking-[-0.01em] sm:text-[36px]`}>
+          No esperás al 14 para empezar
+        </h2>
+        <p className={`${TEXTO} mx-auto mt-4 opacity-95`}>
           Apenas reservás tu lugar, arrancamos. Vas a recibir instrucciones por mail, contenido en video
           y soporte por WhatsApp: lo necesario para llegar al primer taller preparado.
         </p>
         <div className="mt-7">
-          <a
-            href="#inscripcion"
-            className="inline-flex min-h-[52px] items-center justify-center rounded-full bg-[var(--tierra)] px-8 text-base font-semibold text-[var(--crema)] transition hover:opacity-90"
-          >
-            ¡Quiero mi lugar!
-          </a>
+          <BotonCTA variante="tierra" />
         </div>
       </SeccionAnimada>
 
@@ -455,7 +514,7 @@ export default function ProyectoInPosiblePage() {
                 </>,
               ].map((t, i) => (
                 <li key={i} className="flex gap-3">
-                  <span className={`${TITULO_FONT} shrink-0 text-xl font-bold text-[var(--naranja)]`}>+</span>
+                  <span className="mt-0.5 shrink-0 text-xl font-bold text-[var(--tierra)]/60">—</span>
                   <span className={TEXTO}>{t}</span>
                 </li>
               ))}
@@ -465,7 +524,7 @@ export default function ProyectoInPosiblePage() {
       </SeccionAnimada>
 
       {/* 10 · Quiénes te acompañamos */}
-      <SeccionAnimada fondo="arena">
+      <SeccionAnimada fondo="arena" ancho="ancho">
         <h2 className={H2}>Quiénes te acompañamos</h2>
         <div className="mt-7 flex flex-col gap-7 sm:flex-row sm:items-start">
           <div className="mx-auto w-40 shrink-0 overflow-hidden rounded-3xl sm:mx-0 sm:w-48">
@@ -504,7 +563,7 @@ export default function ProyectoInPosiblePage() {
 
       {/* 11 · Proyectos que pasaron por acá */}
       <SeccionAnimada fondo="blanco" ancho="completo">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6">
+        <div className="mx-auto max-w-[860px] px-4 sm:px-6">
           <h2 className={H2}>Proyectos que pasaron por acá</h2>
         </div>
         <div className="mt-7">
@@ -512,10 +571,12 @@ export default function ProyectoInPosiblePage() {
         </div>
       </SeccionAnimada>
 
-      {/* 12 · Todo lo que entra en los tres meses → precio → Por qué vale esto */}
+      {/* 12 · Todo lo que entra en los tres meses → precio → El valor diferencial */}
       <SeccionAnimada fondo="crema" ancho="ancho">
         <h2 className={H2}>Todo lo que entra en los tres meses</h2>
-        <div className="mt-8 overflow-x-auto rounded-2xl border border-[var(--tierra)]/10">
+        {/* Tabla de valor: es una referencia, tiene que verse tranquila —
+            sin tarjeta, solo filas separadas por una línea fina. */}
+        <div className="mt-8 overflow-x-auto">
           <table className="w-full min-w-[420px] border-collapse">
             <tbody>
               {[
@@ -533,17 +594,20 @@ export default function ProyectoInPosiblePage() {
             </tbody>
           </table>
         </div>
-        <p className="mt-6">
-          Por separado, cada cosa:{" "}
-          <span className={`${TITULO_FONT} text-4xl font-extrabold sm:text-5xl`}>$685.000</span>
+        <p className={`${TEXTO} mt-6`}>
+          Por separado, cada cosa: <strong className="font-bold">$685.000</strong>
         </p>
 
         <div className="mt-14">
-          <h2 className={H2}>Entrás por</h2>
-          <div className="mt-6 overflow-x-auto rounded-2xl border border-[var(--tierra)]/10">
+          <p className={`${TITULO_FONT} text-[24px] font-normal sm:text-[26px]`}>
+            Queremos crecer junto a vos, así que te abrimos la puerta por:
+          </p>
+          {/* Tabla de precio: la que se paga, tiene que destacarse — tarjeta
+              con fondo arena y borde superior naranja de 3px. */}
+          <div className="mt-6 overflow-x-auto rounded-2xl border-t-[3px] border-[var(--naranja)] bg-[var(--arena)]">
             <table className="w-full min-w-[480px] border-collapse text-sm">
               <thead>
-                <tr className="border-b border-[var(--tierra)]/10 bg-white/40 text-left">
+                <tr className="border-b border-[var(--tierra)]/10 text-left">
                   <th className="p-4 font-semibold"> </th>
                   <th className="p-4 font-semibold">Por transferencia</th>
                   <th className="p-4 font-semibold">Por Mercado Pago</th>
@@ -573,24 +637,29 @@ export default function ProyectoInPosiblePage() {
             <strong>Desde otros países:</strong> USD 500 o EUR 500 el pago único, USD 180 o EUR 180 por
             mes, por transferencia internacional.
           </p>
-          <p className="mt-3 font-semibold">Inscripción abierta hasta el viernes 11 de septiembre.</p>
+          <p className="mt-3 text-[19px] font-bold">Inscripción abierta hasta el viernes 11 de septiembre.</p>
           <div className="mt-7">
             <BotonCTA />
           </div>
         </div>
 
         <div className="mt-14">
-          <h3 className={H3}>Por qué vale esto</h3>
+          <h3 className={H3}>El valor diferencial</h3>
           <div className={`${TEXTO} mt-4 space-y-4 opacity-90`}>
             <p>
-              No es un programa de prueba. Hace más de ocho años que Nicolás acompaña estos procesos, y
-              los proyectos que salieron de ahí están funcionando hoy: los viste recién, uno por uno, con
-              nombre propio.
+              No es un programa de prueba. No te ofrecemos un curso más ni videos sin soporte. Tenemos
+              testimonios de proyectos que están funcionando hoy y siguen creciendo (no todos están
+              incluidos en el carrusel).
             </p>
             <p>
-              Lo nuevo es el formato — los tres talleres, Entusiasmento y la sesión 1 a 1 reunidos en un
-              mismo recorrido de tres meses. Este es el precio con el que abre. En enero, cuando arranque
-              el próximo ciclo, sube.
+              Te invitamos a concretar los primeros resultados de lo que nunca te animaste hacer, de lo
+              que nunca supiste cómo, y para lo que querés activar el coraje de hacerlo.
+            </p>
+            <p>
+              <strong>
+                No lo pagues si no estás dispuesto a obtener resultados de verdad, en vos y en tu
+                proyecto.
+              </strong>
             </p>
           </div>
         </div>
@@ -620,14 +689,17 @@ export default function ProyectoInPosiblePage() {
       </SeccionAnimada>
 
       {/* 14 · Cierre */}
-      <SeccionAnimada fondo="tierra" separador={false} className="text-center">
-        <p className={`${MOMENTO} mx-auto max-w-3xl`}>
-          El momento llegó, no esperes a estar listo/a... ¿damos el paso que transforma la vida misma?
+      <SeccionAnimada fondo="crema" className="text-center">
+        <p className={`${TITULO_FONT} mx-auto max-w-2xl text-[26px] font-normal leading-snug text-[var(--tierra)]`}>
+          El momento llegó, no esperes a estar listo/a...
+        </p>
+        <p className={`${TITULO_FONT} mx-auto mt-3 max-w-3xl text-[44px] font-extrabold leading-[1.05] text-[var(--tierra)]`}>
+          ¿damos el paso que transforma la vida misma?
         </p>
         <div className="mt-9">
-          <BotonCTA />
+          <BotonCTA variante="coral" />
         </div>
-        <p className="mt-4 text-sm opacity-70">Inscripción abierta hasta el viernes 11 de septiembre</p>
+        <p className="mt-4 text-[19px] font-bold opacity-90">Inscripción abierta hasta el viernes 11 de septiembre</p>
 
         <p className="mt-16 text-xs opacity-50">
           <Link href="/" className="underline">
