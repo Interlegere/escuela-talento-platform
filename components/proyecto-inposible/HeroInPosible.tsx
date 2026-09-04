@@ -22,8 +22,12 @@ export default function HeroInPosible({
   return (
     <section className="relative min-h-[92svh] w-full overflow-hidden bg-[var(--tinta)]">
       <style>{`
-        @keyframes pip-kenburns { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
-        .pip-kenburns { animation: pip-kenburns 20s ease-in-out infinite; }
+        /* Se aleja, no se acerca: a escala 1,12 se ve el 54% de la foto, a
+           1,00 se ve el 60% (el máximo posible con object-fit: cover) —
+           así el zoom termina mostrando más, no menos. La dirección
+           también acompaña a "¡se abre!" en vez de contradecirlo. */
+        @keyframes pip-kenburns { 0%, 100% { transform: scale(1.12); } 50% { transform: scale(1); } }
+        .pip-kenburns { transform-origin: center 40%; animation: pip-kenburns 20s ease-in-out infinite; }
         @media (prefers-reduced-motion: reduce) { .pip-kenburns { animation: none; } }
       `}</style>
 
