@@ -467,7 +467,7 @@ export default function ProyectoInPosiblePage() {
               </p>
             </FilaComoFunciona>
 
-            <FilaComoFunciona id="cf-grupo" icono={<IconoGrupo className="h-5 w-5" />} rotulo="EL GRUPO" titulo="El todos mejora gracias al cada uno">
+            <FilaComoFunciona id="cf-grupo" icono={<IconoGrupo className="h-5 w-5" />} rotulo="LA RED" titulo="El todos mejora gracias al cada uno">
               <p>
                 Trabajamos en contexto grupal, como ocurre en el mundo, en la sociedad, en la familia y en
                 los diferentes ámbitos de la vida...
@@ -688,7 +688,7 @@ export default function ProyectoInPosiblePage() {
                 ["Tres talleres creativos en vivo — 6 horas, con las grabaciones", "$150.000"],
                 ["Una sesión 1 a 1 con Nicolás", "$55.000"],
                 ["Soporte por WhatsApp, de 9 a 18, doce semanas", "incluido"],
-                ["El grupo: aliados haciendo el mismo camino", "incluido"],
+                ["Red colaborativa de talentos", "incluido"],
               ].map(([nombre, precio]) => (
                 <tr key={nombre} className="border-b border-[var(--tinta)]/10 last:border-0">
                   <td className="p-3 text-xl font-bold sm:text-2xl">{nombre}</td>
@@ -706,45 +706,52 @@ export default function ProyectoInPosiblePage() {
           <p className={`${TITULO_FONT} text-[24px] font-normal sm:text-[26px]`}>
             Queremos crecer junto a vos, así que te abrimos la puerta por:
           </p>
-          {/* Tabla de precio: la que se paga, tiene que destacarse — tarjeta
-              con fondo nube y borde superior naranja de 3px. */}
-          <div className="mt-6 overflow-x-auto rounded-2xl border-t-[3px] border-[var(--naranja)] bg-[var(--nube)]">
-            <table className="w-full min-w-[480px] border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-[var(--tinta)]/10 text-left">
-                  <th className="p-3 font-semibold"> </th>
-                  <th className="p-3 font-semibold">Por transferencia</th>
-                  <th className="p-3 font-semibold">Por Mercado Pago</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-[var(--tinta)]/10">
-                  <td className="p-3 opacity-80">Pago único — los tres meses</td>
-                  <td className="p-3 text-[28px] font-bold sm:text-[32px]">
-                    {formatearMontoArs(PRECIOS_ARS.unico.transferencia)}
-                  </td>
-                  <td className="p-3 opacity-70">{formatearMontoArs(PRECIOS_ARS.unico.mercadopago)}</td>
-                </tr>
-                <tr>
-                  <td className="p-3 opacity-80">Mes a mes</td>
-                  <td className="p-3 text-[28px] font-bold sm:text-[32px]">
-                    {formatearMontoArs(PRECIOS_ARS.mensual.transferencia)} por mes
-                  </td>
-                  <td className="p-3 opacity-70">
-                    {formatearMontoArs(PRECIOS_ARS.mensual.mercadopago)} por mes
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          {/* Dos tarjetas de opción, no una tabla de tarifas — una tabla
+              pide comparar y calcular; dos tarjetas piden elegir. La de
+              pago único es la destacada (chapa con el ahorro real, ya
+              calculado — nadie tiene que restar dos cifras de una grilla). */}
+          <div className="mt-6 grid items-stretch gap-5 sm:grid-cols-2">
+            <div className="flex flex-col rounded-3xl border-2 border-[var(--naranja)] bg-[var(--nube)] p-6 sm:p-7">
+              <span className="self-start rounded-full bg-[var(--naranja)] px-3 py-1 text-xs font-bold text-[var(--tinta)]">
+                Ahorrás {formatearMontoArs(PRECIOS_ARS.mensual.transferencia * 3 - PRECIOS_ARS.unico.transferencia)}
+              </span>
+              <p className={`${TEXTO_CHICO} mt-5 font-semibold uppercase tracking-[0.12em] opacity-60`}>
+                Pago único
+              </p>
+              <p className="mt-2 text-[40px] font-extrabold leading-none sm:text-[44px]">
+                {formatearMontoArs(PRECIOS_ARS.unico.transferencia)}
+              </p>
+              <p className="mt-2 text-sm opacity-70">los tres meses, por transferencia</p>
+              <p className="mt-4 text-sm opacity-60">
+                Por Mercado Pago: {formatearMontoArs(PRECIOS_ARS.unico.mercadopago)}
+              </p>
+              <div className="mt-6">
+                <BotonCTA />
+              </div>
+            </div>
+
+            <div className="flex flex-col rounded-3xl border border-[var(--tinta)]/15 bg-[var(--nube)] p-6 sm:p-7">
+              <p className={`${TEXTO_CHICO} font-semibold uppercase tracking-[0.12em] opacity-60`}>Mes a mes</p>
+              <p className="mt-2 text-[40px] font-extrabold leading-none sm:text-[44px]">
+                {formatearMontoArs(PRECIOS_ARS.mensual.transferencia)}
+              </p>
+              <p className="mt-2 text-sm opacity-70">por mes, por transferencia</p>
+              <p className="mt-1 text-sm opacity-70">
+                {formatearMontoArs(PRECIOS_ARS.mensual.transferencia * 3)} en total
+              </p>
+              <p className="mt-4 text-sm opacity-60">
+                Por Mercado Pago: {formatearMontoArs(PRECIOS_ARS.mensual.mercadopago)} por mes
+              </p>
+              <div className="mt-6">
+                <BotonCTA />
+              </div>
+            </div>
           </div>
-          <p className={`${TEXTO} mt-5 opacity-80`}>
+          <p className={`${TEXTO} mt-6 opacity-80`}>
             <strong>Desde otros países:</strong> USD 500 o EUR 500 el pago único, USD 180 o EUR 180 por
             mes, por transferencia internacional.
           </p>
           <p className="mt-3 text-[19px] font-bold">Inscripción abierta hasta el viernes 11 de septiembre.</p>
-          <div className="mt-7">
-            <BotonCTA />
-          </div>
         </div>
 
         <div className="mt-8">
