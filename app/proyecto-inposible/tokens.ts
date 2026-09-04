@@ -7,13 +7,21 @@ export const TOKEN_TEXTO_CHICO = "text-[15px]"
 export const TOKEN_ANCHO_PX = 680
 export const TOKEN_ANCHO_ANCHO_PX = 860
 
-// El "resaltador": simula una marca de fibra dorada hecha a mano detrás del
-// texto — nunca el color de la letra (regla de toda la página: el dorado
-// nunca es texto sobre fondo claro). box-decoration-break: clone hace que
-// cada línea que el texto corta reciba su propio tramo de degradé, en vez
-// de una sola franja estirada a lo alto de todo el bloque.
+// El "resaltador": fondo dorado completo detrás del texto (nunca el color
+// de la letra — regla de toda la página, el dorado nunca es texto sobre
+// fondo claro), con el mismo halo que los botones en vez de una franja al
+// 38% (esa versión quedaba a mitad de camino entre subrayado y resaltado).
+// box-decoration-break: clone hace que cada línea que el texto corta
+// reciba su propio bloque dorado con su propio padding/esquinas/halo, en
+// vez de un solo rectángulo estirado a lo alto de todo el párrafo — el
+// párrafo que lo contiene necesita line-height: 1.75 para que, si el
+// texto ocupa 2-3 renglones, los bloques no se toquen entre sí.
 export const TOKEN_MARCADOR_DORADO: CSSProperties = {
-  backgroundImage: "linear-gradient(to top, var(--dorado) 0%, var(--dorado) 38%, transparent 38%)",
+  backgroundColor: "var(--dorado)",
+  color: "var(--tinta)",
+  padding: "0.10em 0.32em",
+  borderRadius: "8px",
+  boxShadow: "0 0 16px rgba(249,195,62,0.45), 0 0 32px rgba(249,195,62,0.20)",
   boxDecorationBreak: "clone",
   WebkitBoxDecorationBreak: "clone",
 } as CSSProperties

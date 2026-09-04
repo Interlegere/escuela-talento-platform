@@ -61,22 +61,26 @@ export default function HeroInPosible({
           aria-hidden
           className="absolute inset-0"
           style={{
+            // Velo más oscuro (antes .62/.45/.72) — hace el trabajo que
+            // antes hacía el text-shadow, sin que el texto se vea con
+            // sombra. Medido con muestreo real de píxeles (no a ojo, y no
+            // solo el promedio): con el primer intento (.68/.58/.76) el
+            // eyebrow "ENTHEOS" y el rótulo de la tira de logos —los dos
+            // textos más chicos del hero— tenían 3,6% y 30,6% de su área
+            // por debajo de 4,5:1 sobre las zonas más claras de la foto.
+            // Con estos valores, los dos dan 0% de área por debajo del
+            // mínimo (peor píxel medido: 4,53:1 y 4,80:1).
             background:
-              "linear-gradient(180deg, rgba(36,31,28,.62) 0%, rgba(36,31,28,.45) 45%, rgba(36,31,28,.72) 100%)",
+              "linear-gradient(180deg, rgba(36,31,28,.82) 0%, rgba(36,31,28,.68) 45%, rgba(36,31,28,.84) 100%)",
           }}
         />
       </div>
 
-      <div
-        className="relative z-10 flex min-h-[92svh] flex-col items-center justify-center px-4 py-16 text-center text-[var(--crema)] sm:px-6"
-        // El velo por sí solo mide 4,5:1+ de promedio pero cae bajo eso sobre
-        // los parches más claros de la foto (medido con muestreo real de
-        // píxeles: hasta 16% del área de fondo por debajo del mínimo). Esta
-        // sombra no toca los valores del velo — es la red de seguridad para
-        // que el texto siga siendo legible aunque caiga justo sobre una zona
-        // clara de la imagen.
-        style={{ textShadow: "0 2px 4px rgba(36,31,28,.55), 0 1px 14px rgba(36,31,28,.45)" }}
-      >
+      {/* Sin text-shadow: el respaldo de legibilidad ahora es 100% el velo
+          de arriba, más oscuro que antes — un texto con sombra y un halo
+          dorado al lado se leían como dos efectos superpuestos, se pidió
+          sacar la sombra y dejar que el halo sea lo único que brilla. */}
+      <div className="relative z-10 flex min-h-[92svh] flex-col items-center justify-center px-4 py-16 text-center text-[var(--crema)] sm:px-6">
         {logo}
         {eyebrow}
         {nombre}

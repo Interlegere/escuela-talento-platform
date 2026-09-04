@@ -186,10 +186,21 @@ function FilaComoFunciona({
   )
 }
 
+// Un solo símbolo por eje, no dos: antes competían un ícono chico arriba
+// y un número gigante abajo por la misma cosa. El número se saca — no se
+// pierde la numeración, el rótulo de abajo ya la dice ("TALLER 1 · LUNES
+// 14 DE SEPTIEMBRE"). Círculo dorado de 96px, ícono adentro a 48px.
+function IconoCirculoEje({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full bg-[var(--dorado)] text-[var(--tinta)]">
+      {children}
+    </div>
+  )
+}
+
 function FilaEje({
   id,
   icono,
-  numero,
   taller,
   titulo,
   children,
@@ -198,7 +209,6 @@ function FilaEje({
 }: {
   id: string
   icono: React.ReactNode
-  numero: string
   taller: string
   titulo: string
   children: React.ReactNode
@@ -208,15 +218,8 @@ function FilaEje({
   return (
     <div className={`flex flex-col gap-5 sm:flex-row sm:gap-10 ${className ?? ""}`} style={style}>
       <div className="shrink-0 sm:w-48">
-        <IconoCirculo>{icono}</IconoCirculo>
-        {/* Disco dorado con la cifra en tinta — no el número suelto en
-            color, la superficie lleva la identidad, la letra sigue tinta. */}
-        <span
-          className={`${TITULO_FONT} mt-3 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--dorado)] text-3xl font-extrabold leading-none text-[var(--tinta)] sm:h-20 sm:w-20 sm:text-4xl`}
-        >
-          {numero}
-        </span>
-        <p className={`${TEXTO_CHICO} mt-2 font-semibold uppercase tracking-[0.12em] opacity-60`}>{taller}</p>
+        <IconoCirculoEje>{icono}</IconoCirculoEje>
+        <p className={`${TEXTO_CHICO} mt-3 font-semibold uppercase tracking-[0.12em] opacity-60`}>{taller}</p>
       </div>
       <TarjetaColapsable id={id} titulo={titulo}>
         {children}
@@ -351,7 +354,7 @@ export default function ProyectoInPosiblePage() {
       {/* 4 · Qué es */}
       <SeccionAnimada fondo="crema" ancho="ancho">
         <div className="max-w-[680px] border-l-8 border-[var(--dorado)] pl-6 sm:pl-8">
-          <p className="text-2xl font-medium leading-snug sm:text-3xl">
+          <p className="text-2xl font-medium leading-[1.75] sm:text-3xl">
             <strong className="font-bold">Proyecto In+Posible</strong> es un programa de mentoría
             personalizada y grupal, para descubrir, encender y poner en marcha tu talento, trabajando
             sobre un proyecto concreto que parece imposible de lograr...{" "}
@@ -377,7 +380,7 @@ export default function ProyectoInPosiblePage() {
             por perdido, estás ante una puerta de entrada que es la más difícil de abrir... pero...
           </p>
         </div>
-        <p className={`${TITULO_FONT} mt-2 text-[44px] font-extrabold leading-[1.05] text-[var(--tinta)]`}>
+        <p className={`${TITULO_FONT} mt-2 text-[44px] font-extrabold leading-[1.75] text-[var(--tinta)]`}>
           <span style={TOKEN_MARCADOR_DORADO}>¡se abre!</span>
         </p>
       </SeccionAnimada>
@@ -393,8 +396,7 @@ export default function ProyectoInPosiblePage() {
           <GrupoFilasAnimadas conLinea>
             <FilaEje
               id="eje-1"
-              icono={<IconoBrujula className="h-5 w-5" />}
-              numero="1"
+              icono={<IconoBrujula className="h-12 w-12" />}
               taller="TALLER 1 · LUNES 14 DE SEPTIEMBRE"
               titulo="Las coordenadas"
             >
@@ -409,8 +411,7 @@ export default function ProyectoInPosiblePage() {
 
             <FilaEje
               id="eje-2"
-              icono={<IconoChispa className="h-5 w-5" />}
-              numero="2"
+              icono={<IconoChispa className="h-12 w-12" />}
               taller="TALLER 2 · LUNES 12 DE OCTUBRE"
               titulo="Empezar sin esperar a estar listo"
             >
@@ -425,8 +426,7 @@ export default function ProyectoInPosiblePage() {
 
             <FilaEje
               id="eje-3"
-              icono={<IconoSemilla className="h-5 w-5" />}
-              numero="3"
+              icono={<IconoSemilla className="h-12 w-12" />}
               taller="TALLER 3 · LUNES 9 DE NOVIEMBRE"
               titulo="Semilla y primeros brotes"
             >

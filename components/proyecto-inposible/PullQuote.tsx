@@ -9,7 +9,7 @@ import { TOKEN_MARCADOR_DORADO } from "@/app/proyecto-inposible/tokens"
 // por separado si la frase se corta en dos.
 export default function PullQuote({ children }: { children: React.ReactNode }) {
   return (
-    <p className="[font-family:var(--font-titulo)] my-6 text-[30px] font-bold leading-snug text-[var(--tinta)]">
+    <p className="[font-family:var(--font-titulo)] my-6 text-[30px] font-bold leading-[1.75] text-[var(--tinta)]">
       <span style={TOKEN_MARCADOR_DORADO}>{children}</span>
     </p>
   )
