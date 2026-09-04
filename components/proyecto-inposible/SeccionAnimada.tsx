@@ -3,19 +3,16 @@
 import { useEffect, useRef, useState } from "react"
 import { TOKEN_PAD_SECCION } from "@/app/proyecto-inposible/tokens"
 
-// Fondo por sección — el ritmo de fondos es lo que convierte el scroll en
-// una secuencia de lugares distintos en vez de un documento único. #4A3227
-// (tierra) ya no se usa como fondo de ninguna sección — queda solo como
-// color de texto. El único bloque de color pleno es la banda naranja.
-type Fondo = "tierra" | "naranja" | "crema" | "arena" | "blanco" | "ocre"
+// Fondo por sección — el contraste de la página lo dan las fotos y el
+// naranja, no rectángulos de color: ninguna sección tiene fondo oscuro.
+// Alternan crema y arena; la banda naranja de "No esperás al 14" es la
+// única superficie de color pleno de toda la página.
+type Fondo = "naranja" | "crema" | "arena"
 
 const FONDOS: Record<Fondo, string> = {
-  tierra: "bg-[var(--tierra)] text-[var(--crema)]",
   naranja: "bg-[var(--naranja)] text-[var(--crema)]",
-  crema: "bg-[var(--crema)] text-[var(--tierra)]",
-  arena: "bg-[var(--arena)] text-[var(--tierra)]",
-  blanco: "bg-white text-[var(--tierra)]",
-  ocre: "bg-[var(--ocre)] text-[var(--tierra)]",
+  crema: "bg-[var(--crema)] text-[var(--tinta)]",
+  arena: "bg-[var(--arena)] text-[var(--tinta)]",
 }
 
 // --ancho (680px, todo párrafo corrido) y --ancho-ancho (860px, tablas de
@@ -49,7 +46,6 @@ type Props = {
   // para la única excepción explícita de la página, la banda "No esperás
   // al 14" (56px/72px en vez de 56px/80px).
   padding?: string
-  centrado?: boolean
 }
 
 export default function SeccionAnimada({
@@ -60,7 +56,6 @@ export default function SeccionAnimada({
   className = "",
   separador = false,
   padding,
-  centrado = false,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
@@ -93,18 +88,18 @@ export default function SeccionAnimada({
     return () => observer.disconnect()
   }, [])
 
-  // --pad-seccion: 80px desktop / 56px mobile, arriba Y abajo, en las
-  // catorce secciones — única excepción explícita: la banda "No esperás al
-  // 14" pasa su propio `padding` (56px/72px) por prop.
+  // --pad-seccion: 80px desktop / 56px mobile, arriba Y abajo, en todas las
+  // secciones — única excepción explícita: la banda "No esperás al 14"
+  // pasa su propio `padding` (56px/72px) por prop.
   const paddingClase = padding ?? TOKEN_PAD_SECCION
 
   return (
     <section id={id} className={`w-full ${FONDOS[fondo]} ${className}`}>
       <div
         ref={ref}
-        className={`mx-auto transition-all duration-700 ease-out ${ANCHOS[ancho]} ${
-          centrado ? "flex min-h-[86svh] flex-col justify-center py-14" : paddingClase
-        } ${visible ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"}`}
+        className={`mx-auto transition-all duration-700 ease-out ${ANCHOS[ancho]} ${paddingClase} ${
+          visible ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"
+        }`}
       >
         {separador && (
           <div aria-hidden className="mb-6 flex justify-center sm:mb-8">

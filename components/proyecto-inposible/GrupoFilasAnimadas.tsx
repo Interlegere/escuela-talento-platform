@@ -58,7 +58,7 @@ export default function GrupoFilasAnimadas({
           style={{ transform: visible ? "scaleY(1)" : "scaleY(0)" }}
         />
       )}
-      <div className={conLinea ? "space-y-10 pl-6 sm:pl-10" : "space-y-10"}>
+      <div className={conLinea ? "space-y-6 pl-6 sm:pl-10" : "space-y-6"}>
         {filas.map((fila, i) => {
           if (!isValidElement<FilaProps>(fila)) return fila
           return cloneElement(fila, {
