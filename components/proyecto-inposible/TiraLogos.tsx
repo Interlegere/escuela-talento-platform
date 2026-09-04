@@ -16,20 +16,26 @@ export default function TiraLogos() {
         Proyectos que nos eligen
       </p>
       <div className="mt-4 flex items-center gap-3 overflow-x-auto px-4 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0">
-        {PROYECTOS.map((p) => (
-          <div
-            key={p.nombre}
-            className="flex h-[52px] w-[52px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-white sm:h-16 sm:w-16"
-          >
-            <Image
-              src={`/proyectos/${p.archivo}`}
-              alt={p.nombre}
-              width={64}
-              height={64}
-              className="h-full w-full object-cover"
-            />
-          </div>
-        ))}
+        {PROYECTOS.map((p) => {
+          const logo = (
+            <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-white sm:h-16 sm:w-16">
+              <Image
+                src={`/proyectos/${p.archivo}`}
+                alt={p.nombre}
+                width={64}
+                height={64}
+                className="h-full w-full object-cover"
+              />
+            </div>
+          )
+          return p.instagram ? (
+            <a key={p.nombre} href={p.instagram} target="_blank" rel="noopener noreferrer" aria-label={`${p.nombre} en Instagram`}>
+              {logo}
+            </a>
+          ) : (
+            <div key={p.nombre}>{logo}</div>
+          )
+        })}
       </div>
     </div>
   )

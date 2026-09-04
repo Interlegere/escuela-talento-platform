@@ -268,6 +268,11 @@ const PREGUNTAS_FRECUENTES = [
     pregunta: "¿Cómo pago desde otro país?",
     respuesta: "Por transferencia internacional, en dólares o en euros. Los datos te llegan por mail al completar el formulario.",
   },
+  {
+    pregunta: "¿Cuándo pago los meses 2 y 3?",
+    respuesta:
+      "Antes de cada taller creativo: el segundo antes del lunes 12 de octubre y el tercero antes del lunes 9 de noviembre. Si elegís Mercado Pago mes a mes, el cobro sale solo y no tenés que acordarte de nada.",
+  },
 ]
 
 // Mismo criterio que ASSETS (lib/proyecto-inposible-assets.ts): si el
@@ -473,6 +478,11 @@ export default function ProyectoInPosiblePage() {
                   siguientes.
                 </strong>
               </p>
+              <p>
+                <strong>
+                  El último taller es el lunes 9 de noviembre, y el acompañamiento sigue hasta diciembre.
+                </strong>
+              </p>
             </FilaComoFunciona>
 
             <FilaComoFunciona
@@ -503,6 +513,9 @@ export default function ProyectoInPosiblePage() {
             </FilaComoFunciona>
 
             <FilaComoFunciona id="cf-sesion" icono={<IconoDosPersonas className="h-5 w-5" />} rotulo="SESIÓN 1 A 1" titulo="Sesión 1 a 1">
+              <p>
+                <strong>Una hora con Nicolás, a coordinar durante el programa.</strong>
+              </p>
               <p>
                 Es la oportunidad analítica brindada por Nicolás para profundizar al máximo tanto en las
                 cuestiones por las que sí avanzás, como en aquellas por las que, desde lo más escondido y
@@ -743,7 +756,7 @@ export default function ProyectoInPosiblePage() {
               {[
                 ["Entusiasmento — tu espacio propio, los tres meses", "$480.000"],
                 ["Tres talleres creativos en vivo — 6 horas, con las grabaciones", "$150.000"],
-                ["Una sesión 1 a 1 con Nicolás", "$55.000"],
+                ["Una sesión 1 a 1 de una hora, con Nicolás", "$55.000"],
                 ["Soporte por WhatsApp, de 9 a 18, doce semanas", "incluido"],
                 ["Red colaborativa de talentos", "incluido"],
               ].map(([nombre, precio]) => (
@@ -792,6 +805,7 @@ export default function ProyectoInPosiblePage() {
               <p className="mt-2 text-[40px] font-extrabold leading-none sm:text-[44px]">
                 {formatearMontoArs(PRECIOS_ARS.mensual.transferencia)}
               </p>
+              <p className="mt-1 text-xs opacity-60">Los meses 2 y 3, antes de cada taller.</p>
               <p className="mt-2 text-sm opacity-70">por mes, por transferencia</p>
               <p className="mt-1 text-sm opacity-70">
                 {formatearMontoArs(PRECIOS_ARS.mensual.transferencia * 3)} en total
