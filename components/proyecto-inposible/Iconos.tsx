@@ -1,6 +1,6 @@
 // Íconos de línea simple, SVG inline propios (sin librería) — trazo 1,5px,
 // esquinas redondeadas. stroke="currentColor" para heredar el color por
-// className (el llamador los pone en --naranja sobre un círculo --arena).
+// className (el llamador los pone en --tinta sobre un círculo --dorado).
 type Props = { className?: string }
 
 const BASE = { fill: "none", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round" } as const

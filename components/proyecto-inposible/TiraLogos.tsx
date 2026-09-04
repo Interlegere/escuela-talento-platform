@@ -13,7 +13,7 @@ export default function TiraLogos() {
   return (
     <div className="mt-10 w-full max-w-2xl border-t border-[var(--crema)]/25 pt-6">
       <p className="text-center text-xs font-semibold uppercase tracking-[0.25em] text-[var(--crema)]/70">
-        Proyectos que empezaron acá
+        Proyectos que nos eligen
       </p>
       <div className="mt-4 flex items-center gap-3 overflow-x-auto px-4 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0">
         {PROYECTOS.map((p) => (

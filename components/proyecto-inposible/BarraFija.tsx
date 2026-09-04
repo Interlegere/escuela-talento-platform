@@ -7,7 +7,7 @@ import { formatearMontoArs, PRECIOS_ARS } from "@/lib/proyecto-inposible"
 // — es el único momento en que estorba. Resuelve que hoy el precio esté al
 // 78% del scroll: acá está siempre a un click, sin importar dónde estés.
 // Sus dos botones siguen la regla de contraste de BotonCTA (page.tsx):
-// fondo naranja → texto tinta.
+// fondo dorado → texto tinta.
 export default function BarraFija() {
   const [heroPasado, setHeroPasado] = useState(false)
   const [formEnVista, setFormEnVista] = useState(false)
@@ -47,7 +47,7 @@ export default function BarraFija() {
           <a
             href="#inscripcion"
             tabIndex={mostrar ? 0 : -1}
-            className="ml-4 inline-flex h-9 shrink-0 items-center rounded-full bg-[var(--naranja)] px-5 text-sm font-bold text-[var(--tinta)]! transition hover:bg-[var(--coral)]"
+            className="ml-4 inline-flex h-9 shrink-0 items-center rounded-full bg-[var(--dorado)] px-5 text-sm font-bold text-[var(--tinta)]! shadow-[0_8px_20px_-4px_rgba(249,195,62,0.55)] transition hover:bg-[var(--dorado-hover)]"
           >
             ¡Quiero mi lugar!
           </a>
@@ -66,7 +66,7 @@ export default function BarraFija() {
         <a
           href="#inscripcion"
           tabIndex={mostrar ? 0 : -1}
-          className="flex-1 rounded-full bg-[var(--naranja)] py-2.5 text-center text-sm font-bold text-[var(--tinta)]! transition hover:bg-[var(--coral)]"
+          className="flex-1 rounded-full bg-[var(--dorado)] py-2.5 text-center text-sm font-bold text-[var(--tinta)]! shadow-[0_8px_20px_-4px_rgba(249,195,62,0.55)] transition hover:bg-[var(--dorado-hover)]"
         >
           ¡Quiero mi lugar!
         </a>

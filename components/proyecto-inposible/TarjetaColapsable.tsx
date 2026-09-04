@@ -60,7 +60,7 @@ export default function TarjetaColapsable({
         aria-expanded={abierto}
         aria-controls={id}
         onClick={() => setAbierto((v) => !v)}
-        className="mt-2 inline-flex items-center gap-1 rounded text-sm font-bold text-[var(--naranja)] transition hover:text-[var(--coral)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--naranja)]"
+        className="mt-2 inline-flex items-center gap-1 rounded text-sm font-bold text-[var(--tinta)] underline decoration-2 decoration-[var(--dorado)] underline-offset-4 transition hover:decoration-[var(--dorado-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--dorado)]"
       >
         {abierto ? "Cerrar −" : "Seguir leyendo +"}
       </button>

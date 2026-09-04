@@ -26,7 +26,7 @@ export default function Testimonios({ testimonios }: { testimonios: Testimonio[]
                 href={t.instagram}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-[var(--naranja)] underline decoration-1 underline-offset-2 hover:text-[var(--coral)]"
+                className="text-sm text-[var(--tinta)] underline decoration-1 decoration-[var(--dorado)] underline-offset-2 hover:opacity-70"
               >
                 {t.proyecto}
               </a>

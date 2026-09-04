@@ -7,12 +7,17 @@ import { ASSETS } from "@/lib/proyecto-inposible-assets"
 // existe, el video reemplaza a la foto (con la foto de poster, así que un
 // video lento para cargar nunca deja un hueco).
 export default function HeroInPosible({
+  logo,
   eyebrow,
   nombre,
   bajada,
   lineaInfo,
   boton,
 }: {
+  // null cuando public/logo-entheos.png todavía no existe — no deja un
+  // hueco ni un ícono roto, el eyebrow de texto pasa a ser lo primero que
+  // se ve, igual que antes de que hubiera logo.
+  logo: React.ReactNode
   eyebrow: React.ReactNode
   nombre: React.ReactNode
   bajada: React.ReactNode
@@ -72,6 +77,7 @@ export default function HeroInPosible({
         // clara de la imagen.
         style={{ textShadow: "0 2px 4px rgba(36,31,28,.55), 0 1px 14px rgba(36,31,28,.45)" }}
       >
+        {logo}
         {eyebrow}
         {nombre}
         {bajada}

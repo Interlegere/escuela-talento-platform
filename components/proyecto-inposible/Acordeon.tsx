@@ -25,10 +25,10 @@ export default function Acordeon({ preguntas }: { preguntas: Pregunta[] }) {
                 aria-expanded={abierto}
                 aria-controls={idRespuesta}
                 onClick={() => setAbiertoIndex(abierto ? null : i)}
-                className="flex w-full items-center justify-between gap-4 py-5 text-left text-lg font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--naranja)]"
+                className="flex w-full items-center justify-between gap-4 py-5 text-left text-lg font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--dorado)]"
               >
                 {p.pregunta}
-                <span aria-hidden className="shrink-0 text-2xl font-normal text-[var(--naranja)]">
+                <span aria-hidden className="shrink-0 text-2xl font-normal text-[var(--tinta)]">
                   {abierto ? "−" : "+"}
                 </span>
               </button>

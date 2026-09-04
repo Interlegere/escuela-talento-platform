@@ -130,7 +130,7 @@ export default function FormularioPreinscripcion() {
         <label className="flex flex-col gap-1.5">
           <span className="text-sm font-medium text-[var(--tinta)]/80">Nombre</span>
           <input
-            className="w-full rounded-2xl border border-[var(--tinta)]/15 bg-white px-4 py-2.5 text-[16px] text-[var(--tinta)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15"
+            className="w-full rounded-2xl border border-[var(--tinta)]/15 bg-white px-4 py-2.5 text-[16px] text-[var(--tinta)] outline-none transition focus:border-[var(--dorado-hover)] focus:ring-4 focus:ring-[var(--dorado)]/25"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             required
@@ -139,7 +139,7 @@ export default function FormularioPreinscripcion() {
         <label className="flex flex-col gap-1.5">
           <span className="text-sm font-medium text-[var(--tinta)]/80">Apellido</span>
           <input
-            className="w-full rounded-2xl border border-[var(--tinta)]/15 bg-white px-4 py-2.5 text-[16px] text-[var(--tinta)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15"
+            className="w-full rounded-2xl border border-[var(--tinta)]/15 bg-white px-4 py-2.5 text-[16px] text-[var(--tinta)] outline-none transition focus:border-[var(--dorado-hover)] focus:ring-4 focus:ring-[var(--dorado)]/25"
             value={apellido}
             onChange={(e) => setApellido(e.target.value)}
             required
@@ -149,7 +149,7 @@ export default function FormularioPreinscripcion() {
           <span className="text-sm font-medium text-[var(--tinta)]/80">Email</span>
           <input
             type="email"
-            className="w-full rounded-2xl border border-[var(--tinta)]/15 bg-white px-4 py-2.5 text-[16px] text-[var(--tinta)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15"
+            className="w-full rounded-2xl border border-[var(--tinta)]/15 bg-white px-4 py-2.5 text-[16px] text-[var(--tinta)] outline-none transition focus:border-[var(--dorado-hover)] focus:ring-4 focus:ring-[var(--dorado)]/25"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -158,7 +158,7 @@ export default function FormularioPreinscripcion() {
         <label className="flex flex-col gap-1.5">
           <span className="text-sm font-medium text-[var(--tinta)]/80">WhatsApp</span>
           <input
-            className="w-full rounded-2xl border border-[var(--tinta)]/15 bg-white px-4 py-2.5 text-[16px] text-[var(--tinta)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15"
+            className="w-full rounded-2xl border border-[var(--tinta)]/15 bg-white px-4 py-2.5 text-[16px] text-[var(--tinta)] outline-none transition focus:border-[var(--dorado-hover)] focus:ring-4 focus:ring-[var(--dorado)]/25"
             placeholder="+54 9 ..."
             value={whatsapp}
             onChange={(e) => setWhatsapp(e.target.value)}
@@ -169,7 +169,7 @@ export default function FormularioPreinscripcion() {
 
       <label className="flex flex-col gap-1.5">
         <span className="text-sm font-medium text-[var(--tinta)]/80">País</span>
-        <select className="w-full rounded-2xl border border-[var(--tinta)]/15 bg-white px-4 py-2.5 text-[16px] text-[var(--tinta)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15" value={pais} onChange={(e) => setPais(e.target.value)}>
+        <select className="w-full rounded-2xl border border-[var(--tinta)]/15 bg-white px-4 py-2.5 text-[16px] text-[var(--tinta)] outline-none transition focus:border-[var(--dorado-hover)] focus:ring-4 focus:ring-[var(--dorado)]/25" value={pais} onChange={(e) => setPais(e.target.value)}>
           {PAISES.map((p) => (
             <option key={p} value={p}>
               {p}
@@ -187,7 +187,7 @@ export default function FormularioPreinscripcion() {
               onClick={() => setMonedaInternacional(m)}
               className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                 monedaInternacional === m
-                  ? "bg-[var(--naranja)] text-[var(--tinta)]"
+                  ? "bg-[var(--dorado)] text-[var(--tinta)]"
                   : "border border-[var(--tinta)]/20 text-[var(--tinta)]/70"
               }`}
             >
@@ -207,7 +207,7 @@ export default function FormularioPreinscripcion() {
               onClick={() => setTieneProyecto(op.valor)}
               className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                 tieneProyecto === op.valor
-                  ? "bg-[var(--naranja)] text-[var(--tinta)]"
+                  ? "bg-[var(--dorado)] text-[var(--tinta)]"
                   : "border border-[var(--tinta)]/20 text-[var(--tinta)]/70"
               }`}
             >
@@ -222,7 +222,7 @@ export default function FormularioPreinscripcion() {
           Contame en una línea de qué se trata <span className="text-[var(--tinta)]/40">(opcional)</span>
         </span>
         <textarea
-          className="min-h-16 w-full rounded-2xl border border-[var(--tinta)]/15 bg-white px-4 py-2.5 text-[16px] text-[var(--tinta)] outline-none transition focus:border-[var(--naranja)] focus:ring-4 focus:ring-[var(--naranja)]/15"
+          className="min-h-16 w-full rounded-2xl border border-[var(--tinta)]/15 bg-white px-4 py-2.5 text-[16px] text-[var(--tinta)] outline-none transition focus:border-[var(--dorado-hover)] focus:ring-4 focus:ring-[var(--dorado)]/25"
           value={proyectoDescripcion}
           onChange={(e) => setProyectoDescripcion(e.target.value)}
         />
@@ -238,7 +238,7 @@ export default function FormularioPreinscripcion() {
               onClick={() => setPlanPago(op.valor)}
               className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                 planPago === op.valor
-                  ? "bg-[var(--naranja)] text-[var(--tinta)]"
+                  ? "bg-[var(--dorado)] text-[var(--tinta)]"
                   : "border border-[var(--tinta)]/20 text-[var(--tinta)]/70"
               }`}
             >
@@ -249,7 +249,7 @@ export default function FormularioPreinscripcion() {
       </fieldset>
 
       {montos && (
-        <div className="rounded-2xl border border-[var(--naranja)]/25 bg-[var(--arena)]/50 p-4">
+        <div className="rounded-2xl border border-[var(--dorado)]/40 bg-[var(--arena)]/50 p-4">
           {montos.esInternacional ? (
             <p className="text-sm text-[var(--tinta)]">
               Por transferencia internacional:{" "}
@@ -275,11 +275,11 @@ export default function FormularioPreinscripcion() {
       {mensajeError && <p className="text-sm text-red-600">{mensajeError}</p>}
 
       {/* Regla de contraste (ver app/proyecto-inposible/page.tsx, junto a
-          BotonCTA): fondo naranja → texto tinta, siempre, hover incluido. */}
+          BotonCTA): fondo dorado → texto tinta, siempre, hover incluido. */}
       <button
         type="submit"
         disabled={estado === "enviando"}
-        className="w-full rounded-full bg-[var(--naranja)] px-6 py-4 text-[19px] font-bold text-[var(--tinta)] transition hover:bg-[var(--coral)] disabled:opacity-60"
+        className="w-full rounded-full bg-[var(--dorado)] px-6 py-4 text-[19px] font-bold text-[var(--tinta)] shadow-[0_10px_28px_-4px_rgba(249,195,62,0.55)] transition hover:bg-[var(--dorado-hover)] disabled:opacity-60 disabled:shadow-none"
       >
         {estado === "enviando" ? "Enviando..." : "¡Quiero mi lugar!"}
       </button>

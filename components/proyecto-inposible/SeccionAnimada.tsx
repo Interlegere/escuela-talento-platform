@@ -4,13 +4,15 @@ import { useEffect, useRef, useState } from "react"
 import { TOKEN_PAD_SECCION } from "@/app/proyecto-inposible/tokens"
 
 // Fondo por sección — el contraste de la página lo dan las fotos y el
-// naranja, no rectángulos de color: ninguna sección tiene fondo oscuro.
-// Alternan crema y arena; la banda naranja de "No esperás al 14" es la
-// única superficie de color pleno de toda la página.
-type Fondo = "naranja" | "crema" | "arena"
+// dorado, no rectángulos de color: ninguna sección tiene fondo oscuro.
+// Alternan crema y arena; la banda dorada de "No esperás al 14" es la
+// única superficie de color pleno de toda la página — y, como el dorado
+// nunca es texto sobre fondo claro, ahí el texto sigue siendo tinta, no
+// crema (a diferencia de lo que hacía la vieja banda naranja).
+type Fondo = "dorado" | "crema" | "arena"
 
 const FONDOS: Record<Fondo, string> = {
-  naranja: "bg-[var(--naranja)] text-[var(--crema)]",
+  dorado: "bg-[var(--dorado)] text-[var(--tinta)]",
   crema: "bg-[var(--crema)] text-[var(--tinta)]",
   arena: "bg-[var(--arena)] text-[var(--tinta)]",
 }
@@ -115,7 +117,7 @@ export default function SeccionAnimada({
       >
         {separador && (
           <div aria-hidden className="mb-6 flex justify-center sm:mb-8">
-            <span className="text-2xl font-bold text-[var(--naranja)] sm:text-3xl">+</span>
+            <span className="text-2xl font-bold text-[var(--tinta)] sm:text-3xl">+</span>
           </div>
         )}
         {children}

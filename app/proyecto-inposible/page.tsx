@@ -1,4 +1,6 @@
 import type { Metadata } from "next"
+import { existsSync } from "node:fs"
+import path from "node:path"
 import Image from "next/image"
 import Link from "next/link"
 import FormularioPreinscripcion from "@/components/proyecto-inposible/FormularioPreinscripcion"
@@ -25,7 +27,7 @@ import {
 import { formatearMontoArs, PRECIOS_ARS, TALLERES } from "@/lib/proyecto-inposible"
 import { ASSETS } from "@/lib/proyecto-inposible-assets"
 import { FUENTES_CLASSNAME, FUENTE_CUERPO_VAR, FUENTE_TITULO_VAR } from "./fonts"
-import { TOKEN_TEXTO, TOKEN_TEXTO_CHICO } from "./tokens"
+import { TOKEN_MARCADOR_DORADO, TOKEN_TEXTO, TOKEN_TEXTO_CHICO } from "./tokens"
 
 const TITULO = "Proyecto In+Posible — ENTHEOS"
 const DESCRIPCION = "Plasmá en tres meses eso que venís postergando toda tu vida."
@@ -46,15 +48,18 @@ export const metadata: Metadata = {
   },
 }
 
-// Paleta nueva — tres intentos con la familia tierra (azul, marrón, ocre)
-// fallaron. El contraste ahora lo dan las fotos y el naranja, no
-// rectángulos de color: ninguna sección tiene fondo oscuro. #4A3227,
-// #C49A6C, #E4783C, #C9512F y #F2E6CE quedan completamente retirados.
+// Paleta nueva — el naranja #F2662A deja de ser el color de identidad.
+// Pasa a serlo el dorado del logo, #F9C33E. Regla no negociable de toda la
+// página: el dorado va abajo (superficie: fondos, bordes, barras, halos),
+// el texto va arriba en tinta — el dorado nunca es la letra sobre fondo
+// claro (medido: dorado sobre crema/blanco da ~1,5-1,6:1 de contraste,
+// ilegible; tinta sobre dorado da 10,02:1). --naranja, --coral y --sol
+// quedan completamente retirados, igual que #4A3227/#C49A6C/#E4783C/
+// #C9512F/#F2E6CE de intentos anteriores.
 const PALETA = {
   "--tinta": "#241F1C",
-  "--naranja": "#F2662A",
-  "--coral": "#D8452B",
-  "--sol": "#FFC24B",
+  "--dorado": "#F9C33E",
+  "--dorado-hover": "#E8B930",
   "--crema": "#FFFCF7",
   "--nube": "#FFFFFF",
   "--arena": "#FBEFDC",
@@ -65,7 +70,7 @@ const PALETA = {
 
 // Escala tipográfica única para toda la página.
 const TITULO_FONT = "[font-family:var(--font-titulo)]"
-const H1 = `${TITULO_FONT} text-[clamp(40px,9vw,76px)] font-extrabold leading-[1.02] tracking-[-0.02em]`
+const H1 = `${TITULO_FONT} text-[clamp(46px,10vw,100px)] font-extrabold leading-[1.02] tracking-[-0.02em]`
 const H2 = `${TITULO_FONT} text-[clamp(28px,5vw,44px)] font-bold tracking-[-0.01em]`
 const H3 = `${TITULO_FONT} text-[clamp(21px,3vw,26px)] font-bold`
 // Único tamaño de cuerpo para las secciones (19px desktop / 18px mobile) y
@@ -80,20 +85,22 @@ const TEXTO_CHICO = TOKEN_TEXTO_CHICO
 // "¡Quiero mi lugar!" (BotonCTA×6 acá, BarraFija×2, el submit del
 // formulario), medida sobre los colores reales de la paleta:
 //
-//   fondo naranja          → texto tinta   (5,21:1) ✓
-//   fondo tinta             → texto crema   (11,4:1) ✓
-//   fondo crema/arena/nube → texto tinta            ✓
-//   nunca: crema sobre naranja             (2,96:1) ✗
+//   fondo dorado            → texto tinta   (10,02:1) ✓
+//   fondo tinta             → texto crema   (11,4:1)  ✓
+//   fondo crema/arena/nube → texto tinta             ✓
+//   nunca: dorado como color de letra sobre fondo claro (~1,5:1) ✗
 //
 // "invertido" es la única excepción de fondo — para usar arriba de la
-// propia banda naranja, donde un botón naranja se perdería contra su
-// propio fondo — pero el texto sigue la misma regla (fondo crema → tinta).
+// propia banda dorada, donde un botón dorado se perdería contra su propio
+// fondo — pero el texto sigue la misma regla (fondo crema → tinta). El
+// halo dorado (box-shadow) reemplaza cualquier sombra oscura en los
+// botones dorados — es identidad, no solo profundidad.
 function BotonCTA({
-  variante = "naranja",
+  variante = "dorado",
   className,
   style,
 }: {
-  variante?: "naranja" | "invertido"
+  variante?: "dorado" | "invertido"
   className?: string
   style?: React.CSSProperties
 }) {
@@ -103,9 +110,10 @@ function BotonCTA({
     // cualquier utility de Tailwind (que sí van en layer), sin importar
     // especificidad — sin el important, cada <a> hereda el color de texto
     // de la sección que lo rodea en vez de usar el suyo propio (esto pasó
-    // de verdad: el botón de la banda naranja quedaba crema sobre crema,
+    // de verdad: el botón de la banda de color quedaba crema sobre crema,
     // invisible, porque heredaba el texto de esa sección).
-    naranja: "bg-[var(--naranja)] text-[var(--tinta)]! hover:bg-[var(--coral)]",
+    dorado:
+      "bg-[var(--dorado)] text-[var(--tinta)]! shadow-[0_10px_28px_-4px_rgba(249,195,62,0.55)] hover:bg-[var(--dorado-hover)] hover:shadow-[0_14px_34px_-4px_rgba(249,195,62,0.65)]",
     invertido: "bg-[var(--crema)] text-[var(--tinta)]! hover:opacity-90",
   }[variante]
   return (
@@ -123,7 +131,7 @@ function BotonCTA({
 
 function IconoCirculo({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--arena)] text-[var(--naranja)]">
+    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--dorado)] text-[var(--tinta)]">
       {children}
     </div>
   )
@@ -188,7 +196,11 @@ function FilaEje({
     <div className={`flex flex-col gap-5 sm:flex-row sm:gap-10 ${className ?? ""}`} style={style}>
       <div className="shrink-0 sm:w-48">
         <IconoCirculo>{icono}</IconoCirculo>
-        <span className={`${TITULO_FONT} mt-3 block text-6xl font-extrabold leading-none text-[var(--naranja)] sm:text-7xl`}>
+        {/* Disco dorado con la cifra en tinta — no el número suelto en
+            color, la superficie lleva la identidad, la letra sigue tinta. */}
+        <span
+          className={`${TITULO_FONT} mt-3 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--dorado)] text-3xl font-extrabold leading-none text-[var(--tinta)] sm:h-20 sm:w-20 sm:text-4xl`}
+        >
           {numero}
         </span>
         <p className={`${TEXTO_CHICO} mt-2 font-semibold uppercase tracking-[0.12em] opacity-60`}>{taller}</p>
@@ -242,6 +254,13 @@ const PREGUNTAS_FRECUENTES = [
   },
 ]
 
+// Mismo criterio que ASSETS (lib/proyecto-inposible-assets.ts): si el
+// archivo todavía no está, no se deja un hueco ni un ícono roto — el
+// eyebrow de texto pasa a ser lo primero que se ve, como antes de tener
+// logo. Server Component, así que el chequeo es un existsSync real en
+// build/request, no un intento de carga en el cliente.
+const LOGO_EXISTE = existsSync(path.join(process.cwd(), "public", "logo-entheos.png"))
+
 export default function ProyectoInPosiblePage() {
   return (
     <div className={`${FUENTES_CLASSNAME} [font-family:var(--font-cuerpo)]`} style={PALETA}>
@@ -256,15 +275,26 @@ export default function ProyectoInPosiblePage() {
 
       {/* 1 · Hero con el collage a sangre + 2 · tira de logos (dentro) */}
       <HeroInPosible
+        logo={
+          LOGO_EXISTE ? (
+            <Image
+              src="/logo-entheos.png"
+              alt="ENTHEOS"
+              width={72}
+              height={72}
+              className="mx-auto h-14 w-14 object-contain sm:h-[72px] sm:w-[72px]"
+            />
+          ) : null
+        }
         eyebrow={<p className={`${TEXTO_CHICO} font-semibold uppercase tracking-[0.35em] opacity-70`}>ENTHEOS</p>}
         nombre={
           <h1 className={`${H1} mt-5`}>
-            Proyecto In<span className="text-[var(--naranja)]">+</span>Posible
+            Proyecto In<span className="text-[var(--dorado)]">+</span>Posible
           </h1>
         }
         bajada={
           <p className="mx-auto mt-7 max-w-xl text-xl font-medium opacity-90 sm:text-2xl">
-            Plasmá en tres meses eso que venís postergando toda tu vida.
+            Plasmá en tres meses <em>eso</em> que venís postergando toda tu vida.
           </p>
         }
         lineaInfo={
@@ -277,6 +307,7 @@ export default function ProyectoInPosiblePage() {
               <span className="block">Programa de mentoría de tres meses</span>
               <span className="block">Arranca el lunes 14 de septiembre</span>
               <span className="block">Cupos dedicados</span>
+              <span className="block">Inscripción hasta el 11 de septiembre</span>
             </p>
           </div>
         }
@@ -294,11 +325,12 @@ export default function ProyectoInPosiblePage() {
 
       {/* 4 · Qué es */}
       <SeccionAnimada fondo="crema" ancho="ancho">
-        <div className="max-w-[680px] border-l-8 border-[var(--naranja)] pl-6 sm:pl-8">
+        <div className="max-w-[680px] border-l-8 border-[var(--dorado)] pl-6 sm:pl-8">
           <p className="text-2xl font-medium leading-snug sm:text-3xl">
             <strong className="font-bold">Proyecto In+Posible</strong> es un programa de mentoría
             personalizada y grupal, para descubrir, encender y poner en marcha tu talento, trabajando
-            sobre un proyecto concreto que parece imposible de lograr... ¡hasta ahora!
+            sobre un proyecto concreto que parece imposible de lograr...{" "}
+            <span style={TOKEN_MARCADOR_DORADO}>hasta ahora.</span>
           </p>
         </div>
       </SeccionAnimada>
@@ -320,8 +352,8 @@ export default function ProyectoInPosiblePage() {
             por perdido, estás ante una puerta de entrada que es la más difícil de abrir... pero...
           </p>
         </div>
-        <p className={`${TITULO_FONT} mt-2 text-[44px] font-extrabold leading-[1.05] text-[var(--naranja)]`}>
-          ¡se abre!
+        <p className={`${TITULO_FONT} mt-2 text-[44px] font-extrabold leading-[1.05] text-[var(--tinta)]`}>
+          <span style={TOKEN_MARCADOR_DORADO}>¡se abre!</span>
         </p>
       </SeccionAnimada>
 
@@ -493,9 +525,9 @@ export default function ProyectoInPosiblePage() {
         </div>
       </SeccionAnimada>
 
-      {/* 8 · ¡Usamos la IA! — sin fondo oscuro, tarjeta nube con filete naranja */}
+      {/* 8 · ¡Usamos la IA! — sin fondo oscuro, tarjeta nube con filete dorado */}
       <SeccionAnimada fondo="crema" ancho="ancho">
-        <div className="rounded-3xl border-l-4 border-[var(--naranja)] bg-[var(--nube)] p-6 shadow-[0_18px_40px_rgba(36,31,28,0.06)] sm:p-7">
+        <div className="rounded-3xl border-l-4 border-[var(--dorado)] bg-[var(--nube)] p-6 shadow-[0_18px_40px_rgba(36,31,28,0.06)] sm:p-7">
           <h2 className={H2}>¡Usamos la IA! Diferencialmente...</h2>
           <p className="mt-3 text-xl font-semibold opacity-80 sm:text-2xl">Una herramienta, no un reemplazo</p>
           <div className={`${TEXTO} mt-6 space-y-5 opacity-85`}>
@@ -548,7 +580,7 @@ export default function ProyectoInPosiblePage() {
             },
           ].map((item, i) => (
             <li key={i} className="flex gap-4">
-              <span className={`${TITULO_FONT} shrink-0 text-3xl font-extrabold text-[var(--naranja)]`}>+</span>
+              <span className={`${TITULO_FONT} shrink-0 text-3xl font-extrabold text-[var(--tinta)]`}>+</span>
               <span className={TEXTO}>
                 <strong>{item.fuerte}</strong>
                 {item.resto}
@@ -561,7 +593,7 @@ export default function ProyectoInPosiblePage() {
       {/* 10 · No esperás al 14 para empezar — única banda de color pleno.
           Única excepción de padding de toda la página: 56px/72px en vez
           del 56px/80px uniforme. */}
-      <SeccionAnimada fondo="naranja" className="text-center" padding="py-[40px] md:py-[52px]">
+      <SeccionAnimada fondo="dorado" className="text-center" padding="py-[40px] md:py-[52px]">
         <h2 className={`${TITULO_FONT} text-[28px] font-bold leading-tight tracking-[-0.01em] sm:text-[36px]`}>
           No esperás al 14 para empezar
         </h2>
@@ -632,7 +664,7 @@ export default function ProyectoInPosiblePage() {
           </div>
           <div>
             <h3 className={H3}>Nicolás Busico</h3>
-            <p className="text-sm font-medium text-[var(--naranja)]">Licenciado en Psicología</p>
+            <p className="text-sm font-medium text-[var(--tinta)]/70">Licenciado en Psicología</p>
             <div className={`${TEXTO} mt-4 space-y-3 opacity-85`}>
               <p>
                 Hace más de 8 años acompaña a personas que necesitan definir un rumbo y animarse a crear
@@ -665,10 +697,10 @@ export default function ProyectoInPosiblePage() {
         </SeccionAnimada>
       )}
 
-      {/* 14 · Proyectos que pasaron por acá (carrusel grande) */}
+      {/* 14 · Proyectos que nos eligen (carrusel grande) */}
       <SeccionAnimada fondo="crema" ancho="completo">
         <div className="mx-auto max-w-[860px] px-4 sm:px-6">
-          <h2 className={H2}>Proyectos que pasaron por acá</h2>
+          <h2 className={H2}>Proyectos que nos eligen</h2>
         </div>
         <div className="mt-7">
           <CarruselProyectos />
@@ -711,8 +743,8 @@ export default function ProyectoInPosiblePage() {
               pago único es la destacada (chapa con el ahorro real, ya
               calculado — nadie tiene que restar dos cifras de una grilla). */}
           <div className="mt-6 grid items-stretch gap-5 sm:grid-cols-2">
-            <div className="flex flex-col rounded-3xl border-2 border-[var(--naranja)] bg-[var(--nube)] p-6 sm:p-7">
-              <span className="self-start rounded-full bg-[var(--naranja)] px-3 py-1 text-xs font-bold text-[var(--tinta)]">
+            <div className="flex flex-col rounded-3xl border-2 border-[var(--dorado)] bg-[var(--nube)] p-6 sm:p-7">
+              <span className="self-start rounded-full bg-[var(--dorado)] px-3 py-1 text-xs font-bold text-[var(--tinta)]">
                 Ahorrás {formatearMontoArs(PRECIOS_ARS.mensual.transferencia * 3 - PRECIOS_ARS.unico.transferencia)}
               </span>
               <p className={`${TEXTO_CHICO} mt-5 font-semibold uppercase tracking-[0.12em] opacity-60`}>

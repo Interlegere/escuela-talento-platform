@@ -6,8 +6,9 @@ type FilaProps = { className?: string; style?: React.CSSProperties }
 
 // Envoltorio compartido por "Los tres ejes" y "Cómo funciona": entrada
 // escalonada (fade + subida de 20px, 80ms de diferencia entre fila y fila)
-// una sola vez, más la línea vertical naranja que se dibuja de arriba hacia
+// una sola vez, más la línea vertical dorada que se dibuja de arriba hacia
 // abajo (scaleY 0→1, transform-origin: top, 600ms) cuando conLinea=true.
+// La línea es decoración, no letra — el dorado como superficie es seguro acá.
 // Respeta prefers-reduced-motion mostrando todo de una.
 export default function GrupoFilasAnimadas({
   children,
@@ -62,7 +63,7 @@ export default function GrupoFilasAnimadas({
       {conLinea && (
         <div
           aria-hidden
-          className="absolute left-0 top-0 h-full w-[2px] origin-top bg-[var(--naranja)] transition-transform duration-[600ms] ease-out"
+          className="absolute left-0 top-0 h-full w-[2px] origin-top bg-[var(--dorado)] transition-transform duration-[600ms] ease-out"
           style={{ transform: visible ? "scaleY(1)" : "scaleY(0)" }}
         />
       )}

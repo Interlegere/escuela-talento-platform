@@ -90,9 +90,13 @@ export default function BandaNumeros() {
     <div ref={ref} className="grid grid-cols-2 gap-x-6 gap-y-8 text-center sm:grid-cols-4 sm:gap-x-4">
       {ITEMS.map((item) => (
         <div key={item.texto} className="flex flex-col items-center">
-          <span className="[font-family:var(--font-titulo)] text-[40px] font-extrabold leading-none text-[var(--naranja)] sm:text-[48px]">
+          {/* La cifra es tinta, no dorado — el dorado nunca es la letra
+              sobre fondo claro. La identidad la lleva la barra de 4px
+              debajo, no el número en sí. */}
+          <span className="[font-family:var(--font-titulo)] text-[40px] font-extrabold leading-none text-[var(--tinta)] sm:text-[48px]">
             {item.tipo === "numero" ? <NumeroContador valor={item.valor} activar={activar} /> : item.grande}
           </span>
+          <span aria-hidden className="mt-2 h-1 w-8 rounded-full bg-[var(--dorado)]" />
           <span className="mt-2 text-sm leading-snug text-[var(--tinta)] sm:text-base">{item.texto}</span>
         </div>
       ))}
