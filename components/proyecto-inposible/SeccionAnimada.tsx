@@ -85,7 +85,19 @@ export default function SeccionAnimada({
       { threshold: 0.12 }
     )
     observer.observe(el)
-    return () => observer.disconnect()
+
+    // Red de seguridad: la animación de entrada nunca puede ser la
+    // condición para que el contenido exista. Si el observer no dispara
+    // por lo que sea (un panel embebido que no reporta intersecciones,
+    // algo raro de timing), esto fuerza que el contenido se vea igual —
+    // no permanentemente en blanco. El plazo es largo a propósito para no
+    // pisar el efecto de revelado normal en el uso real.
+    const timeout = window.setTimeout(() => setVisible(true), 3000)
+
+    return () => {
+      observer.disconnect()
+      window.clearTimeout(timeout)
+    }
   }, [])
 
   // --pad-seccion: 80px desktop / 56px mobile, arriba Y abajo, en todas las

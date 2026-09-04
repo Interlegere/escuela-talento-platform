@@ -13,19 +13,25 @@ const ITEMS = [
 ]
 
 function NumeroContador({ valor, activar }: { valor: number; activar: boolean }) {
-  const [actual, setActual] = useState(0)
+  // Arranca en el valor real, nunca en 0 — el HTML servido (y lo que se ve
+  // si el observer nunca dispara) siempre es el dato correcto. Recién
+  // cuando la animación está confirmada (activar=true) se reinicia a 0
+  // para contar hacia arriba.
+  const [actual, setActual] = useState(valor)
 
   useEffect(() => {
     if (!activar) return
     const reduccionMovimiento =
       typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
     if (reduccionMovimiento) {
-      const frame = window.requestAnimationFrame(() => setActual(valor))
-      return () => window.cancelAnimationFrame(frame)
+      return
     }
     const duracion = 600
     const inicio = performance.now()
     let frame: number
+    // El primer frame ya calcula t≈0 (recién arrancó "inicio"), así que
+    // el conteo visualmente arranca de 0 sin necesitar un setState
+    // síncrono en el cuerpo del efecto.
     const paso = (ahora: number) => {
       const t = Math.min(1, (ahora - inicio) / duracion)
       setActual(Math.round(t * valor))
@@ -60,7 +66,14 @@ export default function BandaNumeros() {
       { threshold: 0.4 }
     )
     observer.observe(el)
-    return () => observer.disconnect()
+    // Igual que en SeccionAnimada: si el observer no dispara, esto no deja
+    // el número mal (ya arranca en el valor real), pero sí permite que la
+    // animación de conteo llegue a jugar igual, acotada en el tiempo.
+    const timeout = window.setTimeout(() => setActivar(true), 3000)
+    return () => {
+      observer.disconnect()
+      window.clearTimeout(timeout)
+    }
   }, [])
 
   return (

@@ -44,7 +44,15 @@ export default function GrupoFilasAnimadas({
       { threshold: 0.12 }
     )
     observer.observe(el)
-    return () => observer.disconnect()
+
+    // Misma red de seguridad que SeccionAnimada: si el observer no
+    // dispara, el contenido no puede quedar invisible para siempre.
+    const timeout = window.setTimeout(() => setVisible(true), 3000)
+
+    return () => {
+      observer.disconnect()
+      window.clearTimeout(timeout)
+    }
   }, [])
 
   const filas = Children.toArray(children)

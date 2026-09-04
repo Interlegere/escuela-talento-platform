@@ -245,6 +245,13 @@ const PREGUNTAS_FRECUENTES = [
 export default function ProyectoInPosiblePage() {
   return (
     <div className={`${FUENTES_CLASSNAME} [font-family:var(--font-cuerpo)]`} style={PALETA}>
+      {/* Sin JS, la animación de entrada de SeccionAnimada nunca corre —
+          esto fuerza que el contenido se vea igual, sin depender de que
+          el IntersectionObserver o el timeout de respaldo lleguen a
+          ejecutarse (ninguno de los dos existe sin JavaScript). */}
+      <noscript>
+        <style>{`.opacity-0{opacity:1!important}.translate-y-5{transform:none!important}`}</style>
+      </noscript>
       <BarraFija />
 
       {/* 1 · Hero con el collage a sangre + 2 · tira de logos (dentro) */}
