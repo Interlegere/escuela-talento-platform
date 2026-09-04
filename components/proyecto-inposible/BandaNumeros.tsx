@@ -5,11 +5,19 @@ import { useEffect, useRef, useState } from "react"
 // "Hasta 15 personas" se sacó a propósito: es un número de gestión interna,
 // no algo para promocionar — la escasez la sigue diciendo "Cupos dedicados"
 // en el hero, sin poner una cifra sobre la mesa.
-const ITEMS = [
-  { valor: 3, prefijo: "", texto: "talleres en vivo" },
-  { valor: 6, prefijo: "", texto: "horas" },
-  { valor: 12, prefijo: "", texto: "semanas de soporte" },
-  { valor: 1, prefijo: "", texto: "sesión 1 a 1" },
+//
+// La cuarta celda no es una cantidad — es "1 a 1", fijo, sin contador (un
+// "1" suelto con la etiqueta "sesión 1 a 1" se leía "1 sesión 1 a 1", con
+// dos unos trabados). Mantiene el mismo ritmo visual que las otras tres sin
+// necesitar animarse.
+type ItemNumerico = { tipo: "numero"; valor: number; texto: string }
+type ItemFijo = { tipo: "fijo"; grande: string; texto: string }
+
+const ITEMS: (ItemNumerico | ItemFijo)[] = [
+  { tipo: "numero", valor: 3, texto: "talleres creativos" },
+  { tipo: "numero", valor: 6, texto: "horas en vivo" },
+  { tipo: "numero", valor: 12, texto: "semanas de soporte" },
+  { tipo: "fijo", grande: "1 a 1", texto: "sesión con Nicolás" },
 ]
 
 function NumeroContador({ valor, activar }: { valor: number; activar: boolean }) {
@@ -83,8 +91,7 @@ export default function BandaNumeros() {
       {ITEMS.map((item) => (
         <div key={item.texto} className="flex flex-col items-center">
           <span className="[font-family:var(--font-titulo)] text-[40px] font-extrabold leading-none text-[var(--naranja)] sm:text-[48px]">
-            {item.prefijo}
-            <NumeroContador valor={item.valor} activar={activar} />
+            {item.tipo === "numero" ? <NumeroContador valor={item.valor} activar={activar} /> : item.grande}
           </span>
           <span className="mt-2 text-sm leading-snug text-[var(--tinta)] sm:text-base">{item.texto}</span>
         </div>
