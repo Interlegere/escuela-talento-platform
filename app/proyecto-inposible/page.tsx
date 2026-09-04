@@ -247,7 +247,7 @@ const PREGUNTAS_FRECUENTES = [
   {
     pregunta: "¿Cuánto tiempo por semana me lleva?",
     respuesta:
-      "Lo fijo son dos horas por mes: el taller en vivo. Lo demás es personalizado, porque los procesos de cada uno son recorridos que no se miden solo con el tiempo. Y sí: cuanto más tiempo le dediques, más avances y más ganancia vas a tener.",
+      "Lo fijo son dos horas por mes: el taller en vivo. Después hay una continuidad semanal en tu espacio propio, y ahí el ritmo lo ponés vos: los procesos de cada uno son recorridos que no se miden solo con el tiempo. Y sí: cuanto más tiempo le dediques, más avances y más ganancia vas a tener.",
   },
   {
     pregunta: "¿Sirve si mi proyecto no es un negocio?",
@@ -336,7 +336,9 @@ export default function ProyectoInPosiblePage() {
           // anotado que no vino en el pedido original.
           <div className="mt-4 inline-block rounded-2xl bg-[var(--tinta)]/40 px-4 py-2">
             <p className="text-[15px] font-medium opacity-95 sm:text-base">
-              <span className="block">Programa de Mentoría</span>
+              <span className="block">
+                <span className="whitespace-nowrap">Programa+Mentoría</span>
+              </span>
               <span className="block">Inicia 14 de septiembre</span>
               <span className="block">Duración: 3 meses</span>
               <span className="block">Cupos dedicados.</span>
@@ -360,9 +362,10 @@ export default function ProyectoInPosiblePage() {
       <SeccionAnimada fondo="crema" ancho="ancho">
         <div className="max-w-[680px] border-l-8 border-[var(--dorado)] pl-6 sm:pl-8">
           <p className="text-2xl font-medium leading-[1.75] sm:text-3xl">
-            <strong className="font-bold">Proyecto In+Posible</strong> es un programa de mentoría
-            personalizada y grupal, para descubrir, encender y poner en marcha tu talento, trabajando
-            sobre un proyecto concreto que parece imposible de lograr...{" "}
+            <strong className="font-bold">Proyecto In+Posible</strong> es un{" "}
+            <span className="whitespace-nowrap">Programa+Mentoría</span> —personalizado y grupal— para
+            descubrir, encender y poner en marcha tu talento, trabajando sobre un proyecto concreto que
+            parece imposible de lograr...{" "}
             <span style={TOKEN_MARCADOR_DORADO}>hasta ahora.</span>
           </p>
         </div>
@@ -755,7 +758,7 @@ export default function ProyectoInPosiblePage() {
             <tbody>
               {[
                 ["Entusiasmento — tu espacio propio, los tres meses", "$480.000"],
-                ["Tres talleres creativos en vivo — 6 horas, con las grabaciones", "$150.000"],
+                ["Tres talleres creativos en vivo — 6 horas, con grabación por 7 días", "$150.000"],
                 ["Una sesión 1 a 1 de una hora, con Nicolás", "$55.000"],
                 ["Soporte por WhatsApp, de 9 a 18, doce semanas", "incluido"],
                 ["Red colaborativa de talentos", "incluido"],
