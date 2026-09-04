@@ -47,7 +47,7 @@ export default function BarraFija() {
           <a
             href="#inscripcion"
             tabIndex={mostrar ? 0 : -1}
-            className="ml-4 inline-flex h-9 shrink-0 items-center rounded-full bg-[var(--dorado)] px-5 text-sm font-bold text-[var(--tinta)]! shadow-[0_8px_20px_-4px_rgba(249,195,62,0.55)] transition hover:bg-[var(--dorado-hover)]"
+            className="ml-4 inline-flex h-9 shrink-0 items-center rounded-full bg-[var(--dorado)] px-5 text-sm font-bold text-[var(--tinta)]! shadow-[0_0_16px_rgba(249,195,62,0.35),0_0_32px_rgba(249,195,62,0.16)] transition hover:bg-[var(--dorado-hover)] hover:shadow-[0_0_22px_rgba(249,195,62,0.49),0_0_45px_rgba(249,195,62,0.22)]"
           >
             ¡Quiero mi lugar!
           </a>
@@ -66,7 +66,7 @@ export default function BarraFija() {
         <a
           href="#inscripcion"
           tabIndex={mostrar ? 0 : -1}
-          className="flex-1 rounded-full bg-[var(--dorado)] py-2.5 text-center text-sm font-bold text-[var(--tinta)]! shadow-[0_8px_20px_-4px_rgba(249,195,62,0.55)] transition hover:bg-[var(--dorado-hover)]"
+          className="flex-1 rounded-full bg-[var(--dorado)] py-2.5 text-center text-sm font-bold text-[var(--tinta)]! shadow-[0_0_16px_rgba(249,195,62,0.35),0_0_32px_rgba(249,195,62,0.16)] transition hover:bg-[var(--dorado-hover)] hover:shadow-[0_0_22px_rgba(249,195,62,0.49),0_0_45px_rgba(249,195,62,0.22)]"
         >
           ¡Quiero mi lugar!
         </a>

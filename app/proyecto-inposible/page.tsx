@@ -92,15 +92,27 @@ const TEXTO_CHICO = TOKEN_TEXTO_CHICO
 //
 // "invertido" es la única excepción de fondo — para usar arriba de la
 // propia banda dorada, donde un botón dorado se perdería contra su propio
-// fondo — pero el texto sigue la misma regla (fondo crema → tinta). El
-// halo dorado (box-shadow) reemplaza cualquier sombra oscura en los
-// botones dorados — es identidad, no solo profundidad.
+// fondo — pero el texto sigue la misma regla (fondo crema → tinta).
+//
+// El halo dorado es un brillo, no una sombra: 0 0 de offset, sin spread
+// negativo, para que salga parejo hacia los cuatro lados en vez de caer
+// hacia abajo. Dos intensidades — más fuerte sobre fondo oscuro (el hero,
+// foto de fondo) que sobre fondo claro (crema/arena/nube, donde ya hay
+// contraste de sobra) — y +40% al pasar el mouse (el "transition" de la
+// clase ya corre a 150ms, el default de Tailwind).
+const GLOW_CLARO =
+  "shadow-[0_0_16px_rgba(249,195,62,0.35),0_0_32px_rgba(249,195,62,0.16)] hover:shadow-[0_0_22px_rgba(249,195,62,0.49),0_0_45px_rgba(249,195,62,0.22)]"
+const GLOW_OSCURO =
+  "shadow-[0_0_20px_rgba(249,195,62,0.60),0_0_44px_rgba(249,195,62,0.30)] hover:shadow-[0_0_28px_rgba(249,195,62,0.84),0_0_62px_rgba(249,195,62,0.42)]"
+
 function BotonCTA({
   variante = "dorado",
+  contexto = "claro",
   className,
   style,
 }: {
   variante?: "dorado" | "invertido"
+  contexto?: "claro" | "oscuro"
   className?: string
   style?: React.CSSProperties
 }) {
@@ -112,8 +124,9 @@ function BotonCTA({
     // de la sección que lo rodea en vez de usar el suyo propio (esto pasó
     // de verdad: el botón de la banda de color quedaba crema sobre crema,
     // invisible, porque heredaba el texto de esa sección).
-    dorado:
-      "bg-[var(--dorado)] text-[var(--tinta)]! shadow-[0_10px_28px_-4px_rgba(249,195,62,0.55)] hover:bg-[var(--dorado-hover)] hover:shadow-[0_14px_34px_-4px_rgba(249,195,62,0.65)]",
+    dorado: `bg-[var(--dorado)] text-[var(--tinta)]! ${
+      contexto === "oscuro" ? GLOW_OSCURO : GLOW_CLARO
+    } hover:bg-[var(--dorado-hover)]`,
     invertido: "bg-[var(--crema)] text-[var(--tinta)]! hover:opacity-90",
   }[variante]
   return (
@@ -276,13 +289,19 @@ export default function ProyectoInPosiblePage() {
       {/* 1 · Hero con el collage a sangre + 2 · tira de logos (dentro) */}
       <HeroInPosible
         logo={
+          // 291×236 real — width/height acá son solo la relación de
+          // aspecto para next/image, el tamaño en pantalla lo maneja la
+          // clase (44px de alto en mobile, 56px en desktop, ancho auto,
+          // sin filtro: ya viene dorado). mb-5 = 20px de aire antes de
+          // "ENTHEOS".
           LOGO_EXISTE ? (
             <Image
               src="/logo-entheos.png"
               alt="ENTHEOS"
-              width={72}
-              height={72}
-              className="mx-auto h-14 w-14 object-contain sm:h-[72px] sm:w-[72px]"
+              width={291}
+              height={236}
+              priority
+              className="mx-auto mb-5 h-11 w-auto object-contain sm:h-14"
             />
           ) : null
         }
@@ -294,7 +313,7 @@ export default function ProyectoInPosiblePage() {
         }
         bajada={
           <p className="mx-auto mt-7 max-w-xl text-xl font-medium opacity-90 sm:text-2xl">
-            Plasmá en tres meses <em>eso</em> que venís postergando toda tu vida.
+            Plasmá en tres meses <em className="font-bold">eso</em> que venís postergando toda tu vida.
           </p>
         }
         lineaInfo={
@@ -302,18 +321,24 @@ export default function ProyectoInPosiblePage() {
           // más débil (45% en el medio del degradé) — le agrega un fondo
           // propio semi-opaco atrás, solo a él, en vez de tocar el velo
           // general de toda la foto.
+          //
+          // Los primeros 4 renglones son el texto exacto pedido. El 5°
+          // ("Inscripción hasta...") lo agregué yo en el prompt 18 — lo
+          // dejo (se pidió no sacarlo), consignado acá para que quede
+          // anotado que no vino en el pedido original.
           <div className="mt-4 inline-block rounded-2xl bg-[var(--tinta)]/40 px-4 py-2">
             <p className="text-[15px] font-medium opacity-95 sm:text-base">
-              <span className="block">Programa de mentoría de tres meses</span>
-              <span className="block">Arranca el lunes 14 de septiembre</span>
-              <span className="block">Cupos dedicados</span>
+              <span className="block">Programa de Mentoría</span>
+              <span className="block">Inicia 14 de septiembre</span>
+              <span className="block">Duración: 3 meses</span>
+              <span className="block">Cupos dedicados.</span>
               <span className="block">Inscripción hasta el 11 de septiembre</span>
             </p>
           </div>
         }
         boton={
           <div className="mt-9">
-            <BotonCTA />
+            <BotonCTA contexto="oscuro" />
           </div>
         }
       />
