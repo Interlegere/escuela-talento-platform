@@ -91,12 +91,13 @@ export function formatearMontoInternacional(monto: number, moneda: MonedaInterna
   return `${moneda} ${monto.toLocaleString("es-AR")}`
 }
 
-// Número de WhatsApp de Nicolás, sin el "+" (formato que espera wa.me).
-// Se usa en dos lugares: el "escribime por WhatsApp" debajo del CTA
-// principal de la landing, y el botón de "enviar comprobante" en
-// /proyecto-inposible/gracias. Mientras sea null, ninguno de los dos se
-// renderiza — no rompe el build ni deja un link roto.
-export const WHATSAPP_CONTACTO: string | null = null // ej. "5493511234567"
+// Número de WhatsApp de Nicolás, sin el "+", sin espacios y sin guiones
+// (formato que pide wa.me) — el "9" después del "54" es obligatorio para
+// móviles argentinos. Se usa en la landing ("escribime por WhatsApp"
+// debajo del CTA principal), en /proyecto-inposible/gracias (comprobante
+// de transferencia ARS, y coordinar el pago desde el exterior) y en el
+// mail de confirmación de la preinscripción.
+export const WHATSAPP_CONTACTO: string | null = "5493515166582"
 
 export function crearLinkWhatsapp(mensaje: string) {
   if (!WHATSAPP_CONTACTO) return null

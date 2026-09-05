@@ -1,4 +1,5 @@
 import { obtenerPartesArgentina } from "@/lib/fechas"
+import { crearLinkWhatsapp, WHATSAPP_CONTACTO } from "@/lib/proyecto-inposible"
 
 type BienvenidaParams = {
   nombre: string
@@ -302,6 +303,8 @@ function crearContenidoPreinscripcionParticipante(params: PreinscripcionParticip
       </div>
     `
 
+  const linkComprobante = crearLinkWhatsapp("Hola Nicolás, te mando el comprobante de mi pago de Proyecto In+Posible.")
+
   const text = [
     `Hola ${nombre},`,
     "",
@@ -313,6 +316,9 @@ function crearContenidoPreinscripcionParticipante(params: PreinscripcionParticip
     ...talleres.map((t) => `- ${t}, 19 hs`),
     "",
     "En las próximas horas te llega el primer material de la inducción.",
+    ...(linkComprobante
+      ? ["", `Cuando transfieras, mandame el comprobante por WhatsApp y te confirmo el lugar en el día.`, `wa.me/${WHATSAPP_CONTACTO}`]
+      : []),
   ].join("\n")
 
   const html = `
@@ -337,9 +343,17 @@ function crearContenidoPreinscripcionParticipante(params: PreinscripcionParticip
             ${talleres.map((t) => escapeHtml(t)).join("<br />")}
           </p>
 
-          <p style="margin: 0;">
+          <p style="margin: 0 0 ${linkComprobante ? "16px" : "0"};">
             En las próximas horas te llega el primer material de la inducción, para llegar al primer taller con algo ya movido.
           </p>
+          ${
+            linkComprobante
+              ? `<p style="margin: 0; padding: 14px 16px; border-radius: 16px; background: #fef6e4; font-size: 14px; color: #4b5563;">
+                  <strong style="color: #18202a;">Cuando transfieras, mandame el comprobante por WhatsApp</strong> y te confirmo el lugar en el día.<br />
+                  <a href="${linkComprobante}" style="color: #9a6218; font-weight: 700; text-decoration: none;">wa.me/${WHATSAPP_CONTACTO}</a>
+                </p>`
+              : ""
+          }
         </div>
       </div>
     </div>

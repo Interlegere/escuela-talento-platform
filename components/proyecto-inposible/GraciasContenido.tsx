@@ -13,7 +13,7 @@ import {
   type MonedaInternacional,
   type PlanPago,
 } from "@/lib/proyecto-inposible"
-import { MERCADOPAGO, TRANSFERENCIA_ARS, TRANSFERENCIA_INTERNACIONAL } from "@/lib/proyecto-inposible-pagos"
+import { MERCADOPAGO, TRANSFERENCIA_ARS } from "@/lib/proyecto-inposible-pagos"
 import PieDePagina from "@/components/proyecto-inposible/PieDePagina"
 import { FUENTES_CLASSNAME } from "@/app/proyecto-inposible/fonts"
 import { PALETA_PROYECTO_INPOSIBLE } from "@/app/proyecto-inposible/tokens"
@@ -83,37 +83,74 @@ function BloquePagoArs({ planPago }: { planPago: PlanPago }) {
   )
 }
 
+// Sin SWIFT/BIC (Lead Bank todavía no lo confirmó), el número de ruta que
+// mostraba este bloque antes es de uso interno de EE.UU. — no le sirve a
+// nadie transfiriendo desde otro país, y su banco se lo va a pedir sí o
+// sí. En vez de datos bancarios que no puede usar, el bloque explica el
+// monto completo (algo que la pantalla de pago nunca decía bien para el
+// plan mensual: mostraba "USD 180" sin aclarar que es por mes, ni cuántos
+// pagos son) y deriva a coordinar por WhatsApp. Los montos siempre salen
+// de calcularMontos, nunca a mano, para que sigan bien si cambia el precio.
 function BloquePagoInternacional({ planPago, moneda }: { planPago: PlanPago; moneda: MonedaInternacional }) {
   const montos = calcularMontos(planPago, "Otro", moneda)
   if (!montos.esInternacional) return null
 
+  const linkCoordinar = crearLinkWhatsapp(
+    "Hola Nicolás, me anoté en Proyecto In+Posible desde otro país y quiero coordinar el pago."
+  )
+
   return (
     <div className={TARJETA}>
-      <p className="text-sm font-semibold">
-        Transferencia internacional — {formatearMontoInternacional(montos.monto, montos.moneda)}
-      </p>
+      {planPago === "unico" ? (
+        <>
+          <p className="text-sm font-semibold">
+            Pago único — {formatearMontoInternacional(montos.monto, montos.moneda)}
+          </p>
+          <p className="mt-1 text-sm opacity-70">Los tres meses, en una sola transferencia.</p>
+        </>
+      ) : (
+        <>
+          <p className="text-sm font-semibold">
+            Mes a mes — {formatearMontoInternacional(montos.monto, montos.moneda)} por mes
+          </p>
+          <p className="mt-1 text-sm opacity-70">
+            Tres pagos, uno por mes:{" "}
+            <strong className="opacity-100">{formatearMontoInternacional(montos.monto * 3, montos.moneda)} en total.</strong>{" "}
+            El segundo antes del lunes 12 de octubre y el tercero antes del lunes 9 de noviembre.
+          </p>
+        </>
+      )}
+
+      <div className="mt-4">
+        <p className="text-sm opacity-80">
+          <strong>Para transferir desde afuera de Argentina, escribime.</strong> Coordinamos juntos la
+          forma que te resulte más simple según tu país, y te paso los datos por ahí mismo.
+        </p>
+        {linkCoordinar && (
+          <a href={linkCoordinar} target="_blank" rel="noopener noreferrer" className={`${BOTON_DORADO} mt-3`}>
+            Escribirle a Nicolás
+          </a>
+        )}
+      </div>
+
+      {/* Bloque bancario internacional — comentado, no borrado (Lead Bank
+          todavía no confirma el SWIFT/BIC). Al recuperarlo: reimportar
+          TRANSFERENCIA_INTERNACIONAL desde "@/lib/proyecto-inposible-pagos"
+          y sumar la línea "SWIFT/BIC: {TRANSFERENCIA_INTERNACIONAL.swift}".
+
       <p className="mt-2 text-sm opacity-70">
         Titular: {TRANSFERENCIA_INTERNACIONAL.titular}
         <br />
         Banco: {TRANSFERENCIA_INTERNACIONAL.banco}
         <br />
         Tipo de cuenta: {TRANSFERENCIA_INTERNACIONAL.tipoCuenta}
-        {/* SWIFT/BIC pendiente de confirmar con Lead Bank — sin ese dato el
-            número de ruta (uso interno de EE.UU.) no le sirve a un banco
-            fuera de EE.UU. No se inventa un valor: la línea entra sola
-            apenas TRANSFERENCIA_INTERNACIONAL.swift deje de ser null. */}
-        {TRANSFERENCIA_INTERNACIONAL.swift && (
-          <>
-            <br />
-            SWIFT/BIC: {TRANSFERENCIA_INTERNACIONAL.swift}
-          </>
-        )}
         <br />
         Ruta: {TRANSFERENCIA_INTERNACIONAL.ruta}
         <br />
         Dirección: {TRANSFERENCIA_INTERNACIONAL.direccion}
       </p>
       <LinkComprobante />
+      */}
     </div>
   )
 }
