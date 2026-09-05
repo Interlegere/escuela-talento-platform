@@ -1,4 +1,22 @@
 import type { CSSProperties } from "react"
+import { FUENTE_CUERPO_VAR, FUENTE_TITULO_VAR } from "./fonts"
+
+// La paleta de toda la landing, compartida acá para que /gracias (la
+// pantalla posterior al envío) use exactamente el mismo sistema en vez de
+// quedar en el diseño anterior — es el peor lugar posible para una
+// inconsistencia, es la pantalla donde la persona ya decidió pagar. El
+// dorado va siempre abajo (superficie), el texto va arriba en tinta.
+export const PALETA_PROYECTO_INPOSIBLE = {
+  "--tinta": "#241F1C",
+  "--dorado": "#F9C33E",
+  "--dorado-hover": "#E8B930",
+  "--crema": "#FFFCF7",
+  "--nube": "#FFFFFF",
+  "--arena": "#FBEFDC",
+  "--verde-brote": "#4E7C59",
+  "--font-titulo": FUENTE_TITULO_VAR,
+  "--font-cuerpo": FUENTE_CUERPO_VAR,
+} as CSSProperties
 
 // Único lugar donde viven los valores de tipografía/espaciado de la
 // página — ninguna sección escribe un tamaño o un ancho a mano.

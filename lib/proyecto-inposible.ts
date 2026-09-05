@@ -90,3 +90,15 @@ export function formatearMontoArs(monto: number) {
 export function formatearMontoInternacional(monto: number, moneda: MonedaInternacional) {
   return `${moneda} ${monto.toLocaleString("es-AR")}`
 }
+
+// Número de WhatsApp de Nicolás, sin el "+" (formato que espera wa.me).
+// Se usa en dos lugares: el "escribime por WhatsApp" debajo del CTA
+// principal de la landing, y el botón de "enviar comprobante" en
+// /proyecto-inposible/gracias. Mientras sea null, ninguno de los dos se
+// renderiza — no rompe el build ni deja un link roto.
+export const WHATSAPP_CONTACTO: string | null = null // ej. "5493511234567"
+
+export function crearLinkWhatsapp(mensaje: string) {
+  if (!WHATSAPP_CONTACTO) return null
+  return `https://wa.me/${WHATSAPP_CONTACTO}?text=${encodeURIComponent(mensaje)}`
+}

@@ -283,6 +283,9 @@ export default function FormularioPreinscripcion() {
       >
         {estado === "enviando" ? "Enviando..." : "¡Quiero mi lugar!"}
       </button>
+      <p className="text-center text-xs text-[var(--tinta)]/70">
+        Usamos tus datos solo para contactarte por Proyecto In+Posible. No los compartimos con nadie.
+      </p>
     </form>
   )
 }

@@ -2,7 +2,6 @@ import type { Metadata } from "next"
 import { existsSync } from "node:fs"
 import path from "node:path"
 import Image from "next/image"
-import Link from "next/link"
 import FormularioPreinscripcion from "@/components/proyecto-inposible/FormularioPreinscripcion"
 import CarruselProyectos from "@/components/proyecto-inposible/CarruselProyectos"
 import SeccionAnimada from "@/components/proyecto-inposible/SeccionAnimada"
@@ -14,6 +13,7 @@ import BandaNumeros from "@/components/proyecto-inposible/BandaNumeros"
 import BarraFija from "@/components/proyecto-inposible/BarraFija"
 import Acordeon from "@/components/proyecto-inposible/Acordeon"
 import Testimonios from "@/components/proyecto-inposible/Testimonios"
+import PieDePagina from "@/components/proyecto-inposible/PieDePagina"
 import {
   IconoCalendario,
   IconoCelular,
@@ -24,10 +24,10 @@ import {
   IconoChispa,
   IconoSemilla,
 } from "@/components/proyecto-inposible/Iconos"
-import { formatearMontoArs, PRECIOS_ARS, TALLERES } from "@/lib/proyecto-inposible"
+import { crearLinkWhatsapp, formatearMontoArs, PRECIOS_ARS, TALLERES } from "@/lib/proyecto-inposible"
 import { ASSETS } from "@/lib/proyecto-inposible-assets"
-import { FUENTES_CLASSNAME, FUENTE_CUERPO_VAR, FUENTE_TITULO_VAR } from "./fonts"
-import { TOKEN_MARCADOR_DORADO, TOKEN_TEXTO, TOKEN_TEXTO_CHICO } from "./tokens"
+import { FUENTES_CLASSNAME } from "./fonts"
+import { PALETA_PROYECTO_INPOSIBLE, TOKEN_MARCADOR_DORADO, TOKEN_TEXTO, TOKEN_TEXTO_CHICO } from "./tokens"
 
 const TITULO = "Proyecto In+Posible — ENTHEOS"
 const DESCRIPCION = "Plasmá en tres meses eso que venís postergando toda tu vida."
@@ -48,25 +48,10 @@ export const metadata: Metadata = {
   },
 }
 
-// Paleta nueva — el naranja #F2662A deja de ser el color de identidad.
-// Pasa a serlo el dorado del logo, #F9C33E. Regla no negociable de toda la
-// página: el dorado va abajo (superficie: fondos, bordes, barras, halos),
-// el texto va arriba en tinta — el dorado nunca es la letra sobre fondo
-// claro (medido: dorado sobre crema/blanco da ~1,5-1,6:1 de contraste,
-// ilegible; tinta sobre dorado da 10,02:1). --naranja, --coral y --sol
-// quedan completamente retirados, igual que #4A3227/#C49A6C/#E4783C/
-// #C9512F/#F2E6CE de intentos anteriores.
-const PALETA = {
-  "--tinta": "#241F1C",
-  "--dorado": "#F9C33E",
-  "--dorado-hover": "#E8B930",
-  "--crema": "#FFFCF7",
-  "--nube": "#FFFFFF",
-  "--arena": "#FBEFDC",
-  "--verde-brote": "#4E7C59",
-  "--font-titulo": FUENTE_TITULO_VAR,
-  "--font-cuerpo": FUENTE_CUERPO_VAR,
-} as React.CSSProperties
+// La paleta en sí vive en tokens.ts (PALETA_PROYECTO_INPOSIBLE) — se
+// comparte con /gracias, que antes quedaba en el sistema visual anterior
+// (text-gray-*, --line, --accent-strong) pese a ser la pantalla donde la
+// persona ya decidió pagar.
 
 // Escala tipográfica única para toda la página.
 const TITULO_FONT = "[font-family:var(--font-titulo)]"
@@ -283,8 +268,12 @@ const PREGUNTAS_FRECUENTES = [
 const LOGO_EXISTE = existsSync(path.join(process.cwd(), "public", "logo-entheos.png"))
 
 export default function ProyectoInPosiblePage() {
+  const linkWhatsappDuda = crearLinkWhatsapp(
+    "Hola Nicolás, vi la página de Proyecto In+Posible y quería preguntarte algo antes de anotarme."
+  )
+
   return (
-    <div className={`${FUENTES_CLASSNAME} [font-family:var(--font-cuerpo)]`} style={PALETA}>
+    <div className={`${FUENTES_CLASSNAME} [font-family:var(--font-cuerpo)]`} style={PALETA_PROYECTO_INPOSIBLE}>
       {/* Sin JS, la animación de entrada de SeccionAnimada nunca corre —
           esto fuerza que el contenido se vea igual, sin depender de que
           el IntersectionObserver o el timeout de respaldo lleguen a
@@ -349,6 +338,20 @@ export default function ProyectoInPosiblePage() {
         boton={
           <div className="mt-9">
             <BotonCTA contexto="oscuro" />
+            {/* La única "segunda puerta" de toda la página — a propósito
+                solo acá, no en los otros 8 botones: es el primer lugar
+                donde alguien que todavía duda puede irse en vez de
+                rebotar. tinta/70 se vuelve crema/70 en este contexto: el
+                hero tiene fondo oscuro, tinta sería ilegible ahí. */}
+            {linkWhatsappDuda && (
+              <p className="mt-4 text-sm text-[var(--crema)]/70">
+                ¿Querés preguntarme algo antes de decidir?{" "}
+                <a href={linkWhatsappDuda} target="_blank" rel="noopener noreferrer" className="font-semibold underline hover:opacity-80">
+                  Escribime por WhatsApp.
+                </a>{" "}
+                Te contesto yo.
+              </p>
+            )}
           </div>
         }
       />
@@ -808,11 +811,11 @@ export default function ProyectoInPosiblePage() {
               <p className="mt-2 text-[40px] font-extrabold leading-none sm:text-[44px]">
                 {formatearMontoArs(PRECIOS_ARS.mensual.transferencia)}
               </p>
-              <p className="mt-1 text-xs opacity-60">Los meses 2 y 3, antes de cada taller.</p>
               <p className="mt-2 text-sm opacity-70">por mes, por transferencia</p>
               <p className="mt-1 text-sm opacity-70">
                 {formatearMontoArs(PRECIOS_ARS.mensual.transferencia * 3)} en total
               </p>
+              <p className="mt-2 text-xs opacity-60">Los meses 2 y 3, antes de cada taller.</p>
               <p className="mt-4 text-sm opacity-60">
                 Por Mercado Pago: {formatearMontoArs(PRECIOS_ARS.mensual.mercadopago)} por mes
               </p>
@@ -832,9 +835,9 @@ export default function ProyectoInPosiblePage() {
           <h3 className={H3}>El valor diferencial</h3>
           <div className={`${TEXTO} mt-4 space-y-4 opacity-90`}>
             <p>
-              No es un programa de prueba. No te ofrecemos un curso más ni videos sin soporte. Tenemos
-              testimonios de proyectos que están funcionando hoy y siguen creciendo (no todos están
-              incluidos en el carrusel).
+              No es un programa de prueba. No te ofrecemos un curso más ni videos sin soporte. Hay
+              proyectos que arrancaron acá y hoy están funcionando y creciendo — abajo vas a leer a
+              algunas de las personas que los hicieron.
             </p>
             <p>
               Te invitamos a concretar los primeros resultados de lo que nunca te animaste hacer, de lo
@@ -893,13 +896,9 @@ export default function ProyectoInPosiblePage() {
           <BotonCTA />
         </div>
         <p className="mt-4 text-[19px] font-bold opacity-90">Inscripción abierta hasta el viernes 11 de septiembre</p>
-
-        <p className="mt-16 text-xs opacity-50">
-          <Link href="/" className="underline">
-            ENTHEOS
-          </Link>
-        </p>
       </SeccionAnimada>
+
+      <PieDePagina />
     </div>
   )
 }

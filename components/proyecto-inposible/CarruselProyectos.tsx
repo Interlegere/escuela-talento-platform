@@ -9,16 +9,22 @@ import { PROYECTOS, type Proyecto } from "@/lib/proyecto-inposible-proyectos"
 // copia sola ya no entra completa en pantalla y nunca se alcanza a ver el
 // mismo logo dos veces a la vez.
 function TarjetaProyecto({ proyecto }: { proyecto: Proyecto }) {
+  // Logo y nombre van juntos adentro del mismo <a> — antes el link solo
+  // envolvía el logo y el nombre quedaba como texto suelto al lado,
+  // pareciendo clickeable sin serlo.
   const contenido = (
-    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--tinta)]/10 bg-white shadow-sm sm:h-[92px] sm:w-[92px]">
-      <Image
-        src={`/proyectos/${proyecto.archivo}`}
-        alt={proyecto.nombre}
-        width={92}
-        height={92}
-        className="h-full w-full object-cover"
-      />
-    </div>
+    <>
+      <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--tinta)]/10 bg-white shadow-sm sm:h-[92px] sm:w-[92px]">
+        <Image
+          src={`/proyectos/${proyecto.archivo}`}
+          alt={proyecto.nombre}
+          width={92}
+          height={92}
+          className="h-full w-full object-cover"
+        />
+      </div>
+      <span className="text-center text-xs font-medium text-[var(--tinta)]/70">{proyecto.nombre}</span>
+    </>
   )
 
   return (
@@ -29,13 +35,13 @@ function TarjetaProyecto({ proyecto }: { proyecto: Proyecto }) {
           target="_blank"
           rel="noopener noreferrer"
           aria-label={`${proyecto.nombre} en Instagram`}
+          className="flex flex-col items-center gap-2"
         >
           {contenido}
         </a>
       ) : (
         contenido
       )}
-      <span className="text-center text-xs font-medium text-[var(--tinta)]/70">{proyecto.nombre}</span>
     </div>
   )
 }

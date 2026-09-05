@@ -21,6 +21,11 @@ export const TRANSFERENCIA_INTERNACIONAL = {
   banco: "Lead Bank",
   tipoCuenta: "checking",
   cuenta: "211420210325",
+  // Pendiente: Lead Bank todavía no confirmó el SWIFT/BIC — sin ese dato,
+  // alguien girando desde fuera de EE.UU. no tiene forma real de usar el
+  // número de ruta (es de uso interno de EE.UU., su banco le va a pedir
+  // el SWIFT). No inventar un valor: agregar `swift` acá apenas se tenga.
+  swift: null as string | null,
   ruta: "101019644",
   direccion: "08, 04, Falda del Carmen, Córdoba X5189, Argentina",
 }

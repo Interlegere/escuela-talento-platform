@@ -1,3 +1,5 @@
+import { obtenerPartesArgentina } from "@/lib/fechas"
+
 type BienvenidaParams = {
   nombre: string
   email: string
@@ -351,7 +353,11 @@ function crearContenidoPreinscripcionParticipante(params: PreinscripcionParticip
 }
 
 function crearContenidoPreinscripcionAdmin(params: PreinscripcionAdminParams) {
+  const p = obtenerPartesArgentina()
+  const horaTexto = `${String(p.day).padStart(2, "0")}/${String(p.month).padStart(2, "0")}/${p.year} ${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")} hs`
+
   const filas: Array<[string, string]> = [
+    ["Recibido", horaTexto],
     ["Nombre", `${params.nombre} ${params.apellido}`],
     ["Email", params.email],
     ["WhatsApp", params.whatsapp],
