@@ -345,11 +345,11 @@ export default function ProyectoInPosiblePage() {
                 hero tiene fondo oscuro, tinta sería ilegible ahí. */}
             {linkWhatsappDuda && (
               <p className="mt-4 text-sm text-[var(--crema)]/70">
-                ¿Querés preguntarme algo antes de decidir?{" "}
+                ¿Querés preguntarnos algo antes de decidir? Consultanos{" "}
                 <a href={linkWhatsappDuda} target="_blank" rel="noopener noreferrer" className="font-semibold underline hover:opacity-80">
-                  Escribime por WhatsApp.
-                </a>{" "}
-                Te contesto yo.
+                  por WhatsApp
+                </a>
+                !
               </p>
             )}
           </div>
@@ -474,7 +474,11 @@ export default function ProyectoInPosiblePage() {
           <GrupoFilasAnimadas conLinea>
             <FilaComoFunciona id="cf-talleres" icono={<IconoCalendario className="h-5 w-5" />} rotulo="TALLERES" titulo="Un taller creativo por mes">
               <p>Tres encuentros en vivo, los lunes a las 19 hs:</p>
-              <p className="font-semibold opacity-100">{TALLERES.map((t) => t.etiqueta).join(" · ")}</p>
+              <div className="font-semibold opacity-100">
+                {TALLERES.map((t) => (
+                  <p key={t.fecha}>{t.etiqueta}</p>
+                ))}
+              </div>
               <p>Cada taller creativo de los lunes proporciona 2 hs. de expansión.</p>
               <p>
                 En cada uno trabajamos un eje, con claves concretas y casos reales. Te llevás lo necesario
@@ -583,8 +587,8 @@ export default function ProyectoInPosiblePage() {
             </p>
             <p>
               La condición que no negociamos: ser los creadores de punta a punta. En un mundo perdido por
-              el caos de las dependencias políticas, económicas y científicas... encontramos la solución:
-              el aporte particular y subjetivo que cada quien le hace al mundo.
+              el caos de las dependencias políticas, económicas, incluso de la tecnología... encontramos la
+              solución: el aporte particular y subjetivo que cada quien le hace al mundo.
             </p>
             <p>
               Por eso, vas a aprender a usar la IA como herramienta, aun si nunca la usaste, y poniéndola
@@ -761,8 +765,8 @@ export default function ProyectoInPosiblePage() {
             <tbody>
               {[
                 ["Entusiasmento — tu espacio propio, los tres meses", "$480.000"],
-                ["Tres talleres creativos en vivo — 6 horas, con grabación por 7 días", "$150.000"],
-                ["Una sesión 1 a 1 de una hora, con Nicolás", "$55.000"],
+                ["Tres talleres creativos en vivo — 6 horas, con posibilidad de grabación", "$150.000"],
+                ["Sesión 1 a 1 de una hora, con Nicolás", "$55.000"],
                 ["Soporte por WhatsApp, de 9 a 18, doce semanas", "incluido"],
                 ["Red colaborativa de talentos", "incluido"],
               ].map(([nombre, precio]) => (
@@ -836,8 +840,8 @@ export default function ProyectoInPosiblePage() {
           <div className={`${TEXTO} mt-4 space-y-4 opacity-90`}>
             <p>
               No es un programa de prueba. No te ofrecemos un curso más ni videos sin soporte. Hay
-              proyectos que arrancaron acá y hoy están funcionando y creciendo — abajo vas a leer a
-              algunas de las personas que los hicieron.
+              proyectos que arrancaron acá y hoy están funcionando y creciendo — y algunas de esas
+              personas ya te lo contaron con sus palabras.
             </p>
             <p>
               Te invitamos a concretar los primeros resultados de lo que nunca te animaste hacer, de lo
