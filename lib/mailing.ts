@@ -271,9 +271,9 @@ function crearContenidoPreinscripcionParticipante(params: PreinscripcionParticip
 
   const bloquePago = params.pago.esInternacional
     ? `
-      <div style="margin: 0 0 16px; padding: 16px; border: 1px solid #eadfc9; border-radius: 16px; background: #fffdf8;">
-        <p style="margin: 0 0 6px; font-weight: 700; color: #18202a;">Transferencia internacional — ${escapeHtml(params.pago.montoTexto)}</p>
-        <p style="margin: 0; font-size: 14px; color: #4b5563; line-height: 1.6;">
+      <div style="margin: 0 0 16px; padding: 16px; border: 1px solid #eadfc9; border-radius: 16px; background: #FFFCF7;">
+        <p style="margin: 0 0 6px; font-weight: 700; color: #241F1C;">Transferencia internacional — ${escapeHtml(params.pago.montoTexto)}</p>
+        <p style="margin: 0; font-size: 14px; color: #5C5651; line-height: 1.6;">
           Titular: ${escapeHtml(params.pago.titular)}<br />
           Banco: ${escapeHtml(params.pago.banco)}<br />
           Tipo de cuenta: ${escapeHtml(params.pago.tipoCuenta)}<br />
@@ -285,18 +285,18 @@ function crearContenidoPreinscripcionParticipante(params: PreinscripcionParticip
     `
     : `
       <div style="display: flex; gap: 12px; flex-wrap: wrap; margin: 0 0 16px;">
-        <div style="flex: 1; min-width: 220px; padding: 16px; border: 1px solid #eadfc9; border-radius: 16px; background: #fffdf8;">
-          <p style="margin: 0 0 6px; font-weight: 700; color: #18202a;">Por transferencia — ${escapeHtml(params.pago.transferencia.montoTexto)}</p>
-          <p style="margin: 0; font-size: 14px; color: #4b5563; line-height: 1.6;">
+        <div style="flex: 1; min-width: 220px; padding: 16px; border: 1px solid #eadfc9; border-radius: 16px; background: #FFFCF7;">
+          <p style="margin: 0 0 6px; font-weight: 700; color: #241F1C;">Por transferencia — ${escapeHtml(params.pago.transferencia.montoTexto)}</p>
+          <p style="margin: 0; font-size: 14px; color: #5C5651; line-height: 1.6;">
             Alias: ${escapeHtml(params.pago.transferencia.alias)}<br />
             CVU: ${escapeHtml(params.pago.transferencia.cvu)}<br />
             Titular: ${escapeHtml(params.pago.transferencia.titular)}
           </p>
         </div>
-        <div style="flex: 1; min-width: 220px; padding: 16px; border: 1px solid #eadfc9; border-radius: 16px; background: #fffdf8;">
-          <p style="margin: 0 0 6px; font-weight: 700; color: #18202a;">Por Mercado Pago — ${escapeHtml(params.pago.mercadopago.montoTexto)}</p>
-          <p style="margin: 0 0 10px; font-size: 14px; color: #4b5563;">Pagás con tarjeta o el medio que prefieras.</p>
-          <a href="${params.pago.mercadopago.link}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #c98b1b; color: #ffffff; font-weight: 700; text-decoration: none; font-size: 14px;">
+        <div style="flex: 1; min-width: 220px; padding: 16px; border: 1px solid #eadfc9; border-radius: 16px; background: #FFFCF7;">
+          <p style="margin: 0 0 6px; font-weight: 700; color: #241F1C;">Por Mercado Pago — ${escapeHtml(params.pago.mercadopago.montoTexto)}</p>
+          <p style="margin: 0 0 10px; font-size: 14px; color: #5C5651;">Pagás con tarjeta o el medio que prefieras.</p>
+          <a href="${params.pago.mercadopago.link}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #F9C33E; color: #241F1C; font-weight: 700; text-decoration: none; font-size: 14px;">
             Pagar con Mercado Pago
           </a>
         </div>
@@ -322,12 +322,12 @@ function crearContenidoPreinscripcionParticipante(params: PreinscripcionParticip
   ].join("\n")
 
   const html = `
-    <div style="margin: 0; padding: 32px 16px; background: #f6efe2; font-family: Arial, sans-serif; color: #1f2933;">
-      <div style="max-width: 640px; margin: 0 auto; background: #fffdf8; border: 1px solid #eadfc9; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(77, 54, 18, 0.08);">
-        <div style="padding: 32px 32px 20px; background: linear-gradient(135deg, rgba(250,244,229,1) 0%, rgba(255,250,240,1) 55%, rgba(248,237,210,1) 100%);">
-          <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: #8a6a2f; font-weight: 700;">ENTHEOS</p>
-          <h1 style="margin: 0 0 10px; font-size: 30px; line-height: 1.15; color: #18202a;">Tu lugar en Proyecto In+Posible</h1>
-          <p style="margin: 0; color: #6b7280; font-size: 16px; line-height: 1.5;">Plan elegido: ${escapeHtml(params.planPagoTexto)}</p>
+    <div style="margin: 0; padding: 32px 16px; background: #FBEFDC; font-family: Arial, sans-serif; color: #241F1C;">
+      <div style="max-width: 640px; margin: 0 auto; background: #FFFCF7; border: 1px solid #eadfc9; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(77, 54, 18, 0.08);">
+        <div style="padding: 32px 32px 20px; background: linear-gradient(135deg, #FFFCF7 0%, #FBEFDC 100%);">
+          <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: #9A7415; font-weight: 700;">ENTHEOS</p>
+          <h1 style="margin: 0 0 10px; font-size: 30px; line-height: 1.15; color: #241F1C;">Tu lugar en Proyecto In+Posible</h1>
+          <p style="margin: 0; color: #5C5651; font-size: 16px; line-height: 1.5;">Plan elegido: ${escapeHtml(params.planPagoTexto)}</p>
         </div>
 
         <div style="padding: 28px 32px 32px; line-height: 1.7;">
@@ -338,8 +338,8 @@ function crearContenidoPreinscripcionParticipante(params: PreinscripcionParticip
 
           ${bloquePago}
 
-          <p style="margin: 0 0 8px; font-weight: 700; color: #18202a;">Los tres talleres en vivo, 19 hs</p>
-          <p style="margin: 0 0 20px; font-size: 14px; color: #4b5563;">
+          <p style="margin: 0 0 8px; font-weight: 700; color: #241F1C;">Los tres talleres en vivo, 19 hs</p>
+          <p style="margin: 0 0 20px; font-size: 14px; color: #5C5651;">
             ${talleres.map((t) => escapeHtml(t)).join("<br />")}
           </p>
 
@@ -348,8 +348,8 @@ function crearContenidoPreinscripcionParticipante(params: PreinscripcionParticip
           </p>
           ${
             linkComprobante
-              ? `<p style="margin: 0; padding: 14px 16px; border-radius: 16px; background: #fef6e4; font-size: 14px; color: #4b5563;">
-                  <strong style="color: #18202a;">Cuando transfieras, mandame el comprobante por WhatsApp</strong> y te confirmo el lugar en el día.<br />
+              ? `<p style="margin: 0; padding: 14px 16px; border-radius: 16px; background: #fef6e4; font-size: 14px; color: #5C5651;">
+                  <strong style="color: #241F1C;">Cuando transfieras, mandame el comprobante por WhatsApp</strong> y te confirmo el lugar en el día.<br />
                   <a href="${linkComprobante}" style="color: #9a6218; font-weight: 700; text-decoration: none;">wa.me/${WHATSAPP_CONTACTO}</a>
                 </p>`
               : ""
