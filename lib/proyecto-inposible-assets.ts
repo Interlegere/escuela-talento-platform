@@ -28,6 +28,7 @@ export const ASSETS = {
     },
     {
       nombre: "Florencia",
+      foto: "/testimonios/florencia.jpg",
       texto:
         "Agradezco mucho Nico todos tus aportes y brindarme las herramientas para animarme a ir más allá de lo que mi límite imaginario me ponía.",
     },

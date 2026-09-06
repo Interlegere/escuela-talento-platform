@@ -738,7 +738,7 @@ export default function ProyectoInPosiblePage() {
       {/* 13 · Testimonios — se renderiza solo si hay contenido cargado */}
       {ASSETS.testimonios.length > 0 && (
         <SeccionAnimada fondo="arena" ancho="ancho">
-          <h2 className={H2}>Lo dicen ellos</h2>
+          <h2 className={H2}>Con sus palabras</h2>
           <div className="mt-8">
             <Testimonios testimonios={ASSETS.testimonios} />
           </div>
