@@ -42,7 +42,7 @@ export default function BarraFija() {
         <div className="flex w-full max-w-[860px] items-center justify-between px-6">
           <p className="truncate text-sm font-semibold text-[var(--tinta)]">
             Proyecto In+Posible <span className="opacity-40">·</span> desde {precioMensual}/mes{" "}
-            <span className="opacity-40">·</span> Cierra el viernes 11
+            <span className="opacity-40">·</span> Inscripción abierta hasta el viernes 11
           </p>
           <a
             href="#inscripcion"
@@ -62,7 +62,7 @@ export default function BarraFija() {
         }`}
         style={{ paddingBottom: "calc(10px + env(safe-area-inset-bottom))" }}
       >
-        <p className="shrink-0 text-xs font-semibold text-[var(--tinta)]">Cierra el viernes 11</p>
+        <p className="shrink-0 text-xs font-semibold text-[var(--tinta)]">Inscripción hasta el 11</p>
         <a
           href="#inscripcion"
           tabIndex={mostrar ? 0 : -1}
