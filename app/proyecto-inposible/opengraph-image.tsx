@@ -149,7 +149,7 @@ export default async function Image() {
               color: TINTA,
             }}
           >
-            EMPIEZA EL 14 · CIERRA EL 11 DE SEPTIEMBRE
+            INICIO 14/09 · INSCRIPCIONES HASTA EL 11/09
           </span>
         </div>
       </div>
