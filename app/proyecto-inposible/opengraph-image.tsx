@@ -1,12 +1,13 @@
 import { ImageResponse } from "next/og"
 import { readFileSync } from "node:fs"
 import path from "node:path"
+import sharp from "sharp"
 
 export const runtime = "nodejs"
 
 export const alt = "Proyecto In+Posible — ENTHEOS"
 export const size = { width: 1200, height: 630 }
-export const contentType = "image/png"
+export const contentType = "image/jpeg"
 
 const TINTA = "#241F1C"
 const DORADO = "#F9C33E"
@@ -53,7 +54,13 @@ export default async function Image() {
   const FOTO_ANCHO = 460
   const FOTO_ALTO = 534
 
-  return new ImageResponse(
+  // ImageResponse (Satori + resvg) solo sabe producir PNG — con una foto de
+  // por medio, un PNG sin pérdida de este tamaño pesa ~500KB sin importar
+  // cuánto se comprima la imagen de origen (probado). Se genera igual con
+  // ImageResponse (es lo único que arma el layout con texto real) y ese PNG
+  // se re-codifica a JPEG con sharp antes de responder — mismo diseño,
+  // ~55KB en vez de ~500KB.
+  const png = new ImageResponse(
     (
       <div style={{ width: 1200, height: 630, display: "flex", position: "relative", background: TINTA }}>
         {/* Resplandor dorado suave, arriba a la izquierda */}
@@ -156,4 +163,14 @@ export default async function Image() {
       ],
     }
   )
+
+  const pngBuffer = Buffer.from(await png.arrayBuffer())
+  const jpegBuffer = await sharp(pngBuffer).jpeg({ quality: 82 }).toBuffer()
+
+  return new Response(new Uint8Array(jpegBuffer), {
+    headers: {
+      "content-type": "image/jpeg",
+      "cache-control": "public, max-age=0, must-revalidate",
+    },
+  })
 }
