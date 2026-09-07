@@ -13,7 +13,7 @@ export default function Testimonios({ testimonios }: { testimonios: Testimonio[]
   if (testimonios.length === 0) return null
 
   return (
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-5 sm:grid-cols-2 sm:gap-6">
       {testimonios.map((t) => (
         <div
           key={t.nombre}
@@ -25,19 +25,33 @@ export default function Testimonios({ testimonios }: { testimonios: Testimonio[]
             <p className="text-[17px] leading-[1.6] opacity-85">&ldquo;{t.texto}&rdquo;</p>
           )}
           <div className="mt-4 flex items-center gap-3">
-            {t.foto && (
-              <div className="h-[56px] w-[56px] shrink-0 overflow-hidden rounded-full bg-white">
+            {/* El círculo de foto siempre reserva su lugar (56×56), tenga o
+                no imagen adentro — así una tarjeta sin foto (ej. Juli, sin
+                foto todavía) no queda con el nombre/logo corridos respecto
+                de las que sí la tienen. */}
+            <div className={`h-[56px] w-[56px] shrink-0 overflow-hidden rounded-full ${t.foto ? "bg-white" : ""}`}>
+              {t.foto && (
                 <Image src={t.foto} alt={t.nombre} width={112} height={112} className="h-full w-full object-cover" />
-              </div>
-            )}
+              )}
+            </div>
             <div>
               <p className="font-bold">{t.nombre}</p>
               {t.proyecto && (
                 <div className="mt-0.5 flex items-center gap-1.5">
-                  {t.logoProyecto && (
-                    <div className="h-4 w-4 shrink-0 overflow-hidden rounded-full">
-                      <Image src={t.logoProyecto} alt={t.proyecto} width={32} height={32} className="h-full w-full object-cover" />
+                  {t.logosProyecto ? (
+                    <div className="flex shrink-0 items-center gap-1">
+                      {t.logosProyecto.map((logo) => (
+                        <div key={logo.archivo} className="h-4 w-4 shrink-0 overflow-hidden rounded-full">
+                          <Image src={logo.archivo} alt={logo.alt} width={32} height={32} className="h-full w-full object-cover" />
+                        </div>
+                      ))}
                     </div>
+                  ) : (
+                    t.logoProyecto && (
+                      <div className="h-4 w-4 shrink-0 overflow-hidden rounded-full">
+                        <Image src={t.logoProyecto} alt={t.proyecto} width={32} height={32} className="h-full w-full object-cover" />
+                      </div>
+                    )
                   )}
                   {t.instagram ? (
                     <a
