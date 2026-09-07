@@ -22,7 +22,8 @@ export const ASSETS = {
   heroVideo: null as string | null, // 'proyecto-inposible/hero.mp4' cuando exista
   testimonios: [
     {
-      nombre: "Juli",
+      nombre: "Julieta",
+      foto: "/testimonios/juli.jpg",
       proyecto: "India Eventos + Arcadia Park",
       logosProyecto: [
         { archivo: "/proyectos/india.jpg", alt: "India Eventos" },
