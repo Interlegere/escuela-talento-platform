@@ -84,6 +84,7 @@ type ProyectoEntusiasmo = {
   agente_recordatorio_texto: string | null
   agente_recordatorio_generado_at: string | null
   suma_puntos_grupales: boolean
+  participa_reuniones_grupales: boolean
 }
 
 type CoordenadasForm = {
@@ -460,6 +461,8 @@ export default function CasaTalentosPage() {
   const [desglosePuntosAbierto, setDesglosePuntosAbierto] = useState(false)
   const [guardandoSumaPuntos, setGuardandoSumaPuntos] = useState(false)
   const [mensajeSumaPuntos, setMensajeSumaPuntos] = useState("")
+  const [guardandoParticipaReuniones, setGuardandoParticipaReuniones] = useState(false)
+  const [mensajeParticipaReuniones, setMensajeParticipaReuniones] = useState("")
   const [aportesRecibidos, setAportesRecibidos] = useState<AporteItem[]>([])
   const [hayAportesNuevos, setHayAportesNuevos] = useState(false)
   const [novedadesPorParticipante, setNovedadesPorParticipante] = useState<
@@ -775,6 +778,41 @@ export default function CasaTalentosPage() {
       setMensajeSumaPuntos("Error guardando la configuración.")
     } finally {
       setGuardandoSumaPuntos(false)
+    }
+  }
+
+  // Admin-only: marca/desmarca si la persona que se está viendo (solapa)
+  // participa de la reunión semanal grupal — mismo caso que arriba (gente
+  // de Mentorías que comparte el espacio pero no la reunión). Controla si
+  // le aparece el bloque de "Reunión semanal" en su propio espacio.
+  const cambiarParticipaReunionesGrupales = async (valor: boolean) => {
+    if (!viendoEmail) return
+
+    try {
+      setGuardandoParticipaReuniones(true)
+      setMensajeParticipaReuniones("")
+
+      const res = await fetch("/api/entusiasmo/proyecto", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          participanteEmail: viendoEmail,
+          participaReunionesGrupales: valor,
+        }),
+      })
+
+      const data = await leerRespuestaJson<{ error?: string }>(res)
+
+      if (!res.ok) {
+        setMensajeParticipaReuniones(data.error || "No se pudo guardar.")
+        return
+      }
+
+      await cargarProyecto()
+    } catch {
+      setMensajeParticipaReuniones("Error guardando la configuración.")
+    } finally {
+      setGuardandoParticipaReuniones(false)
     }
   }
 
@@ -3063,7 +3101,7 @@ export default function CasaTalentosPage() {
         )}
 
         <div className="flex flex-wrap items-center justify-end gap-3">
-          {proximoEncuentro && (
+          {(esAdmin || proyecto?.participa_reuniones_grupales !== false) && proximoEncuentro && (
             <div className="inline-flex items-center gap-3 rounded-full border border-[var(--accent)] bg-white/90 px-4 py-2 shadow-sm">
               <span className="text-xs text-gray-600">
                 {formatearFecha(proximoEncuentro.fecha)} ·{" "}
@@ -3128,6 +3166,23 @@ export default function CasaTalentosPage() {
             </button>
           )}
         </div>
+
+        {esAdmin && viendoEmail && (
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <label className="flex items-center gap-2 text-xs text-gray-600">
+              <input
+                type="checkbox"
+                checked={proyecto?.participa_reuniones_grupales !== false}
+                disabled={guardandoParticipaReuniones}
+                onChange={(e) => void cambiarParticipaReunionesGrupales(e.target.checked)}
+              />
+              {nombrePitchMostrado} participa de la reunión grupal
+            </label>
+            {mensajeParticipaReuniones && (
+              <p className="text-xs text-red-600">{mensajeParticipaReuniones}</p>
+            )}
+          </div>
+        )}
 
         {valoracionesAbiertas && (
           <div className="space-y-6 rounded-[1.75rem] border-2 border-[var(--accent)] bg-[rgba(255,247,225,0.5)] p-4 shadow-[0_0_24px_rgba(207,145,48,0.2)]">

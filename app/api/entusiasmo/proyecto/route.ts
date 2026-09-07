@@ -31,6 +31,7 @@ type ProyectoRow = {
   agente_recordatorio_texto: string | null
   agente_recordatorio_generado_at: string | null
   suma_puntos_grupales: boolean
+  participa_reuniones_grupales: boolean
   created_at: string
   updated_at: string
 }
@@ -281,13 +282,18 @@ export async function PUT(req: Request) {
   }
 }
 
-// Solo el flag "suma puntos para la reunión grupal" — separado del PUT de
-// Coordenadas a propósito (ese manda el formulario completo del
-// participante; esto es una configuración admin-only sobre otra persona,
-// no debería poder pisarse ni pisar nada al guardarse).
+// Solo los flags de configuración admin-only sobre otra persona ("suma
+// puntos para la reunión grupal" y "participa de las reuniones grupales")
+// — separado del PUT de Coordenadas a propósito (ese manda el formulario
+// completo del participante, esto no debería poder pisarse ni pisar nada
+// al guardarse). Los dos flags nacieron para el mismo caso: personas que
+// vienen de Mentorías, comparten el espacio de Entusiasmento pero no
+// necesariamente participan de la reunión grupal ni deberían sumar hacia
+// esa meta — pueden cambiarse juntos o por separado.
 type PatchBody = {
   participanteEmail?: string
   sumaPuntosGrupales?: boolean
+  participaReunionesGrupales?: boolean
 }
 
 export async function PATCH(req: Request) {
@@ -311,22 +317,38 @@ export async function PATCH(req: Request) {
     const body: PatchBody = await req.json()
     const email = body.participanteEmail?.trim().toLowerCase()
 
-    if (!email || typeof body.sumaPuntosGrupales !== "boolean") {
+    const cambios: Record<string, boolean> = {}
+    if (typeof body.sumaPuntosGrupales === "boolean") {
+      cambios.suma_puntos_grupales = body.sumaPuntosGrupales
+    }
+    if (typeof body.participaReunionesGrupales === "boolean") {
+      cambios.participa_reuniones_grupales = body.participaReunionesGrupales
+    }
+
+    if (!email || Object.keys(cambios).length === 0) {
       return NextResponse.json(
-        { error: "Faltan datos (participanteEmail y sumaPuntosGrupales)." },
+        {
+          error:
+            "Faltan datos (participanteEmail y al menos uno de sumaPuntosGrupales/participaReunionesGrupales).",
+        },
         { status: 400 }
       )
     }
 
     const supabase = createAdminSupabaseClient()
 
+    // Se selecciona solo lo mínimo garantizado (nunca las columnas de los
+    // flags en sí) — ninguno de los dos call sites del frontend usa el
+    // `proyecto` devuelto acá (vuelven a pedirlo completo con GET después),
+    // así que este select no debe depender de que ambas columnas ya existan
+    // en la base al mismo tiempo.
     const { data, error } = await supabase
       .from("entusiasmo_proyectos")
       .upsert(
-        { participante_email: email, suma_puntos_grupales: body.sumaPuntosGrupales },
+        { participante_email: email, ...cambios },
         { onConflict: "participante_email" }
       )
-      .select("id, participante_email, suma_puntos_grupales")
+      .select("id, participante_email")
       .single()
 
     if (error) {
