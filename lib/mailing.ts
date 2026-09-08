@@ -1,5 +1,5 @@
 import { obtenerPartesArgentina } from "@/lib/fechas"
-import { crearLinkWhatsapp, WHATSAPP_CONTACTO } from "@/lib/proyecto-inposible"
+import { crearLinkWhatsapp, WHATSAPP_CONTACTO } from "@/lib/whatsapp"
 
 type BienvenidaParams = {
   nombre: string
@@ -143,6 +143,10 @@ function crearContenidoBienvenida(params: BienvenidaParams) {
     `Clave de acceso inicial: ${params.password}`,
     `Rol: ${role}`,
     "",
+    "Para arrancar: entrá a Entusiasmento y escribí tus coordenadas — es tu primer paso, no hace falta que estén perfectas.",
+    "",
+    `Instalá ENTHEOS en tu celular: ${url}/app`,
+    "",
     "Por seguridad, conservá estas credenciales y avisá si necesitás cambiarlas.",
     "",
     "Nos encontramos dentro de la plataforma.",
@@ -180,6 +184,14 @@ function crearContenidoBienvenida(params: BienvenidaParams) {
             <p style="margin: 0 0 10px;"><strong>Clave de acceso inicial:</strong> ${escapeHtml(params.password)}</p>
             <p style="margin: 0;"><strong>Rol:</strong> ${escapeHtml(role)}</p>
           </div>
+
+          <p style="margin: 0 0 16px;">
+            <strong>Para arrancar:</strong> entrá a Entusiasmento y escribí tus coordenadas — es tu primer paso, no hace falta que estén perfectas.
+          </p>
+
+          <p style="margin: 0 0 24px;">
+            <a href="${url}/app" style="color: #8a6a2f; font-weight: 700; text-decoration: none;">Instalá ENTHEOS en tu celular</a>
+          </p>
 
           <p style="margin: 0 0 14px;">
             Por seguridad, conservá estas credenciales y avisá si necesitás cambiarlas.

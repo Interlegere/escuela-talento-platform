@@ -26,6 +26,8 @@ import { tieneContenidoRecurso } from "@/lib/recursos"
 import InstalarApp from "@/components/InstalarApp"
 import MensajesAgente from "@/components/entusiasmo/MensajesAgente"
 import Buscador from "@/components/entusiasmo/Buscador"
+import PrimerosPasos from "@/components/entusiasmo/PrimerosPasos"
+import { crearLinkWhatsapp } from "@/lib/whatsapp"
 
 type Recurso = {
   id: number
@@ -207,6 +209,20 @@ type PrepararUploadProduccionResponse = {
   signedUrl?: string
   mimeType?: string
   maxBytes?: number
+}
+
+// Traduce el `motivo` técnico de resolveActivityAccess (lib/authz.ts) a una
+// frase que cualquiera entienda — el código interno (ej. "sin_inscripcion")
+// nunca se muestra en pantalla. Entusiasmento da acceso incondicional sin
+// pago, así que en la práctica el único motivo real y frecuente acá es
+// "sin_inscripcion"; el resto (sesión no identificada, error de red o del
+// servidor) comparte la misma frase genérica, igual de accionable.
+function traducirMotivoAcceso(motivo: string | null): string {
+  if (motivo === "sin_email") {
+    return "No pudimos identificar tu sesión. Volvé a iniciar sesión y, si el problema sigue, escribinos."
+  }
+
+  return "Todavía no tenés Entusiasmento habilitado. Si ya hiciste tu pago, escribinos y lo activamos en el momento."
 }
 
 const MODO_PRUEBA = isDevelopmentPreviewEnabled()
@@ -814,6 +830,17 @@ export default function CasaTalentosPage() {
     } finally {
       setGuardandoParticipaReuniones(false)
     }
+  }
+
+  // Primeros pasos: abre Coordenadas y hace scroll — mismo patrón que el
+  // botón de "Destello" (id fijo + scrollIntoView), sin depender de que el
+  // estado ya se haya re-renderizado, porque el contenedor con este id
+  // existe siempre, esté abierta la sección o no.
+  const abrirPrimerosPasos = () => {
+    setCoordenadasAbiertas(true)
+    document
+      .getElementById("coordenadas-seccion")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" })
   }
 
   useEffect(() => {
@@ -2980,6 +3007,10 @@ export default function CasaTalentosPage() {
       viendoEmail
     : nombre
 
+  const linkWhatsappAcceso = crearLinkWhatsapp(
+    "Hola Nicolás, quiero activar mi acceso a Entusiasmento."
+  )
+
   if (!mounted || !sesionLista) {
     return (
       <main className="workspace-page space-y-6">
@@ -3569,11 +3600,18 @@ export default function CasaTalentosPage() {
             <section className="workspace-panel space-y-3">
               <h2 className="workspace-title-sm">Acceso no habilitado</h2>
               <p className="workspace-inline-note text-[var(--foreground)]">
-                Para usar Entusiasmento necesitás tener tu acceso activo.
+                {traducirMotivoAcceso(motivo)}
               </p>
-              <p className="workspace-inline-note">
-                Estado detectado: {motivo || "sin acceso"}
-              </p>
+              {linkWhatsappAcceso && (
+                <a
+                  href={linkWhatsappAcceso}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="workspace-button-primary inline-flex"
+                >
+                  Escribir por WhatsApp
+                </a>
+              )}
             </section>
 
             <PagoMensualCard
@@ -3589,6 +3627,10 @@ export default function CasaTalentosPage() {
 
             {tieneAccesoEntusiasmento(storageEmail, esAdmin) ? (
               <div className="space-y-6">
+                {!viendoEmail && coordenadasSinDefinir === CAMPOS_COORDENADAS.length && (
+                  <PrimerosPasos onEmpezar={abrirPrimerosPasos} />
+                )}
+
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
@@ -3819,7 +3861,7 @@ export default function CasaTalentosPage() {
                       </div>
                     )}
 
-                    <div className="rounded-2xl border border-sky-200 bg-sky-50/60 p-4">
+                    <div id="coordenadas-seccion" className="rounded-2xl border border-sky-200 bg-sky-50/60 p-4">
                       <button
                         type="button"
                         onClick={() => setCoordenadasAbiertas((v) => !v)}
@@ -4391,6 +4433,13 @@ export default function CasaTalentosPage() {
                         La mesa común — lo que cada uno eligió mostrar.
                       </p>
                     </div>
+
+                    {!cargandoCofruto && !puestosCofruto.some((p) => p.esPropio) && (
+                      <p className="workspace-inline-note text-center">
+                        Esta es la mesa en común: acá se ve en qué anda cada uno. Cuando
+                        quieras mostrar algo tuyo, lo elegís desde Mi espacio.
+                      </p>
+                    )}
 
                     {cargandoCofruto && (
                       <p className="text-sm text-gray-600">Cargando la mesa común...</p>

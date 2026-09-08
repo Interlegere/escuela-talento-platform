@@ -452,8 +452,8 @@ export default function CampusPage() {
       <main className="workspace-page space-y-8">
         <WorkspaceHero
           eyebrow="Coordinación"
-          title="Panel operativo"
-          subtitle={`${bienvenida} ${nombre}. Acceso rápido a agenda, pagos y tareas de coordinación.`}
+          title={`¡${bienvenida} ${nombre}!`}
+          subtitle="Acceso rápido a agenda, pagos y tareas de coordinación."
         >
           <div className="flex flex-wrap gap-3">
             <span className="workspace-chip">Administración</span>
