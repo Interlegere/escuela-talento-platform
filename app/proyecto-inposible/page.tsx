@@ -13,6 +13,7 @@ import BandaNumeros from "@/components/proyecto-inposible/BandaNumeros"
 import BarraFija from "@/components/proyecto-inposible/BarraFija"
 import Acordeon from "@/components/proyecto-inposible/Acordeon"
 import Testimonios from "@/components/proyecto-inposible/Testimonios"
+import VideoInvitacion from "@/components/proyecto-inposible/VideoInvitacion"
 import PieDePagina from "@/components/proyecto-inposible/PieDePagina"
 import {
   IconoCalendario,
@@ -355,6 +356,16 @@ export default function ProyectoInPosiblePage() {
           </div>
         }
       />
+
+      {/* 2b · Video de invitación — 54 segundos, para quien no va a leer
+          las dieciséis pantallas que siguen. Quien sí va a leer, lo
+          saltea sin que le moleste. */}
+      <SeccionAnimada fondo="crema" ancho="normal" className="text-center">
+        <h3 className={H3}>En 54 segundos</h3>
+        <div className="mt-6">
+          <VideoInvitacion />
+        </div>
+      </SeccionAnimada>
 
       {/* 3 · Banda de números */}
       <SeccionAnimada fondo="arena">
