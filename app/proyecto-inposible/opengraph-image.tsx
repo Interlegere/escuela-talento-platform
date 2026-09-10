@@ -149,7 +149,7 @@ export default async function Image() {
               color: TINTA,
             }}
           >
-            INICIO 14/09 · INSCRIPCIONES HASTA EL 11/09
+            INICIO 14/09 · INSCRIPCIONES HASTA EL 20/09
           </span>
         </div>
       </div>

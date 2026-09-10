@@ -6,7 +6,7 @@
 import { obtenerFechaISOArgentina } from "@/lib/fechas"
 
 // Único lugar donde vive la fecha de cierre — no repetirla en otro lado.
-export const FECHA_CIERRE_INSCRIPCION = "2026-09-11"
+export const FECHA_CIERRE_INSCRIPCION = "2026-09-20"
 
 export const TALLERES = [
   { fecha: "2026-09-14", etiqueta: "Lunes 14 de septiembre" },
