@@ -51,6 +51,17 @@ export async function GET(req: Request) {
       cronSecret
     )
 
+    // Sentido inverso: si Nicolás reprograma un encuentro directo en Google
+    // Calendar (misma reunión, otra fecha/hora), la plataforma lo sigue acá
+    // — hasta ahora la sincronización solo iba plataforma → Google, nunca
+    // al revés. Se llama todos los días (único cron del plan Hobby); si
+    // hubo cambios, manda un mail resumen a Nicolás.
+    resultados.sincronizarDesdeGoogle = await llamarInterno(
+      origin,
+      "/api/agenda/admin/sincronizar-desde-google",
+      cronSecret
+    )
+
     // Limpieza de videos antiguos de CasaTalentos: solo los domingos
     // (antes corría con su propio cron semanal).
     if (diaSemana === 0) {
