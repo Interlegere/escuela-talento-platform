@@ -473,6 +473,12 @@ export default function CasaTalentosPage() {
     (campo) => !coordenadas[campo].trim()
   ).length
   const [proximoEncuentro, setProximoEncuentro] = useState<ProximoEncuentro | null>(null)
+  // Quien viene de Mentorías ya no tiene /mentorias como espacio propio (se
+  // lo redirige acá) — sin esto, perdía por completo la forma de ver y
+  // entrar con consentimiento a su próxima sesión 1 a 1. Se pide siempre,
+  // sin chequear de antemano si la persona tiene mentoría activa: si no
+  // tiene, la API simplemente no devuelve nada y el bloque no se muestra.
+  const [proximaMentoria, setProximaMentoria] = useState<ProximoEncuentro | null>(null)
   const [puntosGrupales, setPuntosGrupales] = useState<PuntosGrupales | null>(null)
   const [desglosePuntosAbierto, setDesglosePuntosAbierto] = useState(false)
   const [guardandoSumaPuntos, setGuardandoSumaPuntos] = useState(false)
@@ -714,6 +720,26 @@ export default function CasaTalentosPage() {
     }
 
     void cargarProximoEncuentro()
+  }, [mounted])
+
+  useEffect(() => {
+    if (!mounted) return
+
+    const cargarProximaMentoria = async () => {
+      try {
+        const res = await fetch("/api/agenda/por-actividad", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ actividadSlug: "mentorias" }),
+        })
+        const data = await leerRespuestaJson<{ items?: ProximoEncuentro[] }>(res)
+        setProximaMentoria((data.items || [])[0] || null)
+      } catch {
+        setProximaMentoria(null)
+      }
+    }
+
+    void cargarProximaMentoria()
   }, [mounted])
 
   const cargarProyecto = async () => {
@@ -3155,6 +3181,34 @@ export default function CasaTalentosPage() {
               ) : (
                 <span className="text-xs font-semibold text-[var(--accent-strong)]">
                   Reunión semanal
+                </span>
+              )}
+            </div>
+          )}
+
+          {proximaMentoria && (
+            <div className="inline-flex items-center gap-3 rounded-full border border-[var(--accent)] bg-white/90 px-4 py-2 shadow-sm">
+              <span className="text-xs text-gray-600">
+                {formatearFecha(proximaMentoria.fecha)} ·{" "}
+                <HoraEnZonaLocal
+                  fecha={proximaMentoria.fecha}
+                  hora={proximaMentoria.hora}
+                />
+              </span>
+              {proximaMentoria.meetLink && proximaMentoria.puedeIngresar ? (
+                <ConsentimientoMeetButton
+                  actividad="mentorias"
+                  href={proximaMentoria.meetLink}
+                  disponibilidadId={proximaMentoria.disponibilidadId}
+                  fechaEncuentro={proximaMentoria.fecha}
+                  horaEncuentro={proximaMentoria.hora}
+                  className="workspace-button-secondary !px-3 !py-1 text-xs"
+                >
+                  Mentoría
+                </ConsentimientoMeetButton>
+              ) : (
+                <span className="text-xs font-semibold text-[var(--accent-strong)]">
+                  Mentoría
                 </span>
               )}
             </div>
