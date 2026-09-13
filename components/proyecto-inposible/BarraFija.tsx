@@ -1,7 +1,13 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { formatearMontoArs, PRECIOS_ARS } from "@/lib/proyecto-inposible"
+import {
+  formatearMontoArs,
+  formatearProximoTallerCorto,
+  formatearProximoTallerLargo,
+  PRECIOS_ARS,
+  proximoTaller,
+} from "@/lib/proyecto-inposible"
 
 // Aparece cuando el hero sale de pantalla, se va cuando el formulario entra
 // — es el único momento en que estorba. Resuelve que hoy el precio esté al
@@ -29,6 +35,7 @@ export default function BarraFija() {
 
   const mostrar = heroPasado && !formEnVista
   const precioMensual = formatearMontoArs(PRECIOS_ARS.mensual.transferencia)
+  const taller = proximoTaller()
 
   return (
     <>
@@ -40,9 +47,18 @@ export default function BarraFija() {
         }`}
       >
         <div className="flex w-full max-w-[860px] items-center justify-between px-6">
-          <p className="truncate text-sm font-semibold text-[var(--tinta)]">
-            Proyecto In+Posible <span className="opacity-40">·</span> desde {precioMensual}/mes{" "}
-            <span className="opacity-40">·</span> Inscripción abierta hasta el domingo 20
+          <p
+            className="truncate text-sm font-semibold text-[var(--tinta)]"
+            suppressHydrationWarning
+          >
+            Proyecto In+Posible <span className="opacity-40">·</span> desde {precioMensual}/mes
+            {taller && (
+              <>
+                {" "}
+                <span className="opacity-40">·</span> Próximo taller en vivo:{" "}
+                {formatearProximoTallerLargo(taller)}
+              </>
+            )}
           </p>
           <a
             href="#inscripcion"
@@ -62,7 +78,14 @@ export default function BarraFija() {
         }`}
         style={{ paddingBottom: "calc(10px + env(safe-area-inset-bottom))" }}
       >
-        <p className="shrink-0 text-xs font-semibold text-[var(--tinta)]">Inscripción hasta el 20</p>
+        {taller && (
+          <p
+            className="shrink-0 text-xs font-semibold text-[var(--tinta)]"
+            suppressHydrationWarning
+          >
+            Próximo taller: {formatearProximoTallerCorto(taller)}
+          </p>
+        )}
         <a
           href="#inscripcion"
           tabIndex={mostrar ? 0 : -1}

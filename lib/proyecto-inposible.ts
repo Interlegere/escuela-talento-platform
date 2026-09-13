@@ -5,14 +5,41 @@
 // landing pública ni el formulario.
 import { obtenerFechaISOArgentina } from "@/lib/fechas"
 
-// Único lugar donde vive la fecha de cierre — no repetirla en otro lado.
-export const FECHA_CIERRE_INSCRIPCION = "2026-09-20"
+// Hasta cuándo se puede entrar a este ciclo.
+// Después del segundo taller, una persona nueva tendría un solo taller en vivo
+// y poco más de un mes de acompañamiento por el precio completo.
+// Ahí conviene cerrar este ciclo y abrir el siguiente con fechas nuevas.
+// Este número no se muestra en ningún lado de la página — es un freno, no
+// una fecha de venta. Si hay que mover el cierre, se toca solo esta línea.
+const INSCRIPCION_CIERRA = "2026-10-12"
 
 export const TALLERES = [
   { fecha: "2026-09-14", etiqueta: "Lunes 14 de septiembre" },
   { fecha: "2026-10-12", etiqueta: "Lunes 12 de octubre" },
   { fecha: "2026-11-09", etiqueta: "Lunes 9 de noviembre" },
 ] as const
+
+type Taller = (typeof TALLERES)[number]
+
+// El primer taller que todavía no pasó — el día del taller cuenta como
+// "todavía no pasó". Mismo criterio de comparación de strings ISO que ya
+// usa estaInscripcionAbierta(), para que las dos vean el mismo día. Si ya
+// pasaron los tres, no hay próximo taller que mostrar.
+export function proximoTaller(fechaISOArgentinaHoy: string = obtenerFechaISOArgentina()): Taller | null {
+  return TALLERES.find((taller) => taller.fecha >= fechaISOArgentinaHoy) || null
+}
+
+// "Lunes 14 de septiembre" -> "lunes 14 de septiembre", para usar en medio
+// de una oración ("Próximo taller en vivo: lunes 14 de septiembre").
+export function formatearProximoTallerLargo(taller: Taller) {
+  return taller.etiqueta.charAt(0).toLowerCase() + taller.etiqueta.slice(1)
+}
+
+// "2026-09-14" -> "14/09", para la barra fija angosta del celular.
+export function formatearProximoTallerCorto(taller: Taller) {
+  const [, mes, dia] = taller.fecha.split("-")
+  return `${dia}/${mes}`
+}
 
 export type PlanPago = "mensual" | "unico"
 export type TieneProyecto = "si" | "idea" | "no"
@@ -54,7 +81,7 @@ export function calcularDescuentoPct(planPago: PlanPago) {
 }
 
 export function estaInscripcionAbierta(fechaISOArgentinaHoy: string = obtenerFechaISOArgentina()) {
-  return fechaISOArgentinaHoy <= FECHA_CIERRE_INSCRIPCION
+  return fechaISOArgentinaHoy <= INSCRIPCION_CIERRA
 }
 
 export type MontosPreinscripcion =

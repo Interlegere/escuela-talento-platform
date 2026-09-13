@@ -15,6 +15,7 @@ import Acordeon from "@/components/proyecto-inposible/Acordeon"
 import Testimonios from "@/components/proyecto-inposible/Testimonios"
 import VideoInvitacion from "@/components/proyecto-inposible/VideoInvitacion"
 import PieDePagina from "@/components/proyecto-inposible/PieDePagina"
+import ProximoTaller from "@/components/proyecto-inposible/ProximoTaller"
 import {
   IconoCalendario,
   IconoCelular,
@@ -248,12 +249,12 @@ const PREGUNTAS_FRECUENTES = [
   {
     pregunta: "¿Y si no puedo estar en vivo en algún taller?",
     respuesta:
-      "Vas a tener la grabación disponible durante los 7 días siguientes, y el trabajo del mes lo seguís en tu espacio propio y por WhatsApp.",
+      "Vas a tener la grabación disponible durante los 7 días siguientes, y el trabajo del mes lo seguís en tu espacio propio y por WhatsApp. Si el taller ya había pasado cuando te inscribiste, los 7 días se cuentan desde el día que entrás.",
   },
   {
     pregunta: "¿Puedo entrar si el programa ya empezó?",
     respuesta:
-      "Sí. El primer taller es el lunes 14 y la inscripción sigue abierta hasta el domingo 20. Si te sumás después del 14, te habilito la grabación del primer taller para que lo veas en tu primera semana, y desde el día uno tenés tu espacio propio y el acompañamiento por WhatsApp. El segundo taller en vivo es el lunes 12 de octubre.",
+      "Sí, y no perdés ningún taller. Son tres talleres creativos, uno por mes: los que ya pasaron te los habilito grabados apenas te inscribís, y los que faltan los hacés en vivo con el grupo. Quien entra en octubre, por ejemplo, ve grabado el taller del 14 de septiembre y hace en vivo el del 12 de octubre y el del 9 de noviembre. Tu espacio propio y el acompañamiento por WhatsApp arrancan el día uno, sin esperar a ningún taller.",
   },
   {
     pregunta: "¿Cómo pago desde otro país?",
@@ -334,10 +335,10 @@ export default function ProyectoInPosiblePage() {
               <span className="block">
                 <span className="whitespace-nowrap">Programa+Mentoría</span>
               </span>
-              <span className="block">Inicia 14 de septiembre</span>
+              <span className="block">Empezás el día que te inscribís</span>
               <span className="block">Duración: 3 meses</span>
               <span className="block">Cupos dedicados.</span>
-              <span className="block">Inscripción hasta el 20 de septiembre</span>
+              <ProximoTaller variante="clausula" />
             </p>
           </div>
         }
@@ -848,7 +849,9 @@ export default function ProyectoInPosiblePage() {
             <strong>Desde otros países:</strong> USD 500 o EUR 500 el pago único, USD 180 o EUR 180 por
             mes, por transferencia internacional.
           </p>
-          <p className="mt-3 text-[19px] font-bold">Inscripción abierta hasta el domingo 20 de septiembre.</p>
+          <p className="mt-3 text-[19px] font-bold" suppressHydrationWarning>
+            Empezás el día que te inscribís. <ProximoTaller variante="oracion" />
+          </p>
         </div>
 
         <div className="mt-8">
@@ -892,8 +895,8 @@ export default function ProyectoInPosiblePage() {
         </ol>
 
         <p className={`${TEXTO} mt-6 font-medium`}>
-          Si te sumás después del lunes 14, entrás igual: te habilito la grabación del primer taller para
-          que lo veas en tu primera semana.
+          Empezás el día que te inscribís. Los talleres que ya pasaron los recibís grabados; los que
+          faltan los hacés en vivo.
         </p>
 
         <div className="mt-9">
@@ -920,7 +923,7 @@ export default function ProyectoInPosiblePage() {
         <div className="mt-9">
           <BotonCTA />
         </div>
-        <p className="mt-4 text-[19px] font-bold opacity-90">Inscripción abierta hasta el domingo 20 de septiembre</p>
+        <ProximoTaller variante="parrafo-cierre" />
       </SeccionAnimada>
 
       <PieDePagina />

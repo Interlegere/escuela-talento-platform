@@ -142,14 +142,14 @@ export default async function Image() {
           <span
             style={{
               fontFamily: "Instrument Sans",
-              fontSize: 38,
+              fontSize: 28,
               fontWeight: 700,
-              letterSpacing: 1.6,
+              letterSpacing: 1.2,
               textTransform: "uppercase",
               color: TINTA,
             }}
           >
-            INICIO 14/09 · INSCRIPCIONES HASTA EL 20/09
+            3 TALLERES CREATIVOS EN VIVO · 3 MESES DE ACOMPAÑAMIENTO
           </span>
         </div>
       </div>
