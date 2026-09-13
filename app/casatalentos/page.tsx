@@ -167,6 +167,7 @@ type ProduccionItem = {
   storage_path: string | null
   mime_type: string | null
   visible: boolean
+  permite_descarga: boolean
   created_at: string
   signedUrl?: string | null
 }
@@ -188,6 +189,8 @@ type ProduccionCofruto = {
   tipo: string
   titulo: string | null
   contenido: string | null
+  mimeType: string | null
+  permiteDescarga: boolean
   signedUrl: string | null
 }
 
@@ -357,6 +360,29 @@ function textoPlanoAHtmlSeguro(texto: string) {
   return escaparHtml(texto).replaceAll("\n", "<br />")
 }
 
+function esPresentacionPowerPoint(mimeType?: string | null) {
+  return (
+    mimeType === "application/vnd.ms-powerpoint" ||
+    mimeType === "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+  )
+}
+
+// Los navegadores no saben renderizar un PowerPoint solos — se apoya en el
+// visor público de Microsoft, que necesita una URL alcanzable desde
+// internet (la signed URL de Supabase lo es, mientras dure su validez).
+// Un PDF sí lo renderiza el navegador mismo, sin depender de nada externo.
+function urlPreviewDocumento(signedUrl: string, mimeType?: string | null, permiteDescarga = true) {
+  if (esPresentacionPowerPoint(mimeType)) {
+    return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(signedUrl)}`
+  }
+
+  // #toolbar=0 saca la barra propia del visor de PDF del navegador (que
+  // trae su propio botón de descarga) cuando no se quiere permitir bajarlo
+  // — es una restricción "blanda": alguien con conocimientos técnicos
+  // igual podría llegar al archivo, no reemplaza un control de acceso real.
+  return permiteDescarga ? signedUrl : `${signedUrl}#toolbar=0&navpanes=0`
+}
+
 function htmlATextoPlano(html: string) {
   if (typeof window === "undefined") {
     return html.replace(/<[^>]+>/g, " ").trim()
@@ -510,8 +536,9 @@ export default function CasaTalentosPage() {
   const [archivoProduccion, setArchivoProduccion] = useState<File | null>(null)
   const produccionFileInputRef = useRef<HTMLInputElement | null>(null)
   const [tipoNuevaProduccion, setTipoNuevaProduccion] = useState<
-    "texto" | "imagen" | "audio" | "video" | "link"
+    "texto" | "imagen" | "audio" | "video" | "link" | "documento"
   >("texto")
+  const [permiteDescargaProduccion, setPermiteDescargaProduccion] = useState(true)
   const [guardandoProduccion, setGuardandoProduccion] = useState(false)
   const [mensajeProduccion, setMensajeProduccion] = useState("")
   const [tareas, setTareas] = useState<TareaItem[]>([])
@@ -1078,6 +1105,8 @@ export default function CasaTalentosPage() {
             titulo: tituloProduccion,
             storagePath: preparacion.storagePath,
             mimeType: archivoProduccion.type,
+            permiteDescarga:
+              tipoNuevaProduccion === "documento" ? permiteDescargaProduccion : true,
           }),
         })
         const data = await leerRespuestaJson<{ error?: string }>(confirmarRes)
@@ -1091,6 +1120,7 @@ export default function CasaTalentosPage() {
       setTituloProduccion("")
       setTextoProduccion("")
       setArchivoProduccion(null)
+      setPermiteDescargaProduccion(true)
       setMensajeProduccion("Guardado.")
       await cargarProducciones()
     } catch {
@@ -1110,6 +1140,19 @@ export default function CasaTalentosPage() {
       await cargarProducciones()
     } catch {
       setMensajeProduccion("No se pudo cambiar la visibilidad.")
+    }
+  }
+
+  const alternarDescargaProduccion = async (id: number, permiteActual: boolean) => {
+    try {
+      await fetch("/api/entusiasmo/producciones", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, permiteDescarga: !permiteActual }),
+      })
+      await cargarProducciones()
+    } catch {
+      setMensajeProduccion("No se pudo cambiar el permiso de descarga.")
     }
   }
 
@@ -4227,7 +4270,9 @@ export default function CasaTalentosPage() {
                                       ? "🎬"
                                       : item.tipo === "link"
                                         ? "🔗"
-                                        : "📝"}
+                                        : item.tipo === "documento"
+                                          ? "📄"
+                                          : "📝"}
                               </span>
                               <span className="text-sm font-medium">
                                 {item.titulo ||
@@ -4278,6 +4323,18 @@ export default function CasaTalentosPage() {
                               </a>
                             )}
 
+                            {item.tipo === "documento" && item.signedUrl && (
+                              <iframe
+                                src={urlPreviewDocumento(
+                                  item.signedUrl,
+                                  item.mime_type,
+                                  item.permite_descarga
+                                )}
+                                title={item.titulo || "Documento"}
+                                className="h-64 w-full rounded-lg border border-violet-100 bg-white"
+                              />
+                            )}
+
                             {item.tipo === "texto" && item.contenido && (
                               viendoEmail ? (
                                 <p
@@ -4322,6 +4379,23 @@ export default function CasaTalentosPage() {
                               >
                                 {item.visible ? "👁️ En la mesa común" : "🔒 Solo lo ves vos"}
                               </button>
+                              {item.tipo === "documento" && !viendoEmail && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    void alternarDescargaProduccion(item.id, item.permite_descarga)
+                                  }
+                                  className={`flex items-center gap-1 text-xs font-semibold ${
+                                    item.permite_descarga
+                                      ? "text-[var(--accent-strong)]"
+                                      : "text-gray-500"
+                                  }`}
+                                >
+                                  {item.permite_descarga
+                                    ? "⬇️ Se puede descargar"
+                                    : "🔒 Solo se puede ver"}
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => void eliminarProduccion(item.id)}
@@ -4340,32 +4414,37 @@ export default function CasaTalentosPage() {
                       {!viendoEmail && (
                         <div className="space-y-2 rounded-xl border border-dashed border-violet-300 bg-white/60 p-3">
                           <div className="flex flex-wrap gap-2">
-                            {(["texto", "imagen", "audio", "video", "link"] as const).map((t) => (
-                              <button
-                                key={t}
-                                type="button"
-                                onClick={() => {
-                                  setTipoNuevaProduccion(t)
-                                  setArchivoProduccion(null)
-                                  setTextoProduccion("")
-                                }}
-                                className={`rounded-full border px-3 py-1 text-xs font-semibold ${
-                                  tipoNuevaProduccion === t
-                                    ? "border-violet-500 bg-violet-100 text-violet-800"
-                                    : "border-violet-200 bg-white text-violet-500"
-                                }`}
-                              >
-                                {t === "texto"
-                                  ? "📝 Texto"
-                                  : t === "imagen"
-                                    ? "🖼️ Imagen"
-                                    : t === "audio"
-                                      ? "🎵 Audio"
-                                      : t === "video"
-                                        ? "🎬 Video"
-                                        : "🔗 Link"}
-                              </button>
-                            ))}
+                            {(["texto", "imagen", "audio", "video", "link", "documento"] as const).map(
+                              (t) => (
+                                <button
+                                  key={t}
+                                  type="button"
+                                  onClick={() => {
+                                    setTipoNuevaProduccion(t)
+                                    setArchivoProduccion(null)
+                                    setTextoProduccion("")
+                                    setPermiteDescargaProduccion(true)
+                                  }}
+                                  className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                                    tipoNuevaProduccion === t
+                                      ? "border-violet-500 bg-violet-100 text-violet-800"
+                                      : "border-violet-200 bg-white text-violet-500"
+                                  }`}
+                                >
+                                  {t === "texto"
+                                    ? "📝 Texto"
+                                    : t === "imagen"
+                                      ? "🖼️ Imagen"
+                                      : t === "audio"
+                                        ? "🎵 Audio"
+                                        : t === "video"
+                                          ? "🎬 Video"
+                                          : t === "link"
+                                            ? "🔗 Link"
+                                            : "📄 Documento"}
+                                </button>
+                              )
+                            )}
                           </div>
 
                           <input
@@ -4441,6 +4520,37 @@ export default function CasaTalentosPage() {
                               <p className="text-xs text-gray-500">
                                 Un link a tu web, Instagram, YouTube, o lo que quieras mostrar. Usá el título de arriba para aclarar de qué es (ej. &quot;Instagram&quot;).
                               </p>
+                            </div>
+                          ) : tipoNuevaProduccion === "documento" ? (
+                            <div key="documento" className="space-y-1">
+                              <input
+                                ref={produccionFileInputRef}
+                                type="file"
+                                accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                                className="hidden"
+                                onChange={handleArchivoProduccion}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => produccionFileInputRef.current?.click()}
+                                className="workspace-button-ghost text-xs"
+                              >
+                                📎 Seleccionar archivo
+                              </button>
+                              {archivoProduccion && (
+                                <p className="text-xs text-gray-500">{archivoProduccion.name}</p>
+                              )}
+                              <p className="text-xs text-gray-500">
+                                Un PDF o una presentación de PowerPoint (hasta 50MB).
+                              </p>
+                              <label className="flex items-center gap-2 pt-1 text-xs text-gray-600">
+                                <input
+                                  type="checkbox"
+                                  checked={permiteDescargaProduccion}
+                                  onChange={(e) => setPermiteDescargaProduccion(e.target.checked)}
+                                />
+                                Dejar que los demás lo descarguen (si no, solo lo van a poder ver)
+                              </label>
                             </div>
                           ) : (
                             <div key="imagen" className="space-y-1">
@@ -4583,6 +4693,10 @@ export default function CasaTalentosPage() {
                                       <span className="text-lg" aria-hidden>
                                         🔗
                                       </span>
+                                    ) : item.tipo === "documento" ? (
+                                      <span className="text-lg" aria-hidden>
+                                        📄
+                                      </span>
                                     ) : (
                                       <p className="line-clamp-4 text-[10px] leading-tight text-gray-700">
                                         {item.contenido || item.titulo}
@@ -4663,7 +4777,11 @@ export default function CasaTalentosPage() {
                                     <div
                                       key={item.id}
                                       className={`flex flex-col items-center justify-center overflow-hidden rounded-xl border border-emerald-100 bg-emerald-50/60 p-2 text-center ${
-                                        item.tipo === "imagen" ? "aspect-square" : "min-h-[140px]"
+                                        item.tipo === "imagen"
+                                          ? "aspect-square"
+                                          : item.tipo === "documento"
+                                            ? "col-span-2 min-h-[420px]"
+                                            : "min-h-[140px]"
                                       }`}
                                     >
                                       {item.tipo === "imagen" && item.signedUrl ? (
@@ -4727,6 +4845,37 @@ export default function CasaTalentosPage() {
                                           >
                                             {item.contenido}
                                           </a>
+                                        </div>
+                                      ) : item.tipo === "documento" && item.signedUrl ? (
+                                        <div className="flex w-full flex-col items-center gap-2 p-1">
+                                          {item.titulo && (
+                                            <p className="text-xs font-semibold text-gray-700">
+                                              {item.titulo}
+                                            </p>
+                                          )}
+                                          <iframe
+                                            src={urlPreviewDocumento(
+                                              item.signedUrl,
+                                              item.mimeType,
+                                              item.permiteDescarga
+                                            )}
+                                            title={item.titulo || "Documento"}
+                                            className="h-96 w-full rounded-lg border border-emerald-100 bg-white"
+                                          />
+                                          {item.permiteDescarga ? (
+                                            <a
+                                              href={item.signedUrl}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-xs text-[var(--accent-strong)] underline"
+                                            >
+                                              ⬇️ Descargar
+                                            </a>
+                                          ) : (
+                                            <p className="text-xs text-gray-500">
+                                              🔒 Solo se puede ver, sin descarga.
+                                            </p>
+                                          )}
                                         </div>
                                       ) : (
                                         <div className="p-2">

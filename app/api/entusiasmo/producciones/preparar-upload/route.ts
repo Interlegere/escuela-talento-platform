@@ -26,6 +26,12 @@ function limpiarNombreArchivo(nombre: string) {
     .toLowerCase()
 }
 
+const MIME_DOCUMENTOS = [
+  "application/pdf",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+]
+
 function extensionDesdeNombre(nombre?: string, mimeType?: string) {
   const extension = String(nombre || "").split(".").pop() || ""
 
@@ -36,6 +42,10 @@ function extensionDesdeNombre(nombre?: string, mimeType?: string) {
   if (mimeType?.startsWith("audio/")) return "webm"
   if (mimeType?.startsWith("video/")) return "webm"
   if (mimeType?.startsWith("image/")) return mimeType.split("/")[1] || "png"
+  if (mimeType === "application/pdf") return "pdf"
+  if (mimeType === "application/vnd.ms-powerpoint") return "ppt"
+  if (mimeType === "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+    return "pptx"
   return "bin"
 }
 
@@ -43,7 +53,8 @@ function mimePermitido(mimeType: string) {
   return (
     mimeType.startsWith("image/") ||
     mimeType.startsWith("audio/") ||
-    mimeType.startsWith("video/")
+    mimeType.startsWith("video/") ||
+    MIME_DOCUMENTOS.includes(mimeType)
   )
 }
 
@@ -119,7 +130,10 @@ export async function POST(req: Request) {
 
     if (!mimePermitido(mimeType)) {
       return NextResponse.json(
-        { error: "La producción tiene que ser una imagen, un audio o un video." },
+        {
+          error:
+            "La producción tiene que ser una imagen, un audio, un video, un PDF o una presentación de PowerPoint.",
+        },
         { status: 400 }
       )
     }

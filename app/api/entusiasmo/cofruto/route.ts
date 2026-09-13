@@ -20,6 +20,8 @@ type ProduccionRow = {
   titulo: string | null
   contenido: string | null
   storage_path: string | null
+  mime_type: string | null
+  permite_descarga: boolean
 }
 
 export async function GET() {
@@ -51,7 +53,7 @@ export async function GET() {
     if (proyectoIds.length > 0) {
       const { data: producciones } = await supabase
         .from("entusiasmo_producciones")
-        .select("id, proyecto_id, tipo, titulo, contenido, storage_path")
+        .select("id, proyecto_id, tipo, titulo, contenido, storage_path, mime_type, permite_descarga")
         .in("proyecto_id", proyectoIds)
         .eq("visible", true)
         .order("created_at", { ascending: false })
@@ -111,6 +113,8 @@ export async function GET() {
             tipo: item.tipo,
             titulo: item.titulo,
             contenido: item.contenido,
+            mimeType: item.mime_type,
+            permiteDescarga: item.permite_descarga,
             signedUrl: item.storage_path
               ? signedUrls.get(item.storage_path) || null
               : null,

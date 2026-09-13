@@ -19,6 +19,7 @@ type ProduccionRow = {
   storage_path: string | null
   mime_type: string | null
   visible: boolean
+  permite_descarga: boolean
   created_at: string
   updated_at: string
 }
@@ -30,6 +31,7 @@ type PostBody = {
   contenido?: string
   storagePath?: string
   mimeType?: string
+  permiteDescarga?: boolean
 }
 
 type PatchBody = {
@@ -37,13 +39,14 @@ type PatchBody = {
   titulo?: string
   contenido?: string
   visible?: boolean
+  permiteDescarga?: boolean
 }
 
 type DeleteBody = {
   id?: number
 }
 
-const TIPOS_VALIDOS = ["imagen", "texto", "audio", "video", "link"]
+const TIPOS_VALIDOS = ["imagen", "texto", "audio", "video", "link", "documento"]
 
 async function resolverProyectoId(
   supabase: ReturnType<typeof createAdminSupabaseClient>,
@@ -224,6 +227,7 @@ export async function POST(req: Request) {
         storage_path: body.storagePath || null,
         mime_type: body.mimeType || null,
         visible: false,
+        permite_descarga: body.permiteDescarga === false ? false : true,
       })
       .select("*")
       .single()
@@ -299,6 +303,8 @@ export async function PATCH(req: Request) {
     if (body.titulo !== undefined) cambios.titulo = body.titulo.trim() || null
     if (body.contenido !== undefined) cambios.contenido = body.contenido.trim() || null
     if (body.visible !== undefined) cambios.visible = Boolean(body.visible)
+    if (body.permiteDescarga !== undefined)
+      cambios.permite_descarga = Boolean(body.permiteDescarga)
 
     const { data, error } = await supabase
       .from("entusiasmo_producciones")
