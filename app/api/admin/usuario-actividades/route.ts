@@ -65,7 +65,7 @@ export async function GET(req: Request) {
     if (error) {
       return NextResponse.json(
         {
-          error: "No se pudieron cargar las actividades del usuario.",
+          error: "No se pudieron cargar las actividades del participante.",
           detalle: error,
         },
         { status: 500 }
@@ -79,7 +79,7 @@ export async function GET(req: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        error: "Error interno cargando actividades del usuario.",
+        error: "Error interno cargando actividades del participante.",
         detalle: String(error),
       },
       { status: 500 }
@@ -123,7 +123,7 @@ export async function POST(req: Request) {
     if (usuarioError) {
       return NextResponse.json(
         {
-          error: "No se pudo validar el usuario.",
+          error: "No se pudo validar el participante.",
           detalle: usuarioError,
         },
         { status: 500 }
@@ -134,7 +134,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            "Ese usuario no existe. Primero crealo desde Admin Usuarios.",
+            "Ese participante no existe. Primero crealo desde Admin Usuarios.",
         },
         { status: 404 }
       )
@@ -259,7 +259,7 @@ export async function POST(req: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        error: "Error interno guardando actividades del usuario.",
+        error: "Error interno guardando actividades del participante.",
         detalle: String(error),
       },
       { status: 500 }

@@ -320,7 +320,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            "Ese participante no existe en Admin Usuarios. Primero creá el usuario y luego asignale la actividad.",
+            "Ese participante no existe en Admin Usuarios. Primero creá el participante y luego asignale la actividad.",
         },
         { status: 400 }
       )
@@ -332,7 +332,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            "Ese usuario está inactivo. Reactivalo desde Admin Usuarios antes de asignarle una actividad.",
+            "Ese participante está inactivo. Reactivalo desde Admin Usuarios antes de asignarle una actividad.",
         },
         { status: 400 }
       )

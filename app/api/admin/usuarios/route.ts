@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { requirePermission } from "@/lib/authz"
+import { buscarHistorialEliminacion } from "@/lib/admin-eliminar-usuario"
 import {
   enviarBienvenidaUsuario,
   enviarInvitacionCharlaIntro,
@@ -221,7 +222,9 @@ export async function POST(req: Request) {
         })
       }
 
-      return NextResponse.json({ ok: true, usuario: data, mailing })
+      const historialPrevio = await buscarHistorialEliminacion(email).catch(() => null)
+
+      return NextResponse.json({ ok: true, usuario: data, mailing, historialPrevio })
     }
 
     const { data, error } = await supabase

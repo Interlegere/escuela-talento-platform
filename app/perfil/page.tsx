@@ -187,7 +187,7 @@ export default function PerfilPage() {
 
       {!editable && (
         <section className="workspace-panel-soft">
-          Este usuario todavía es de prueba. Para editar el perfil completo,
+          Este participante todavía es de prueba. Para editar el perfil completo,
           crealo primero desde Admin Usuarios.
         </section>
       )}

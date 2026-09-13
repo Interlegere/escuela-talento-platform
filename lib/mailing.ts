@@ -460,7 +460,7 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
     "Estamos atentos a cualquier duda que tengas y a cualquier cuestión que quieras continuar conversando.",
     "",
     `Acceso: ${url}/login`,
-    `Usuario: ${params.email}`,
+    `Participante: ${params.email}`,
     `Clave de acceso: ${params.password}`,
     textoFecha,
     "",
@@ -515,7 +515,7 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
 
           <div style="border: 1px solid #e5dccb; border-radius: 18px; padding: 18px 20px; margin: 0 0 24px; background: #fffaf2;">
             <p style="margin: 0 0 10px;"><strong>Acceso:</strong> <a href="${url}/login">${url}/login</a></p>
-            <p style="margin: 0 0 10px;"><strong>Usuario:</strong> ${escapeHtml(params.email)}</p>
+            <p style="margin: 0 0 10px;"><strong>Participante:</strong> ${escapeHtml(params.email)}</p>
             <p style="margin: 0 0 10px;"><strong>Clave de acceso:</strong> ${escapeHtml(
               params.password
             )}</p>

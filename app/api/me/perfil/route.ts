@@ -106,7 +106,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            "Este perfil todavía pertenece a un usuario de prueba. Creá el usuario desde Admin Usuarios para habilitar edición completa.",
+            "Este perfil todavía pertenece a un participante de prueba. Creá el participante desde Admin Usuarios para habilitar edición completa.",
         },
         { status: 409 }
       )

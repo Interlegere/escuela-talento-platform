@@ -376,6 +376,7 @@ export default function AdminUsuariosPage() {
   const [mensaje, setMensaje] = useState("")
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState("")
   const [actividadGuardandoKey, setActividadGuardandoKey] = useState<string | null>(
     null
@@ -734,6 +735,17 @@ export default function AdminUsuariosPage() {
           : ` ${mailing.motivo || "Email no enviado."}`
         : ""
 
+      const historialPrevio = data.historialPrevio as
+        | { nombre?: string | null; eliminado_at?: string }
+        | null
+        | undefined
+
+      const historialMensaje = historialPrevio
+        ? ` Ojo: este email ya había tenido una cuenta antes (se eliminó el ${new Date(
+            historialPrevio.eliminado_at || ""
+          ).toLocaleDateString("es-AR")}).`
+        : ""
+
       let actividadesMensaje = ""
       const usuarioGuardado = data.usuario as Usuario | undefined
 
@@ -790,7 +802,7 @@ export default function AdminUsuariosPage() {
       }
 
       setMensaje(
-        `${payload.id ? "Usuario actualizado." : "Usuario creado."}${mailingMensaje}${actividadesMensaje}`
+        `${payload.id ? "Usuario actualizado." : "Usuario creado."}${mailingMensaje}${actividadesMensaje}${historialMensaje}`
       )
 
       limpiarForm()
@@ -799,6 +811,43 @@ export default function AdminUsuariosPage() {
       setMensaje("Error guardando usuario.")
     } finally {
       setGuardando(false)
+    }
+  }
+
+  const eliminarUsuario = async (usuario: Usuario) => {
+    const confirmado = window.confirm(
+      `¿Eliminar por completo a ${usuario.nombre} (${usuario.email})?\n\n` +
+        "Esto borra para siempre sus inscripciones, pagos, honorarios, mensajes, todo lo suyo en Entusiasmento (coordenadas, pitch, producciones, tareas) y sus archivos subidos — no se puede deshacer, no hay forma de recuperarlo. " +
+        "Solo queda un registro mínimo (email y fecha) por si se vuelve a inscribir con el mismo mail.\n\n" +
+        "Esta acción es distinta de \"Desactivar\": ahí los datos quedaban, acá se borran todos."
+    )
+
+    if (!confirmado) return
+
+    try {
+      setEliminandoId(usuario.id)
+      setMensaje("")
+
+      const res = await fetch("/api/admin/usuarios/eliminar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: usuario.id }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setMensaje(data.error || "No se pudo eliminar a la persona.")
+        return
+      }
+
+      setMensaje(
+        `${usuario.nombre} fue eliminado por completo (${data.archivosBorrados || 0} archivo/s borrado/s).`
+      )
+      await Promise.all([cargarUsuarios(), cargarPersonas()])
+    } catch {
+      setMensaje("Error interno eliminando a la persona.")
+    } finally {
+      setEliminandoId(null)
     }
   }
 
@@ -1767,6 +1816,17 @@ export default function AdminUsuariosPage() {
                 className="workspace-button-secondary"
               >
                 {usuario.activo ? "Desactivar" : "Reactivar"}
+              </button>
+            )}
+
+            {usuario && !usuario.activo && usuario.role === "participante" && (
+              <button
+                type="button"
+                disabled={eliminandoId === usuario.id}
+                onClick={() => void eliminarUsuario(usuario)}
+                className="rounded-full border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+              >
+                {eliminandoId === usuario.id ? "Eliminando..." : "Eliminar por completo"}
               </button>
             )}
           </div>

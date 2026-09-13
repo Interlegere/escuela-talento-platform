@@ -153,7 +153,7 @@ const SEGMENTOS: Array<{
   },
   {
     value: "pagos_pendientes",
-    label: "Usuarios con pago pendiente",
+    label: "Participantes con pago pendiente",
     descripcion: "Recordatorios manuales para mensualidades, procesos y terapias pendientes.",
   },
   {
