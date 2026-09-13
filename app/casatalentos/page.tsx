@@ -3126,6 +3126,14 @@ export default function CasaTalentosPage() {
         <InstalarApp />
         <WorkspaceHero title="Entusiasmento" subtitle="Espacio para Plasmar" />
 
+        {!cargandoAcceso &&
+          (acceso || MODO_PRUEBA) &&
+          tieneAccesoEntusiasmento(storageEmail, esAdmin) &&
+          !viendoEmail &&
+          coordenadasSinDefinir === CAMPOS_COORDENADAS.length && (
+            <PrimerosPasos onEmpezar={abrirPrimerosPasos} />
+          )}
+
         {puntosGrupales && (esAdmin || proyecto?.suma_puntos_grupales !== false) && (
           <div className="space-y-3 rounded-[1.5rem] border-2 border-emerald-300 bg-emerald-50/60 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -3724,10 +3732,6 @@ export default function CasaTalentosPage() {
 
             {tieneAccesoEntusiasmento(storageEmail, esAdmin) ? (
               <div className="space-y-6">
-                {!viendoEmail && coordenadasSinDefinir === CAMPOS_COORDENADAS.length && (
-                  <PrimerosPasos onEmpezar={abrirPrimerosPasos} />
-                )}
-
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
@@ -4600,8 +4604,10 @@ export default function CasaTalentosPage() {
 
                     {!cargandoCofruto && !puestosCofruto.some((p) => p.esPropio) && (
                       <p className="workspace-inline-note text-center">
-                        Esta es la mesa en común: acá se ve en qué anda cada uno. Cuando
-                        quieras mostrar algo tuyo, lo elegís desde Mi espacio.
+                        CoFruto es la mesa común: acá cada uno muestra en qué anda y
+                        encuentra con quién aliarse — alguien que sabe lo que a vos te
+                        falta, alguien a quien le sirve lo que vos hacés. Cuando quieras
+                        traer algo tuyo a la mesa, lo elegís desde Mi espacio.
                       </p>
                     )}
 

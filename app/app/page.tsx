@@ -215,7 +215,7 @@ export default function InstalarAppPage() {
               numero={1}
               icono={<IconoCompartir />}
               titulo="Tocá Compartir"
-              detalle="El ícono con la flecha hacia arriba, en la barra de Safari."
+              detalle="El ícono con la flecha hacia arriba, en la barra del navegador."
             />
             <Paso
               numero={2}

@@ -189,9 +189,14 @@ function crearContenidoBienvenida(params: BienvenidaParams) {
             <strong>Para arrancar:</strong> entrá a Entusiasmento y escribí tus coordenadas — es tu primer paso, no hace falta que estén perfectas.
           </p>
 
-          <p style="margin: 0 0 24px;">
-            <a href="${url}/app" style="color: #8a6a2f; font-weight: 700; text-decoration: none;">Instalá ENTHEOS en tu celular</a>
-          </p>
+          <div style="margin: 0 0 24px; text-align: center;">
+            <a
+              href="${url}/app"
+              style="display: inline-block; padding: 14px 22px; border-radius: 999px; background: #cf9130; color: #18202a; font-weight: 700; text-decoration: none;"
+            >
+              Instalá ENTHEOS en tu celular
+            </a>
+          </div>
 
           <p style="margin: 0 0 14px;">
             Por seguridad, conservá estas credenciales y avisá si necesitás cambiarlas.
