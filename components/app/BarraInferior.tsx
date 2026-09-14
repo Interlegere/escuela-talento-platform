@@ -3,8 +3,11 @@
 import { Suspense, useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
+import { IconoCanasto, IconoMaceta } from "@/components/app/iconos"
 
-function IconoMiEspacio() {
+// Mismo criterio que la familia de components/app/iconos.tsx, pero se
+// queda acá — no hace falta en ningún otro lugar de la página.
+function IconoPerfil({ className = "h-5 w-5" }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -13,45 +16,7 @@ function IconoMiEspacio() {
       strokeWidth={1.8}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="h-5 w-5"
-      aria-hidden
-    >
-      <path d="M4 11.5 12 4l8 7.5" />
-      <path d="M6 10v9a1 1 0 0 0 1 1h3v-6h4v6h3a1 1 0 0 0 1-1v-9" />
-    </svg>
-  )
-}
-
-function IconoCofruto() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-5 w-5"
-      aria-hidden
-    >
-      <rect x="4" y="4" width="7" height="7" rx="1.2" />
-      <rect x="13" y="4" width="7" height="7" rx="1.2" />
-      <rect x="4" y="13" width="7" height="7" rx="1.2" />
-      <rect x="13" y="13" width="7" height="7" rx="1.2" />
-    </svg>
-  )
-}
-
-function IconoPerfil() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-5 w-5"
+      className={className}
       aria-hidden
     >
       <circle cx="12" cy="8" r="3.5" />
@@ -69,7 +34,7 @@ const DESTINOS = [
     // cambiaba aunque el botón sí se marcara activo.
     href: "/casatalentos?destino=mi-espacio",
     label: "Mi espacio",
-    icono: IconoMiEspacio,
+    icono: IconoMaceta,
     activo: (pathname: string, destino: string | null) =>
       pathname === "/casatalentos" && destino !== "cofruto",
   },
@@ -77,7 +42,7 @@ const DESTINOS = [
     key: "cofruto",
     href: "/casatalentos?destino=cofruto",
     label: "CoFruto",
-    icono: IconoCofruto,
+    icono: IconoCanasto,
     activo: (pathname: string, destino: string | null) =>
       pathname === "/casatalentos" && destino === "cofruto",
   },
@@ -167,7 +132,7 @@ function BarraInferiorContenido() {
             className="relative flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[0.68rem] font-semibold"
             style={{ color: activo ? "var(--accent)" : "var(--muted)" }}
           >
-            <Icono />
+            <Icono className="h-5 w-5" />
             {destino.label}
             {destino.key === "mi-espacio" && hayNovedadEntusiasmo && (
               <span

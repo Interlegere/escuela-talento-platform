@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react"
+import { Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { useSearchParams } from "next/navigation"
 import PagoMensualCard from "@/components/pagos/PagoMensualCard"
 import SeccionDesplegable from "@/components/SeccionDesplegable"
@@ -25,6 +25,14 @@ import { useSessionDraft } from "@/hooks/useSessionDraft"
 import RecursoCard from "@/components/recursos/RecursoCard"
 import { tieneContenidoRecurso } from "@/lib/recursos"
 import InstalarApp from "@/components/InstalarApp"
+import {
+  IconoBrujula,
+  IconoCanasto,
+  IconoComentario,
+  IconoDestello,
+  IconoEditar,
+  IconoMaceta,
+} from "@/components/app/iconos"
 import MensajesAgente from "@/components/entusiasmo/MensajesAgente"
 import Buscador from "@/components/entusiasmo/Buscador"
 import PrimerosPasos from "@/components/entusiasmo/PrimerosPasos"
@@ -1529,6 +1537,7 @@ function CasaTalentosPageContent() {
             <div className="flex flex-1 items-center gap-3">
               <input
                 type="checkbox"
+                className="entusiasmo-hit-44"
                 aria-label="Marcar como completada"
                 checked={tarea.completada}
                 onChange={() => void alternarTareaCompletada(tarea.id, tarea.completada)}
@@ -1553,9 +1562,10 @@ function CasaTalentosPageContent() {
                 onClick={() => abrirEdicionContenidoTarea(tarea)}
                 aria-label="Editar texto de la tarea"
                 title="Editar texto de la tarea"
-                className="shrink-0 text-xs text-amber-600 underline"
+                className="entusiasmo-hit-44 shrink-0 text-xs text-amber-600 underline"
+                style={{ "--hit-w": "32px", "--hit-h": "44px" } as CSSProperties}
               >
-                ✎
+                <IconoEditar className="h-3 w-3" />
               </button>
               {tarea.serie_id && tarea.diaSemana !== null && (
                 <span
@@ -1592,14 +1602,14 @@ function CasaTalentosPageContent() {
             </>
           )}
 
-          <div className="flex shrink-0 items-center gap-1">
+          <div className="flex shrink-0 items-center gap-2">
             {(["verde", "amarillo", "rojo"] as const).map((color) => (
               <button
                 key={color}
                 type="button"
                 disabled={Boolean(viendoEmail)}
                 onClick={() => void cambiarPrioridadTarea(tarea.id, tarea.prioridad, color)}
-                className={`h-4 w-4 rounded-full border transition disabled:cursor-default ${
+                className={`entusiasmo-hit-44 h-4 w-4 rounded-full border transition disabled:cursor-default ${
                   tarea.prioridad === color
                     ? {
                         verde: "border-emerald-600 bg-emerald-500",
@@ -1612,6 +1622,7 @@ function CasaTalentosPageContent() {
                         rojo: "border-red-300 bg-transparent hover:bg-red-100",
                       }[color]
                 }`}
+                style={{ "--hit-w": "24px", "--hit-h": "44px" } as CSSProperties}
               />
             ))}
           </div>
@@ -1851,9 +1862,10 @@ function CasaTalentosPageContent() {
             onClick={() =>
               setAporteAbiertoId((prev) => (prev === seg.nota!.id ? null : seg.nota!.id))
             }
-            className="mx-0.5 cursor-pointer align-middle text-amber-600"
+            className="entusiasmo-hit-44 mx-0.5 inline-flex cursor-pointer align-middle text-amber-600"
+            style={{ "--hit-w": "20px", "--hit-h": "28px" } as CSSProperties}
           >
-            💬
+            <IconoComentario className="h-3.5 w-3.5" />
           </button>
           <span
             className={`absolute bottom-full left-0 z-10 mb-1 hidden w-64 max-w-[80vw] rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2 text-sm normal-case shadow-lg group-hover:block ${
@@ -1889,11 +1901,14 @@ function CasaTalentosPageContent() {
           setContenidoNotaAncla("")
           setMensajeAporte("")
         }}
-        className="workspace-button-secondary text-xs"
+        className="workspace-button-secondary inline-flex items-center gap-1.5 text-xs"
       >
-        💬 Comentar selección: &ldquo;
-        {textoSeleccionado.length > 40 ? `${textoSeleccionado.slice(0, 40)}…` : textoSeleccionado}
-        &rdquo;
+        <IconoComentario className="h-3 w-3 shrink-0" />
+        <span>
+          Comentar selección: &ldquo;
+          {textoSeleccionado.length > 40 ? `${textoSeleccionado.slice(0, 40)}…` : textoSeleccionado}
+          &rdquo;
+        </span>
       </button>
     )
   }
@@ -1914,9 +1929,10 @@ function CasaTalentosPageContent() {
           setContenidoNotaAncla("")
           setMensajeAporte("")
         }}
-        className="workspace-button-secondary text-xs"
+        className="workspace-button-secondary inline-flex items-center gap-1.5 text-xs"
       >
-        💬 Dejar un aporte
+        <IconoComentario className="h-3 w-3 shrink-0" />
+        Dejar un aporte
       </button>
     )
   }
@@ -1982,7 +1998,10 @@ function CasaTalentosPageContent() {
             {n.fragmento && (
               <p className="italic text-gray-500">sobre: &ldquo;{n.fragmento}&rdquo;</p>
             )}
-            <p>💬 {n.contenido}</p>
+            <div className="flex items-start gap-1.5">
+              <IconoComentario className="mt-0.5 h-3 w-3 shrink-0" />
+              <p>{n.contenido}</p>
+            </div>
             <p className="text-gray-500">— {n.autor_nombre || n.autor_email}</p>
           </div>
         ))}
@@ -2045,7 +2064,10 @@ function CasaTalentosPageContent() {
                           key={c.id}
                           className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-gray-700"
                         >
-                          <p>💬 {c.contenido}</p>
+                          <div className="flex items-start gap-1.5">
+                            <IconoComentario className="mt-0.5 h-3 w-3 shrink-0" />
+                            <p>{c.contenido}</p>
+                          </div>
                           <p className="text-gray-500">
                             — {c.autor_nombre || c.autor_email}
                           </p>
@@ -2140,7 +2162,10 @@ function CasaTalentosPageContent() {
             {n.fragmento && (
               <p className="italic text-gray-500">sobre: &ldquo;{n.fragmento}&rdquo;</p>
             )}
-            <p>💬 {n.contenido}</p>
+            <div className="flex items-start gap-1.5">
+              <IconoComentario className="mt-0.5 h-3 w-3 shrink-0" />
+              <p>{n.contenido}</p>
+            </div>
             <p className="text-gray-500">— {n.autor_nombre || n.autor_email}</p>
           </div>
         ))}
@@ -2171,7 +2196,10 @@ function CasaTalentosPageContent() {
             key={n.id}
             className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-gray-700"
           >
-            <p>💬 {n.contenido}</p>
+            <div className="flex items-start gap-1.5">
+              <IconoComentario className="mt-0.5 h-3 w-3 shrink-0" />
+              <p>{n.contenido}</p>
+            </div>
             <p className="text-gray-500">— {n.autor_nombre || n.autor_email}</p>
           </div>
         ))}
@@ -2194,7 +2222,10 @@ function CasaTalentosPageContent() {
             {n.fragmento && (
               <p className="italic text-gray-500">sobre: &ldquo;{n.fragmento}&rdquo;</p>
             )}
-            <p>💬 {n.contenido}</p>
+            <div className="flex items-start gap-1.5">
+              <IconoComentario className="mt-0.5 h-3 w-3 shrink-0" />
+              <p>{n.contenido}</p>
+            </div>
             <p className="text-gray-500">— {n.autor_nombre || n.autor_email}</p>
           </div>
         ))}
@@ -2256,7 +2287,10 @@ function CasaTalentosPageContent() {
                           key={c.id}
                           className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-gray-700"
                         >
-                          <p>💬 {c.contenido}</p>
+                          <div className="flex items-start gap-1.5">
+                            <IconoComentario className="mt-0.5 h-3 w-3 shrink-0" />
+                            <p>{c.contenido}</p>
+                          </div>
                           <p className="text-gray-500">— {c.autor_nombre || c.autor_email}</p>
                         </div>
                       ))}
@@ -3116,8 +3150,9 @@ function CasaTalentosPageContent() {
           subtitle="Preparando tu acceso al espacio de entrenamiento."
         />
 
-        <section className="workspace-panel">
-          <p>Cargando sesión y recursos...</p>
+        <section className="workspace-panel space-y-2">
+          <div className="entusiasmo-skeleton h-4 w-2/3" />
+          <div className="entusiasmo-skeleton h-4 w-1/3" />
           {sesionDemorada && (
             <p className="workspace-inline-note mt-3 text-amber-700">
               La sesión está tardando más de lo normal. En modo prueba vamos a
@@ -3150,7 +3185,7 @@ function CasaTalentosPageContent() {
   }
 
   return (
-      <main className="workspace-page space-y-6">
+      <main className="entusiasmo-shell workspace-page space-y-6">
         <InstalarApp />
         <WorkspaceHero title="Entusiasmento" subtitle="Espacio para Plasmar" />
 
@@ -3365,7 +3400,9 @@ function CasaTalentosPageContent() {
 
                 <div className="space-y-3 rounded-[1.75rem] border-2 border-[var(--accent)] bg-white/70 p-4">
                   <div className="space-y-1">
-                    <p className="workspace-eyebrow text-[var(--accent-strong)]">✦ Dejar una marca</p>
+                    <p className="workspace-eyebrow inline-flex items-center gap-1 text-[var(--accent-strong)]">
+                      <IconoDestello className="h-3 w-3" /> Dejar una marca
+                    </p>
                     <h3 className="text-lg font-bold tracking-tight text-[var(--accent-strong)]">
                       Nueva valoración o agradecimiento
                     </h3>
@@ -3723,8 +3760,12 @@ function CasaTalentosPageContent() {
         )}
 
         {cargandoAcceso && (
-          <section className="workspace-panel">
-            <p>Cargando acceso...</p>
+          <section className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="entusiasmo-skeleton h-24 rounded-[1.5rem]" />
+              <div className="entusiasmo-skeleton h-24 rounded-[1.5rem]" />
+            </div>
+            <div className="entusiasmo-skeleton h-14 rounded-2xl" />
           </section>
         )}
 
@@ -3777,7 +3818,7 @@ function CasaTalentosPageContent() {
                         className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-rose-500"
                       />
                     )}
-                    <p className="text-2xl leading-none">🪴</p>
+                    <IconoMaceta className="h-4 w-4" />
                     <p className="mt-2 text-base font-bold tracking-tight">Mi espacio</p>
                     <p className="text-xs text-gray-600">Tu proyecto, a tu ritmo</p>
                   </button>
@@ -3790,7 +3831,7 @@ function CasaTalentosPageContent() {
                         : "border-[var(--line)] bg-white/70"
                     }`}
                   >
-                    <p className="text-2xl leading-none">🧺</p>
+                    <IconoCanasto className="h-4 w-4" />
                     <p className="mt-2 text-base font-bold tracking-tight">CoFruto</p>
                     <p className="text-xs text-gray-600">La mesa común</p>
                   </button>
@@ -3842,9 +3883,18 @@ function CasaTalentosPageContent() {
                 )}
 
                 {destinoEntusiasmo === "mi-espacio" && (
-                  <div className="space-y-6">
+                  <div className="entusiasmo-fade-in space-y-6">
                     {cargandoProyecto && (
-                      <p className="text-sm text-gray-600">Cargando tu proyecto...</p>
+                      <div className="space-y-4">
+                        <div className="flex gap-3">
+                          <div className="entusiasmo-skeleton aspect-[9/16] w-[110px] shrink-0 rounded-xl" />
+                          <div className="flex-1 space-y-2 pt-1">
+                            <div className="entusiasmo-skeleton h-4 w-1/2" />
+                            <div className="entusiasmo-skeleton h-3 w-1/3" />
+                          </div>
+                        </div>
+                        <div className="entusiasmo-skeleton h-32 rounded-2xl" />
+                      </div>
                     )}
 
                     {(esAdmin || ENTUSIASMENTO_HERRAMIENTAS_IA_ABIERTAS_A_PARTICIPANTES) && (
@@ -3856,7 +3906,9 @@ function CasaTalentosPageContent() {
 
                     <div className="space-y-3">
                       <div className="space-y-1">
-                        <p className="workspace-eyebrow">✦ Siempre visible</p>
+                        <p className="workspace-eyebrow inline-flex items-center gap-1">
+                          <IconoDestello className="h-3 w-3" /> Siempre visible
+                        </p>
                         <h3 className="text-2xl font-bold tracking-tight">
                           {viendoEmail ? "Su pitch" : "Tu pitch"}
                         </h3>
@@ -3882,7 +3934,7 @@ function CasaTalentosPageContent() {
                               )
                             ) : (
                               <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-[#2a2a2a] to-[#0f0f0f] px-6 text-center">
-                                <span className="text-4xl">✦</span>
+                                <IconoDestello className="h-9 w-9 text-white/70" />
                                 <p className="text-xs text-white/70">
                                   {viendoEmail
                                     ? "Todavía no subió su pitch."
@@ -3903,8 +3955,8 @@ function CasaTalentosPageContent() {
                             </div>
 
                             <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3">
-                              <p className="text-xs font-medium text-white/90">
-                                ✦ Así te ven en la mesa
+                              <p className="inline-flex items-center gap-1 text-xs font-medium text-white/90">
+                                <IconoDestello className="h-3 w-3" /> Así te ven en la mesa
                               </p>
                             </div>
                           </div>
@@ -3997,8 +4049,8 @@ function CasaTalentosPageContent() {
                         className="flex w-full items-center justify-between gap-3 text-left"
                       >
                         <span className="flex items-center gap-3">
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-300 bg-white text-base">
-                            🧭
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-300 bg-white text-sky-700">
+                            <IconoBrujula className="h-4 w-4" />
                           </span>
                           <span>
                             <span className="inline-flex items-center gap-1.5 text-lg font-bold tracking-tight text-sky-900">
@@ -4457,7 +4509,7 @@ function CasaTalentosPageContent() {
                                     setTextoProduccion("")
                                     setPermiteDescargaProduccion(true)
                                   }}
-                                  className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                                  className={`rounded-full border px-3 py-3.5 text-xs font-semibold ${
                                     tipoNuevaProduccion === t
                                       ? "border-violet-500 bg-violet-100 text-violet-800"
                                       : "border-violet-200 bg-white text-violet-500"
@@ -4622,9 +4674,11 @@ function CasaTalentosPageContent() {
                 )}
 
                 {destinoEntusiasmo === "cofruto" && (
-                  <div className="space-y-6">
+                  <div className="entusiasmo-fade-in space-y-6">
                     <div className="workspace-panel-soft space-y-2 py-6 text-center">
-                      <p className="text-lg font-semibold">🧺 CoFruto</p>
+                      <p className="inline-flex items-center gap-1.5 text-lg font-semibold">
+                        <IconoCanasto className="h-4 w-4" /> CoFruto
+                      </p>
                       <p className="text-sm text-gray-600">
                         La mesa común — lo que cada uno eligió mostrar.
                       </p>
@@ -4640,7 +4694,25 @@ function CasaTalentosPageContent() {
                     )}
 
                     {cargandoCofruto && (
-                      <p className="text-sm text-gray-600">Cargando la mesa común...</p>
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {[0, 1, 2].map((i) => (
+                          <div key={i} className="space-y-3 rounded-2xl border-2 border-emerald-100 p-3">
+                            <div className="flex items-center gap-2">
+                              <div className="entusiasmo-skeleton h-7 w-7 shrink-0 rounded-full" />
+                              <div className="entusiasmo-skeleton h-4 w-2/3" />
+                            </div>
+                            <div className="flex gap-2">
+                              <div className="entusiasmo-skeleton aspect-[9/16] w-[92px] shrink-0 rounded-xl" />
+                              <div className="grid flex-1 grid-cols-2 gap-1.5">
+                                <div className="entusiasmo-skeleton aspect-square rounded-md" />
+                                <div className="entusiasmo-skeleton aspect-square rounded-md" />
+                                <div className="entusiasmo-skeleton aspect-square rounded-md" />
+                                <div className="entusiasmo-skeleton aspect-square rounded-md" />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     )}
 
                     {!cargandoCofruto && puestosCofruto.length === 0 && (
@@ -4693,8 +4765,8 @@ function CasaTalentosPageContent() {
                                       className="h-full w-full object-cover"
                                     />
                                   )}
-                                  <span className="pointer-events-none absolute bottom-1 left-1 text-[10px] text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]">
-                                    ✦
+                                  <span className="pointer-events-none absolute bottom-1 left-1 text-white [filter:drop-shadow(0_1px_2px_rgba(0,0,0,0.7))]">
+                                    <IconoDestello className="h-2.5 w-2.5" />
                                   </span>
                                 </div>
                               </div>
@@ -4798,8 +4870,8 @@ function CasaTalentosPageContent() {
                                         className="h-full w-full object-cover"
                                       />
                                     )}
-                                    <span className="pointer-events-none absolute bottom-2 left-2 text-sm text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]">
-                                      ✦ Pitch
+                                    <span className="pointer-events-none absolute bottom-2 left-2 inline-flex items-center gap-1 text-sm text-white [filter:drop-shadow(0_1px_2px_rgba(0,0,0,0.7))]">
+                                      <IconoDestello className="h-3.5 w-3.5" /> Pitch
                                     </span>
                                   </div>
                                 </div>

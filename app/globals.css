@@ -501,6 +501,116 @@ html.ios-standalone .workspace-shell {
   padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
 }
 
+/* ===== Respuesta al toque dentro de Entusiasmento =====
+   En un celular no existe :hover — sin esto, tocar un botón no da
+   ninguna señal hasta que la acción termina, y se siente colgado.
+   Reducción de escala chica e inmediata en vez de un oscurecimiento
+   (funciona igual sobre fondos claros y oscuros, sin tener que
+   conocer el color de cada botón). touch-action: manipulation saca
+   el retardo de ~300ms que algunos navegadores todavía aplican antes
+   de disparar el click. Escopeado a .entusiasmo-shell (la raíz de
+   /casatalentos) para no tocar el resto del sitio. */
+.entusiasmo-shell button,
+.entusiasmo-shell a,
+.entusiasmo-shell label {
+  touch-action: manipulation;
+}
+
+.entusiasmo-shell button:not(:disabled),
+.entusiasmo-shell a,
+.entusiasmo-shell label {
+  transition: transform 100ms ease-out;
+}
+
+.entusiasmo-shell button:not(:disabled):active,
+.entusiasmo-shell a:active,
+.entusiasmo-shell label:active {
+  transform: scale(0.97);
+}
+
+/* ===== Área de toque ampliada, sin agrandar lo que se ve =====
+   Para íconos/botones metidos adentro de una línea de texto (el globito
+   de comentario, editar tarea) o controles nativos que no se pueden
+   rellenar sin cambiar su apariencia (el checkbox de "completada"):
+   agranda solo la zona que responde al toque con un pseudo-elemento
+   fuera de flujo (no ocupa espacio, no mueve nada alrededor), dejando
+   el tamaño visual intacto. El elemento necesita position:relative para
+   que el ::after se ubique respecto a él y no respecto de un ancestro.
+   --hit-w/--hit-h son variables (default 44px cada una) para poder achicar
+   la zona caso por caso cuando un 44x44 fijo pisaría a un vecino (el
+   semáforo de prioridad, el editar de una tarea) o se comería palabras de
+   al lado (el globito inline) — se fija el tamaño real en cada uso, no acá. */
+.entusiasmo-hit-44 {
+  position: relative;
+  --hit-w: 44px;
+  --hit-h: 44px;
+}
+
+.entusiasmo-hit-44::after {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: var(--hit-w);
+  height: var(--hit-h);
+  transform: translate(-50%, -50%);
+}
+
+/* ===== Cambiar entre Mi espacio y CoFruto no debe ser un salto seco =====
+   Cada destino se monta como un nodo nuevo (no se togglea visibilidad de
+   uno ya existente), así que una animación CSS alcanza: arranca sola en
+   cuanto el nodo entra al DOM, sin ningún estado ni efecto en React. */
+.entusiasmo-fade-in {
+  animation: entusiasmo-fade-in 180ms ease-out;
+}
+
+@keyframes entusiasmo-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entusiasmo-fade-in {
+    animation: none;
+  }
+}
+
+/* ===== Mientras carga, la forma de lo que viene =====
+   En vez de un "Cargando..." suelto, un bloque gris con el alto/ancho
+   aproximado de la tarjeta real que va a aparecer — comunica de entrada
+   qué tipo de contenido está por llegar. El brillo se apaga entero bajo
+   movimiento reducido, sin dejar el bloque parpadeando igual. */
+.entusiasmo-skeleton {
+  border-radius: 0.75rem;
+  background: linear-gradient(
+    90deg,
+    rgba(96, 77, 49, 0.08) 25%,
+    rgba(96, 77, 49, 0.14) 37%,
+    rgba(96, 77, 49, 0.08) 63%
+  );
+  background-size: 400% 100%;
+  animation: entusiasmo-skeleton-shimmer 1.4s ease infinite;
+}
+
+@keyframes entusiasmo-skeleton-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entusiasmo-skeleton {
+    animation: none;
+    background: rgba(96, 77, 49, 0.1);
+  }
+}
+
 .landing-public {
   background:
     radial-gradient(circle at 12% 3%, rgba(255, 210, 117, 0.34), transparent 30%),

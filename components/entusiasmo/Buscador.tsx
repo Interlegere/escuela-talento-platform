@@ -1,6 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type ComponentType } from "react"
+import {
+  IconoBrujula,
+  IconoComentario,
+  IconoDestello,
+  IconoMaceta,
+} from "@/components/app/iconos"
 
 // Buscador con IA sobre los datos propios de Entusiasmento (Coordenadas,
 // Tareas, Producciones, Aportes recibidos) — nunca inventa, siempre cita.
@@ -23,11 +29,16 @@ type Props = {
   participanteEmail?: string | null
 }
 
-const ICONO_POR_TIPO: Record<TipoCita, string> = {
-  coordenada: "🧭",
-  tarea: "✓",
-  produccion: "🎨",
-  aporte: "💬",
+// "tarea" usa el mismo destello que ya representa a "Destello de la
+// semana" en el resto de Entusiasmento, y "producción" usa el mismo
+// ícono que "Mi espacio" (de donde salen las producciones) — la familia
+// de components/app/iconos.tsx no tiene un dibujo propio para cada una
+// de las 4 categorías, así que se reutilizan los que ya existen.
+const ICONO_POR_TIPO: Record<TipoCita, ComponentType<{ className?: string }>> = {
+  coordenada: IconoBrujula,
+  tarea: IconoDestello,
+  produccion: IconoMaceta,
+  aporte: IconoComentario,
 }
 
 export default function Buscador({ participanteEmail }: Props) {
@@ -117,17 +128,20 @@ export default function Buscador({ participanteEmail }: Props) {
 
           {citas.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {citas.map((cita, indice) => (
-                <div
-                  key={`${cita.tipo}-${cita.id ?? cita.campo}-${indice}`}
-                  className="max-w-xs space-y-1 rounded-lg border border-teal-200 bg-teal-50/60 px-3 py-2 text-xs"
-                >
-                  <p className="font-semibold text-teal-800">
-                    {ICONO_POR_TIPO[cita.tipo]} {cita.etiqueta}
-                  </p>
-                  <p className="italic text-gray-600">&ldquo;{cita.fragmento}&rdquo;</p>
-                </div>
-              ))}
+              {citas.map((cita, indice) => {
+                const Icono = ICONO_POR_TIPO[cita.tipo]
+                return (
+                  <div
+                    key={`${cita.tipo}-${cita.id ?? cita.campo}-${indice}`}
+                    className="max-w-xs space-y-1 rounded-lg border border-teal-200 bg-teal-50/60 px-3 py-2 text-xs"
+                  >
+                    <p className="inline-flex items-center gap-1 font-semibold text-teal-800">
+                      <Icono className="h-3 w-3 shrink-0" /> {cita.etiqueta}
+                    </p>
+                    <p className="italic text-gray-600">&ldquo;{cita.fragmento}&rdquo;</p>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

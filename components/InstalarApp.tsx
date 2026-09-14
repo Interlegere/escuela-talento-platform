@@ -75,7 +75,7 @@ export default function InstalarApp() {
           <button
             type="button"
             onClick={manejarClickBoton}
-            className="workspace-button-secondary px-3 py-1.5 text-xs"
+            className="workspace-button-secondary px-3 py-3.5 text-xs"
           >
             {textoBoton}
           </button>
@@ -83,7 +83,7 @@ export default function InstalarApp() {
             type="button"
             onClick={descartar}
             aria-label="Cerrar"
-            className="text-gray-400 hover:text-gray-600"
+            className="inline-flex h-11 w-11 items-center justify-center text-gray-400 hover:text-gray-600"
           >
             ✕
           </button>
