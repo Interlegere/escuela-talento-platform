@@ -6,6 +6,18 @@ import { signIn, signOut } from "next-auth/react"
 import { Suspense, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
+import { estaStandalone } from "@/hooks/useDeteccionInstalacion"
+
+// Solo rutas internas ("/algo"), nunca una dirección externa ni algo que
+// el navegador pueda llegar a interpretar como protocol-relative
+// ("//otro-dominio.com" o "/\otro-dominio.com" son ambos formas reales de
+// mandar a otro sitio pese a "empezar con /").
+function esCallbackUrlSegura(valor: string | null): valor is string {
+  if (!valor) return false
+  if (!valor.startsWith("/")) return false
+  if (valor.startsWith("//") || valor.startsWith("/\\")) return false
+  return true
+}
 
 // El menú principal (AppNav) no se renderiza en /login (ver AppNav.tsx) —
 // esta marca chica reemplaza esa referencia visual sin traer de vuelta la
@@ -61,6 +73,19 @@ function LoginPageContent() {
         : ""
   const error = errorLocal || errorQuery
 
+  // Sin ?callbackUrl= en la URL (el caso de siempre, entrando por
+  // /login a secas): en la web sigue yendo a /campus, exactamente como
+  // hoy. Instalada como app, el destino por defecto pasa a ser
+  // Entusiasmento — no tiene sentido depositar a alguien en Campus
+  // cuando la app entera está pensada para vivir ahí adentro.
+  const callbackUrlParam = searchParams.get("callbackUrl")
+  const callbackUrlPorDefecto = estaStandalone()
+    ? "/casatalentos?destino=mi-espacio"
+    : "/campus"
+  const callbackUrl = esCallbackUrlSegura(callbackUrlParam)
+    ? callbackUrlParam
+    : callbackUrlPorDefecto
+
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
@@ -76,7 +101,7 @@ function LoginPageContent() {
       await signIn("credentials", {
         email: email.trim(),
         password,
-        callbackUrl: "/campus",
+        callbackUrl,
         redirect: true,
       })
     } catch {

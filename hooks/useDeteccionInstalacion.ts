@@ -14,7 +14,12 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>
 }
 
-function estaStandalone() {
+// Exportada aparte (además de usarse en el hook de abajo) para que
+// app/login/page.tsx pueda elegir el destino por defecto sin duplicar el
+// chequeo — mismo criterio en toda la plataforma para "esto corre como
+// app instalada": la media query primero, navigator.standalone como
+// respaldo de iOS.
+export function estaStandalone() {
   if (typeof window === "undefined") return false
 
   const navegadorConStandalone = window.navigator as Navigator & {

@@ -160,6 +160,10 @@ function BarraInferiorContenido() {
           <Link
             key={destino.key}
             href={destino.href}
+            // Sin esto, cada toque agrega una entrada al historial y el
+            // gesto de volver del celular desanda solapas en vez de salir
+            // de verdad de la app instalada.
+            replace
             className="relative flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[0.68rem] font-semibold"
             style={{ color: activo ? "var(--accent)" : "var(--muted)" }}
           >
