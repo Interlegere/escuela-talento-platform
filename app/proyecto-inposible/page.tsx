@@ -176,7 +176,7 @@ function FilaComoFunciona({
 // Un solo símbolo por eje, no dos: antes competían un ícono chico arriba
 // y un número gigante abajo por la misma cosa. El número se saca — no se
 // pierde la numeración, el rótulo de abajo ya la dice ("TALLER 1 · LUNES
-// 14 DE SEPTIEMBRE"). Círculo dorado de 96px, ícono adentro a 48px.
+// 21 DE SEPTIEMBRE"). Círculo dorado de 96px, ícono adentro a 48px.
 function IconoCirculoEje({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full bg-[var(--dorado)] text-[var(--tinta)]">
@@ -254,7 +254,7 @@ const PREGUNTAS_FRECUENTES = [
   {
     pregunta: "¿Puedo entrar si el programa ya empezó?",
     respuesta:
-      "Sí, y no perdés ningún taller. Son tres talleres creativos, uno por mes: los que ya pasaron te los habilito grabados apenas te inscribís, y los que faltan los hacés en vivo con el grupo. Quien entra en octubre, por ejemplo, ve grabado el taller del 14 de septiembre y hace en vivo el del 12 de octubre y el del 9 de noviembre. Tu espacio propio y el acompañamiento por WhatsApp arrancan el día uno, sin esperar a ningún taller.",
+      "Sí, y no perdés ningún taller. Son tres talleres creativos, uno por mes: los que ya pasaron te los habilito grabados apenas te inscribís, y los que faltan los hacés en vivo con el grupo. Quien entra en octubre, por ejemplo, ve grabado el taller del 21 de septiembre y hace en vivo el del 12 de octubre y el del 9 de noviembre. Tu espacio propio y el acompañamiento por WhatsApp arrancan el día uno, sin esperar a ningún taller.",
   },
   {
     pregunta: "¿Cómo pago desde otro país?",
@@ -425,7 +425,7 @@ export default function ProyectoInPosiblePage() {
             <FilaEje
               id="eje-1"
               icono={<IconoBrujula className="h-12 w-12" />}
-              taller="TALLER 1 · LUNES 14 DE SEPTIEMBRE"
+              taller="TALLER 1 · LUNES 21 DE SEPTIEMBRE"
               titulo="Las coordenadas"
             >
               <p>
@@ -490,7 +490,7 @@ export default function ProyectoInPosiblePage() {
         <div className="mt-8">
           <GrupoFilasAnimadas conLinea>
             <FilaComoFunciona id="cf-talleres" icono={<IconoCalendario className="h-5 w-5" />} rotulo="TALLERES" titulo="Un taller creativo por mes">
-              <p>Tres encuentros en vivo, los lunes a las 19 hs:</p>
+              <p>Tres encuentros en vivo, los lunes a las 19:30 hs:</p>
               <div className="font-semibold opacity-100">
                 {TALLERES.map((t) => (
                   <p key={t.fecha}>{t.etiqueta}</p>
@@ -655,12 +655,12 @@ export default function ProyectoInPosiblePage() {
         </ul>
       </SeccionAnimada>
 
-      {/* 10 · No esperás al 14 para empezar — única banda de color pleno.
+      {/* 10 · No esperás al 21 para empezar — única banda de color pleno.
           Única excepción de padding de toda la página: 56px/72px en vez
           del 56px/80px uniforme. */}
       <SeccionAnimada fondo="dorado" className="text-center" padding="py-[40px] md:py-[52px]">
         <h2 className={`${TITULO_FONT} text-[28px] font-bold leading-tight tracking-[-0.01em] sm:text-[36px]`}>
-          No esperás al 14 para empezar
+          No esperás al 21 para empezar
         </h2>
         <p className={`${TEXTO} mx-auto mt-4 opacity-95`}>
           Apenas reservás tu lugar, arrancamos. Vas a recibir instrucciones por mail, contenido en video

@@ -220,7 +220,7 @@ export default function GraciasContenido({ logoExiste }: { logoExiste: boolean }
         </div>
 
         <div className={`mt-10 ${TARJETA} bg-[var(--arena)]`}>
-          <p className="text-sm font-semibold">Los tres talleres en vivo, 19 hs</p>
+          <p className="text-sm font-semibold">Los tres talleres en vivo, 19:30 hs</p>
           <p className="mt-1 text-sm opacity-70">{TALLERES.map((t) => t.etiqueta).join(" · ")}</p>
         </div>
 

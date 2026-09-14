@@ -73,7 +73,7 @@ export default async function ListoPage({
         </p>
 
         <p className="mt-8 text-center text-lg">
-          <strong>No esperás al 14 para empezar.</strong> Esto es lo que sigue:
+          <strong>No esperás al 21 para empezar.</strong> Esto es lo que sigue:
         </p>
 
         <div className={`mt-6 space-y-5 ${TARJETA}`}>
@@ -86,7 +86,7 @@ export default async function ListoPage({
             <p className="mt-1 text-sm opacity-70">Para conocernos y para que me cuentes en qué andás.</p>
           </div>
           <div>
-            <p className="font-bold">3 · El lunes 14 de septiembre a las 19 hs, el primer taller creativo: Las coordenadas.</p>
+            <p className="font-bold">3 · El lunes 21 de septiembre a las 19:30 hs, el primer taller creativo: Las coordenadas.</p>
           </div>
         </div>
 

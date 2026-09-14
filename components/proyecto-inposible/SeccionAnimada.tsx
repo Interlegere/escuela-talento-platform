@@ -5,7 +5,7 @@ import { TOKEN_PAD_SECCION } from "@/app/proyecto-inposible/tokens"
 
 // Fondo por sección — el contraste de la página lo dan las fotos y el
 // dorado, no rectángulos de color: ninguna sección tiene fondo oscuro.
-// Alternan crema y arena; la banda dorada de "No esperás al 14" es la
+// Alternan crema y arena; la banda dorada de "No esperás al 21" es la
 // única superficie de color pleno de toda la página — y, como el dorado
 // nunca es texto sobre fondo claro, ahí el texto sigue siendo tinta, no
 // crema (a diferencia de lo que hacía la vieja banda naranja).
@@ -46,7 +46,7 @@ type Props = {
   separador?: boolean
   // Override puntual del padding uniforme (TOKEN_PAD_SECCION) — pensado
   // para la única excepción explícita de la página, la banda "No esperás
-  // al 14" (56px/72px en vez de 56px/80px).
+  // al 21" (56px/72px en vez de 56px/80px).
   padding?: string
 }
 
@@ -103,7 +103,7 @@ export default function SeccionAnimada({
   }, [])
 
   // --pad-seccion: 80px desktop / 56px mobile, arriba Y abajo, en todas las
-  // secciones — única excepción explícita: la banda "No esperás al 14"
+  // secciones — única excepción explícita: la banda "No esperás al 21"
   // pasa su propio `padding` (56px/72px) por prop.
   const paddingClase = padding ?? TOKEN_PAD_SECCION
 

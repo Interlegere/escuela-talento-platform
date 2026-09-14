@@ -14,7 +14,7 @@ import { obtenerFechaISOArgentina } from "@/lib/fechas"
 const INSCRIPCION_CIERRA = "2026-10-12"
 
 export const TALLERES = [
-  { fecha: "2026-09-14", etiqueta: "Lunes 14 de septiembre" },
+  { fecha: "2026-09-21", etiqueta: "Lunes 21 de septiembre" },
   { fecha: "2026-10-12", etiqueta: "Lunes 12 de octubre" },
   { fecha: "2026-11-09", etiqueta: "Lunes 9 de noviembre" },
 ] as const
@@ -29,13 +29,13 @@ export function proximoTaller(fechaISOArgentinaHoy: string = obtenerFechaISOArge
   return TALLERES.find((taller) => taller.fecha >= fechaISOArgentinaHoy) || null
 }
 
-// "Lunes 14 de septiembre" -> "lunes 14 de septiembre", para usar en medio
-// de una oración ("Próximo taller en vivo: lunes 14 de septiembre").
+// "Lunes 21 de septiembre" -> "lunes 21 de septiembre", para usar en medio
+// de una oración ("Próximo taller en vivo: lunes 21 de septiembre").
 export function formatearProximoTallerLargo(taller: Taller) {
   return taller.etiqueta.charAt(0).toLowerCase() + taller.etiqueta.slice(1)
 }
 
-// "2026-09-14" -> "14/09", para la barra fija angosta del celular.
+// "2026-09-21" -> "21/09", para la barra fija angosta del celular.
 export function formatearProximoTallerCorto(taller: Taller) {
   const [, mes, dia] = taller.fecha.split("-")
   return `${dia}/${mes}`

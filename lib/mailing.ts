@@ -1,5 +1,6 @@
 import { obtenerPartesArgentina } from "@/lib/fechas"
 import { crearLinkWhatsapp, WHATSAPP_CONTACTO } from "@/lib/whatsapp"
+import { TALLERES } from "@/lib/proyecto-inposible"
 
 type BienvenidaParams = {
   nombre: string
@@ -280,11 +281,7 @@ function crearContenidoRecuperacionClave(params: RecuperacionClaveParams) {
 
 function crearContenidoPreinscripcionParticipante(params: PreinscripcionParticipanteParams) {
   const nombre = params.nombre.trim() || "hola"
-  const talleres = [
-    "Lunes 14 de septiembre",
-    "Lunes 12 de octubre",
-    "Lunes 9 de noviembre",
-  ]
+  const talleres = TALLERES.map((t) => t.etiqueta)
 
   const bloquePago = params.pago.esInternacional
     ? `
@@ -330,7 +327,7 @@ function crearContenidoPreinscripcionParticipante(params: PreinscripcionParticip
     `Elegiste el plan: ${params.planPagoTexto}.`,
     "",
     "Los tres talleres en vivo son:",
-    ...talleres.map((t) => `- ${t}, 19 hs`),
+    ...talleres.map((t) => `- ${t}, 19:30 hs`),
     "",
     "En las próximas horas te llega el primer material de la inducción.",
     ...(linkComprobante
@@ -355,7 +352,7 @@ function crearContenidoPreinscripcionParticipante(params: PreinscripcionParticip
 
           ${bloquePago}
 
-          <p style="margin: 0 0 8px; font-weight: 700; color: #241F1C;">Los tres talleres en vivo, 19 hs</p>
+          <p style="margin: 0 0 8px; font-weight: 700; color: #241F1C;">Los tres talleres en vivo, 19:30 hs</p>
           <p style="margin: 0 0 20px; font-size: 14px; color: #5C5651;">
             ${talleres.map((t) => escapeHtml(t)).join("<br />")}
           </p>
