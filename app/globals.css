@@ -435,6 +435,72 @@ html {
   scroll-behavior: smooth;
 }
 
+/* ===== Cáscara de app instalada (PWA standalone) =====
+   Todo lo de acá abajo solo se activa cuando la plataforma corre
+   instalada (display-mode: standalone) — en el navegador normal nada de
+   esto aplica, queda todo exactamente igual que hoy. Se resuelve por CSS
+   a propósito, nunca detectando por JavaScript: un chequeo en React
+   corre después del primer pintado y hace parpadear el menú viejo antes
+   de esconderse.
+   El bloque html.ios-standalone es el respaldo para iOS viejo, donde a
+   veces la media query de display-mode no alcanza (ver el script
+   sincrónico en app/layout.tsx, que corre antes de que React hidrate
+   nada). Mismas reglas, escritas dos veces a propósito en vez de
+   compartidas, para que cada bloque sea autocontenido. */
+.app-bottom-bar {
+  display: none;
+}
+
+@media (display-mode: standalone) {
+  .app-main-nav,
+  .app-main-footer,
+  .selector-destino-web {
+    display: none;
+  }
+
+  .app-bottom-bar {
+    display: flex;
+  }
+
+  html,
+  body {
+    overscroll-behavior-y: contain;
+  }
+
+  body {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .workspace-page,
+  .workspace-shell {
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  }
+}
+
+html.ios-standalone .app-main-nav,
+html.ios-standalone .app-main-footer,
+html.ios-standalone .selector-destino-web {
+  display: none;
+}
+
+html.ios-standalone .app-bottom-bar {
+  display: flex;
+}
+
+html.ios-standalone,
+html.ios-standalone body {
+  overscroll-behavior-y: contain;
+}
+
+html.ios-standalone body {
+  padding-top: env(safe-area-inset-top);
+}
+
+html.ios-standalone .workspace-page,
+html.ios-standalone .workspace-shell {
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+}
+
 .landing-public {
   background:
     radial-gradient(circle at 12% 3%, rgba(255, 210, 117, 0.34), transparent 30%),

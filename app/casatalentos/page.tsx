@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { Suspense, useEffect, useMemo, useRef, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import PagoMensualCard from "@/components/pagos/PagoMensualCard"
 import SeccionDesplegable from "@/components/SeccionDesplegable"
 import VideoEmbed from "@/components/VideoEmbed"
@@ -436,7 +437,7 @@ async function leerRespuestaJson<T>(res: Response): Promise<T> {
   }
 }
 
-export default function CasaTalentosPage() {
+function CasaTalentosPageContent() {
   const {
     session,
     status,
@@ -495,6 +496,33 @@ export default function CasaTalentosPage() {
   >(uiKey("entusiasmo:destino"), "mi-espacio", {
     enabled: Boolean(uiStoragePrefix),
   })
+  const searchParams = useSearchParams()
+
+  // Entrada directa a un destino puntual (ej. desde la barra inferior de
+  // la app instalada, ?destino=cofruto o ?destino=mi-espacio) — pisa lo
+  // que hubiera persistido, a propósito: si alguien tocó ese link es
+  // porque quiere ir ahí ahora, no lo que recordaba de la última vez. Sin
+  // el parámetro, el comportamiento no cambia en nada (sigue la
+  // persistencia de siempre).
+  // Ojo con el orden: usePersistentState todavía no tiene una key real
+  // (uiStoragePrefix depende del email de sesión, que tarda en resolver) —
+  // hasta que la tenga, queda con enabled:false y sin nada persistido. En
+  // cuanto uiStoragePrefix pasa a tener valor, el propio hook vuelve a
+  // leer localStorage y, si está vacío, reescribe destinoEntusiasmo a su
+  // initialValue — pisando un "cofruto" que se hubiera puesto antes. Por
+  // eso este efecto depende de uiStoragePrefix (corre recién cuando esa
+  // key ya es real), no de un mount en vacío.
+  useEffect(() => {
+    if (!uiStoragePrefix) return
+
+    const destino = searchParams.get("destino")
+
+    if (destino === "cofruto") {
+      setDestinoEntusiasmo("cofruto")
+    } else if (destino === "mi-espacio") {
+      setDestinoEntusiasmo("mi-espacio")
+    }
+  }, [uiStoragePrefix, searchParams, setDestinoEntusiasmo])
   const coordenadasSinDefinir = CAMPOS_COORDENADAS.filter(
     (campo) => !coordenadas[campo].trim()
   ).length
@@ -3732,7 +3760,7 @@ export default function CasaTalentosPage() {
 
             {tieneAccesoEntusiasmento(storageEmail, esAdmin) ? (
               <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="selector-destino-web grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setDestinoEntusiasmo("mi-espacio")}
@@ -5188,5 +5216,15 @@ export default function CasaTalentosPage() {
           </div>
         )}
       </main>
+  )
+}
+
+// useSearchParams() (para leer ?destino=cofruto) exige un límite de
+// Suspense — mismo patrón que ya usa app/login/page.tsx.
+export default function CasaTalentosPage() {
+  return (
+    <Suspense fallback={null}>
+      <CasaTalentosPageContent />
+    </Suspense>
   )
 }

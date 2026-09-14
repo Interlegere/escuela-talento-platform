@@ -19,9 +19,9 @@ export default function AppFooter() {
   }
 
   return (
-    <footer className="border-t border-[var(--line)] bg-[rgba(253,247,236,0.78)] px-6 py-5 text-sm text-[var(--muted)] backdrop-blur-xl">
+    <footer className="app-main-footer border-t border-[var(--line)] bg-[rgba(253,247,236,0.78)] px-6 py-5 text-sm text-[var(--muted)] backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p>ENTHEOS · Escuela de trabajo, proceso y creación compartida.</p>
+        <p>ENTHEOS · Escuela Norte para el Talento, el Entusiasmo y el Orden de los Sentidos.</p>
         <Link
           href="/terminos-y-condiciones"
           className="font-medium underline underline-offset-4"

@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "ENTHEOS",
     short_name: "ENTHEOS",
-    start_url: "/casatalentos",
+    start_url: "/casatalentos?destino=mi-espacio",
     display: "standalone",
     background_color: "#f4ecde",
     theme_color: "#cf9130",
