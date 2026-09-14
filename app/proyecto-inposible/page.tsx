@@ -539,14 +539,16 @@ export default function ProyectoInPosiblePage() {
               </p>
             </FilaComoFunciona>
 
-            <FilaComoFunciona id="cf-sesion" icono={<IconoDosPersonas className="h-5 w-5" />} rotulo="SESIÓN 1 A 1" titulo="Sesión 1 a 1">
+            <FilaComoFunciona id="cf-sesion" icono={<IconoDosPersonas className="h-5 w-5" />} rotulo="SESIONES 1 A 1" titulo="Sesiones 1 a 1">
               <p>
-                <strong>Una hora con Nicolás, a coordinar durante el programa.</strong>
+                <strong>Una hora por mes con Nicolás: tres en total, a coordinar con cada uno.</strong>
               </p>
               <p>
                 Es la oportunidad analítica brindada por Nicolás para profundizar al máximo tanto en las
                 cuestiones por las que sí avanzás, como en aquellas por las que, desde lo más escondido y
-                difícil de aceptar, no avanzás.
+                difícil de aceptar, no avanzás. Son tres, una por mes, y eso cambia lo que se puede hacer en
+                ellas: la primera abre el camino, la segunda corrige el rumbo con lo que ya pasó, y la
+                tercera mira lo construido y hacia dónde sigue.
               </p>
               <p>
                 Vas a poder consultar y hablar de lo más delicado, lo que más te cuesta expresar, con foco
@@ -783,7 +785,7 @@ export default function ProyectoInPosiblePage() {
               {[
                 ["Entusiasmento — tu espacio propio, los tres meses", "$480.000"],
                 ["Tres talleres creativos en vivo — 6 horas, con posibilidad de grabación", "$150.000"],
-                ["Sesión 1 a 1 de una hora, con Nicolás", "$55.000"],
+                ["Tres sesiones 1 a 1 de una hora, con Nicolás — una por mes", "$165.000"],
                 ["Soporte por WhatsApp, de 9 a 18, doce semanas", "incluido"],
                 ["Red colaborativa de talentos", "incluido"],
               ].map(([nombre, precio]) => (
@@ -796,7 +798,7 @@ export default function ProyectoInPosiblePage() {
           </table>
         </div>
         <p className={`${TEXTO} mt-6`}>
-          Por separado, cada cosa: <strong className="font-bold">$685.000</strong>
+          Por separado, cada cosa: <strong className="font-bold">$795.000</strong>
         </p>
 
         <div className="mt-8">
