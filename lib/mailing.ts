@@ -128,7 +128,7 @@ function crearContenidoBienvenida(params: BienvenidaParams) {
   const nombre = params.nombre.trim() || "bienvenida/o"
   const role = textoRol(params.role)
   const subtitulo =
-    "Escuela Nodo para el THalento, el Entusiasmo y el Orden de los Sentidos"
+    "Escuela Norte para el Talento, el Entusiasmo y el Orden de los Sentidos"
 
   const text = [
     `Hola ${nombre},`,
@@ -437,7 +437,7 @@ function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
   const url = appUrl()
   const nombre = params.nombre.trim() || "bienvenida/o"
   const subtitulo =
-    "Escuela Nodo para el Thalento, el Entusiasmo y el Orden de los Sentidos"
+    "Escuela Norte para el Talento, el Entusiasmo y el Orden de los Sentidos"
   const tituloCharla = charlaIntroTitulo()
   const fechaCharla = charlaIntroFechaTexto()
 
