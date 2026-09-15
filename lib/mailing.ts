@@ -1,6 +1,6 @@
 import { obtenerPartesArgentina } from "@/lib/fechas"
 import { crearLinkWhatsapp, WHATSAPP_CONTACTO } from "@/lib/whatsapp"
-import { TALLERES } from "@/lib/proyecto-inposible"
+import { TALLERES, formatearProximoTallerLargo, type PlanPago } from "@/lib/proyecto-inposible"
 
 type BienvenidaParams = {
   nombre: string
@@ -41,6 +41,7 @@ export type PreinscripcionInstruccionesPago =
 type PreinscripcionParticipanteParams = {
   nombre: string
   email: string
+  planPago: PlanPago
   planPagoTexto: string
   pago: PreinscripcionInstruccionesPago
 }
@@ -279,15 +280,73 @@ function crearContenidoRecuperacionClave(params: RecuperacionClaveParams) {
   }
 }
 
+// Lo que entra en los tres meses, siempre igual sin importar plan ni
+// país — mismo listado que la tabla de precios de la landing (sin los
+// montos, acá alcanza con decir qué es cada cosa).
+const LO_QUE_COMPRASTE = [
+  "Tres talleres creativos en vivo, uno por mes, a las 19:30.",
+  "Entusiasmento, tu espacio propio en el celular, durante los tres meses.",
+  "Tres sesiones 1 a 1 de una hora conmigo: una por mes.",
+  "Soporte por WhatsApp de 9 a 18, las doce semanas.",
+]
+
+const AVISO_GRABACION =
+  "Si alguno de esos talleres ya pasó cuando te inscribiste, te habilito la grabación: tenés siete días desde hoy para verla."
+
+const linkComprobante = crearLinkWhatsapp("Hola Nicolás, te mando el comprobante de mi pago de Proyecto In+Posible.")
+
 function crearContenidoPreinscripcionParticipante(params: PreinscripcionParticipanteParams) {
   const nombre = params.nombre.trim() || "hola"
   const talleres = TALLERES.map((t) => t.etiqueta)
 
-  const bloquePago = params.pago.esInternacional
+  // Vencimiento de los meses 2 y 3 — solo aplica al plan mes a mes, sin
+  // importar el país. Sale de los mismos TALLERES que usa la landing, no
+  // de una fecha escrita a mano acá.
+  const avisoMesesSiguientes =
+    params.planPago === "mensual"
+      ? `Los meses 2 y 3 se pagan de la misma forma, antes de cada taller: antes del ${formatearProximoTallerLargo(TALLERES[1])} y antes del ${formatearProximoTallerLargo(TALLERES[2])}.`
+      : null
+
+  // Cada método de pago lleva su propia aclaración de qué pasa después —
+  // nunca una frase única al final que le asuma a todo el mundo el mismo
+  // medio. Quien vaya a transferir manda comprobante; a quien paga con
+  // Mercado Pago no se le pide nada, el cobro se acredita solo.
+  const notaTransferencia = linkComprobante
+    ? `Si transferís, mandame el comprobante por WhatsApp y te confirmo el lugar.`
+    : `Si transferís, te confirmo el lugar apenas vea el pago acreditado.`
+  const notaMercadoPago = `Con Mercado Pago el cobro se acredita solo — no hace falta que mandes nada, te confirmo el lugar apenas se acredite.`
+
+  const bloquePagoTexto = params.pago.esInternacional
+    ? [
+        `Por transferencia internacional — ${params.pago.montoTexto}`,
+        `Titular: ${params.pago.titular}`,
+        `Banco: ${params.pago.banco}`,
+        `Tipo de cuenta: ${params.pago.tipoCuenta}`,
+        `Cuenta: ${params.pago.cuenta}`,
+        `Ruta: ${params.pago.ruta}`,
+        `Dirección: ${params.pago.direccion}`,
+        "",
+        notaTransferencia,
+      ]
+    : [
+        `Por transferencia — ${params.pago.transferencia.montoTexto}`,
+        `Alias: ${params.pago.transferencia.alias}`,
+        `CVU: ${params.pago.transferencia.cvu}`,
+        `Titular: ${params.pago.transferencia.titular}`,
+        "",
+        notaTransferencia,
+        "",
+        `Por Mercado Pago — ${params.pago.mercadopago.montoTexto}`,
+        params.pago.mercadopago.link,
+        "",
+        notaMercadoPago,
+      ]
+
+  const bloquePagoHtml = params.pago.esInternacional
     ? `
       <div style="margin: 0 0 16px; padding: 16px; border: 1px solid #eadfc9; border-radius: 16px; background: #FFFCF7;">
         <p style="margin: 0 0 6px; font-weight: 700; color: #241F1C;">Transferencia internacional — ${escapeHtml(params.pago.montoTexto)}</p>
-        <p style="margin: 0; font-size: 14px; color: #5C5651; line-height: 1.6;">
+        <p style="margin: 0 0 10px; font-size: 14px; color: #5C5651; line-height: 1.6;">
           Titular: ${escapeHtml(params.pago.titular)}<br />
           Banco: ${escapeHtml(params.pago.banco)}<br />
           Tipo de cuenta: ${escapeHtml(params.pago.tipoCuenta)}<br />
@@ -295,44 +354,52 @@ function crearContenidoPreinscripcionParticipante(params: PreinscripcionParticip
           Ruta: ${escapeHtml(params.pago.ruta)}<br />
           Dirección: ${escapeHtml(params.pago.direccion)}
         </p>
+        <p style="margin: 0; font-size: 14px; color: #5C5651;">${escapeHtml(notaTransferencia)}${linkComprobante ? ` <a href="${linkComprobante}" style="color: #9a6218; font-weight: 700; text-decoration: none;">wa.me/${WHATSAPP_CONTACTO}</a>` : ""}</p>
       </div>
     `
     : `
       <div style="display: flex; gap: 12px; flex-wrap: wrap; margin: 0 0 16px;">
         <div style="flex: 1; min-width: 220px; padding: 16px; border: 1px solid #eadfc9; border-radius: 16px; background: #FFFCF7;">
           <p style="margin: 0 0 6px; font-weight: 700; color: #241F1C;">Por transferencia — ${escapeHtml(params.pago.transferencia.montoTexto)}</p>
-          <p style="margin: 0; font-size: 14px; color: #5C5651; line-height: 1.6;">
+          <p style="margin: 0 0 10px; font-size: 14px; color: #5C5651; line-height: 1.6;">
             Alias: ${escapeHtml(params.pago.transferencia.alias)}<br />
             CVU: ${escapeHtml(params.pago.transferencia.cvu)}<br />
             Titular: ${escapeHtml(params.pago.transferencia.titular)}
           </p>
+          <p style="margin: 0; font-size: 13px; color: #5C5651;">${escapeHtml(notaTransferencia)}${linkComprobante ? ` <a href="${linkComprobante}" style="color: #9a6218; font-weight: 700; text-decoration: none;">wa.me/${WHATSAPP_CONTACTO}</a>` : ""}</p>
         </div>
         <div style="flex: 1; min-width: 220px; padding: 16px; border: 1px solid #eadfc9; border-radius: 16px; background: #FFFCF7;">
           <p style="margin: 0 0 6px; font-weight: 700; color: #241F1C;">Por Mercado Pago — ${escapeHtml(params.pago.mercadopago.montoTexto)}</p>
-          <p style="margin: 0 0 10px; font-size: 14px; color: #5C5651;">Pagás con tarjeta o el medio que prefieras.</p>
-          <a href="${params.pago.mercadopago.link}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #F9C33E; color: #241F1C; font-weight: 700; text-decoration: none; font-size: 14px;">
+          <a href="${params.pago.mercadopago.link}" style="display: inline-block; margin: 0 0 10px; padding: 10px 16px; border-radius: 999px; background: #F9C33E; color: #241F1C; font-weight: 700; text-decoration: none; font-size: 14px;">
             Pagar con Mercado Pago
           </a>
+          <p style="margin: 0; font-size: 13px; color: #5C5651;">${escapeHtml(notaMercadoPago)}</p>
         </div>
       </div>
     `
 
-  const linkComprobante = crearLinkWhatsapp("Hola Nicolás, te mando el comprobante de mi pago de Proyecto In+Posible.")
-
   const text = [
     `Hola ${nombre},`,
     "",
-    "Ya reservamos tu lugar en Proyecto In+Posible.",
+    "Recibimos tu inscripción a Proyecto In+Posible.",
     "",
     `Elegiste el plan: ${params.planPagoTexto}.`,
+    "",
+    "Esto es lo que entra en los tres meses:",
+    ...LO_QUE_COMPRASTE.map((item) => `- ${item}`),
     "",
     "Los tres talleres en vivo son:",
     ...talleres.map((t) => `- ${t}, 19:30 hs`),
     "",
+    AVISO_GRABACION,
+    "",
+    "Así podés pagar:",
+    "",
+    ...bloquePagoTexto,
+    ...(avisoMesesSiguientes ? ["", avisoMesesSiguientes] : []),
+    "",
     "En las próximas horas te llega el primer material de la inducción.",
-    ...(linkComprobante
-      ? ["", `Cuando transfieras, mandame el comprobante por WhatsApp y te confirmo el lugar en el día.`, `wa.me/${WHATSAPP_CONTACTO}`]
-      : []),
+    ...(linkComprobante ? ["", `Cualquier duda, escribime por WhatsApp: wa.me/${WHATSAPP_CONTACTO}`] : []),
   ].join("\n")
 
   const html = `
@@ -340,41 +407,39 @@ function crearContenidoPreinscripcionParticipante(params: PreinscripcionParticip
       <div style="max-width: 640px; margin: 0 auto; background: #FFFCF7; border: 1px solid #eadfc9; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(77, 54, 18, 0.08);">
         <div style="padding: 32px 32px 20px; background: linear-gradient(135deg, #FFFCF7 0%, #FBEFDC 100%);">
           <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: #9A7415; font-weight: 700;">ENTHEOS</p>
-          <h1 style="margin: 0 0 10px; font-size: 30px; line-height: 1.15; color: #241F1C;">Tu lugar en Proyecto In+Posible</h1>
+          <h1 style="margin: 0 0 10px; font-size: 30px; line-height: 1.15; color: #241F1C;">Recibimos tu inscripción</h1>
           <p style="margin: 0; color: #5C5651; font-size: 16px; line-height: 1.5;">Plan elegido: ${escapeHtml(params.planPagoTexto)}</p>
         </div>
 
         <div style="padding: 28px 32px 32px; line-height: 1.7;">
           <p style="margin: 0 0 14px;">Hola ${escapeHtml(nombre)},</p>
-          <p style="margin: 0 0 20px;">
-            Reservamos tu lugar. Así podés completar el pago:
-          </p>
-
-          ${bloquePago}
+          <p style="margin: 0 0 8px; font-weight: 700; color: #241F1C;">Esto es lo que entra en los tres meses:</p>
+          <ul style="margin: 0 0 20px; padding-left: 20px; font-size: 14px; color: #5C5651; line-height: 1.7;">
+            ${LO_QUE_COMPRASTE.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+          </ul>
 
           <p style="margin: 0 0 8px; font-weight: 700; color: #241F1C;">Los tres talleres en vivo, 19:30 hs</p>
-          <p style="margin: 0 0 20px; font-size: 14px; color: #5C5651;">
+          <p style="margin: 0 0 8px; font-size: 14px; color: #5C5651;">
             ${talleres.map((t) => escapeHtml(t)).join("<br />")}
           </p>
+          <p style="margin: 0 0 20px; font-size: 13px; color: #5C5651;">${escapeHtml(AVISO_GRABACION)}</p>
 
-          <p style="margin: 0 0 ${linkComprobante ? "16px" : "0"};">
+          <p style="margin: 0 0 12px; font-weight: 700; color: #241F1C;">Así podés pagar:</p>
+
+          ${bloquePagoHtml}
+
+          ${avisoMesesSiguientes ? `<p style="margin: 0 0 20px; font-size: 14px; color: #5C5651;">${escapeHtml(avisoMesesSiguientes)}</p>` : ""}
+
+          <p style="margin: 0;">
             En las próximas horas te llega el primer material de la inducción, para llegar al primer taller con algo ya movido.
           </p>
-          ${
-            linkComprobante
-              ? `<p style="margin: 0; padding: 14px 16px; border-radius: 16px; background: #fef6e4; font-size: 14px; color: #5C5651;">
-                  <strong style="color: #241F1C;">Cuando transfieras, mandame el comprobante por WhatsApp</strong> y te confirmo el lugar en el día.<br />
-                  <a href="${linkComprobante}" style="color: #9a6218; font-weight: 700; text-decoration: none;">wa.me/${WHATSAPP_CONTACTO}</a>
-                </p>`
-              : ""
-          }
         </div>
       </div>
     </div>
   `
 
   return {
-    subject: "Tu lugar en Proyecto In+Posible",
+    subject: "Tu inscripción a Proyecto In+Posible",
     text,
     html,
   }

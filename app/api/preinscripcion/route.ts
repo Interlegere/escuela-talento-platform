@@ -194,6 +194,7 @@ export async function POST(req: Request) {
     const envioParticipante = await enviarPreinscripcionParticipante({
       nombre,
       email,
+      planPago,
       planPagoTexto: PLAN_PAGO_TEXTO[planPago],
       pago,
     }).catch((error) => {
