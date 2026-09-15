@@ -295,6 +295,17 @@ const AVISO_GRABACION =
 
 const linkComprobante = crearLinkWhatsapp("Hola Nicolás, te mando el comprobante de mi pago de Proyecto In+Posible.")
 
+// Sin SWIFT/BIC (Lead Bank todavía no lo confirmó), los datos bancarios
+// internacionales no le sirven a nadie transfiriendo desde otro país —
+// el "Ruta" que había es de uso interno de EE.UU., y el banco de origen
+// va a pedir el SWIFT sí o sí. Mismo criterio ya aplicado en
+// GraciasContenido.tsx: mientras no esté el SWIFT, nada de datos
+// bancarios acá — se deriva a coordinar por WhatsApp. Preferible una
+// persona que escribe a una que intenta transferir, no puede, y no avisa.
+const linkCoordinarExterior = crearLinkWhatsapp(
+  "Hola Nicolás, me anoté en Proyecto In+Posible desde otro país y quiero coordinar el pago."
+)
+
 function crearContenidoPreinscripcionParticipante(params: PreinscripcionParticipanteParams) {
   const nombre = params.nombre.trim() || "hola"
   const talleres = TALLERES.map((t) => t.etiqueta)
@@ -318,15 +329,10 @@ function crearContenidoPreinscripcionParticipante(params: PreinscripcionParticip
 
   const bloquePagoTexto = params.pago.esInternacional
     ? [
-        `Por transferencia internacional — ${params.pago.montoTexto}`,
-        `Titular: ${params.pago.titular}`,
-        `Banco: ${params.pago.banco}`,
-        `Tipo de cuenta: ${params.pago.tipoCuenta}`,
-        `Cuenta: ${params.pago.cuenta}`,
-        `Ruta: ${params.pago.ruta}`,
-        `Dirección: ${params.pago.direccion}`,
+        `Tu plan — ${params.pago.montoTexto}`,
         "",
-        notaTransferencia,
+        "Para pagar desde fuera de Argentina, escribime por WhatsApp y coordinamos la transferencia:",
+        ...(linkCoordinarExterior ? [`wa.me/${WHATSAPP_CONTACTO}`] : []),
       ]
     : [
         `Por transferencia — ${params.pago.transferencia.montoTexto}`,
@@ -345,16 +351,10 @@ function crearContenidoPreinscripcionParticipante(params: PreinscripcionParticip
   const bloquePagoHtml = params.pago.esInternacional
     ? `
       <div style="margin: 0 0 16px; padding: 16px; border: 1px solid #eadfc9; border-radius: 16px; background: #FFFCF7;">
-        <p style="margin: 0 0 6px; font-weight: 700; color: #241F1C;">Transferencia internacional — ${escapeHtml(params.pago.montoTexto)}</p>
-        <p style="margin: 0 0 10px; font-size: 14px; color: #5C5651; line-height: 1.6;">
-          Titular: ${escapeHtml(params.pago.titular)}<br />
-          Banco: ${escapeHtml(params.pago.banco)}<br />
-          Tipo de cuenta: ${escapeHtml(params.pago.tipoCuenta)}<br />
-          Cuenta: ${escapeHtml(params.pago.cuenta)}<br />
-          Ruta: ${escapeHtml(params.pago.ruta)}<br />
-          Dirección: ${escapeHtml(params.pago.direccion)}
+        <p style="margin: 0 0 10px; font-weight: 700; color: #241F1C;">Tu plan — ${escapeHtml(params.pago.montoTexto)}</p>
+        <p style="margin: 0; font-size: 14px; color: #5C5651;">
+          Para pagar desde fuera de Argentina, escribime por WhatsApp y coordinamos la transferencia:${linkCoordinarExterior ? ` <a href="${linkCoordinarExterior}" style="color: #9a6218; font-weight: 700; text-decoration: none;">wa.me/${WHATSAPP_CONTACTO}</a>` : ""}
         </p>
-        <p style="margin: 0; font-size: 14px; color: #5C5651;">${escapeHtml(notaTransferencia)}${linkComprobante ? ` <a href="${linkComprobante}" style="color: #9a6218; font-weight: 700; text-decoration: none;">wa.me/${WHATSAPP_CONTACTO}</a>` : ""}</p>
       </div>
     `
     : `
