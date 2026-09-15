@@ -495,6 +495,124 @@ function crearContenidoPreinscripcionAdmin(params: PreinscripcionAdminParams) {
   }
 }
 
+type ArrepentimientoTipo = "arrepentimiento" | "baja"
+
+type ArrepentimientoParticipanteParams = {
+  tipo: ArrepentimientoTipo
+  nombre: string
+  email: string
+  codigo: string
+}
+
+type ArrepentimientoAdminParams = {
+  tipo: ArrepentimientoTipo
+  nombre: string
+  email: string
+  actividad: string
+  motivo: string
+  codigo: string
+}
+
+// Título formal — para el h1 y el mail interno de admin.
+const ARREPENTIMIENTO_TITULO: Record<ArrepentimientoTipo, string> = {
+  arrepentimiento: "Botón de Arrepentimiento",
+  baja: "Baja de servicio",
+}
+
+// Forma corta — para "tu código de arrepentimiento"/"tu código de baja",
+// tanto en pantalla (FormularioArrepentimientoBaja) como en el mail. Con el
+// título formal quedaba "tu código de botón de arrepentimiento", redundante.
+const ARREPENTIMIENTO_ETIQUETA: Record<ArrepentimientoTipo, string> = {
+  arrepentimiento: "arrepentimiento",
+  baja: "baja",
+}
+
+function crearContenidoArrepentimientoParticipante(params: ArrepentimientoParticipanteParams) {
+  const nombre = params.nombre.trim() || "hola"
+  const etiqueta = ARREPENTIMIENTO_ETIQUETA[params.tipo]
+
+  const text = [
+    `Hola ${nombre},`,
+    "",
+    `Recibimos tu pedido de ${etiqueta}.`,
+    "",
+    `Tu código es: ${params.codigo}`,
+    "",
+    "Guardalo. Nicolás te responde dentro de las 24 horas.",
+  ].join("\n")
+
+  const html = `
+    <div style="margin: 0; padding: 32px 16px; background: #FBEFDC; font-family: Arial, sans-serif; color: #241F1C;">
+      <div style="max-width: 640px; margin: 0 auto; background: #FFFCF7; border: 1px solid #eadfc9; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(77, 54, 18, 0.08);">
+        <div style="padding: 32px 32px 20px; background: linear-gradient(135deg, #FFFCF7 0%, #FBEFDC 100%);">
+          <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: #9A7415; font-weight: 700;">ENTHEOS</p>
+          <h1 style="margin: 0; font-size: 26px; line-height: 1.2; color: #241F1C;">Recibimos tu pedido de ${escapeHtml(etiqueta)}</h1>
+        </div>
+        <div style="padding: 28px 32px 32px; line-height: 1.7;">
+          <p style="margin: 0 0 14px;">Hola ${escapeHtml(nombre)},</p>
+          <p style="margin: 0 0 8px;">Tu código es:</p>
+          <p style="margin: 0 0 16px; font-size: 22px; font-weight: 700; letter-spacing: 0.04em; color: #9a6218;">${escapeHtml(params.codigo)}</p>
+          <p style="margin: 0;">Guardalo. Nicolás te responde dentro de las 24 horas.</p>
+        </div>
+      </div>
+    </div>
+  `
+
+  return {
+    subject: `Tu código de ${etiqueta}`,
+    text,
+    html,
+  }
+}
+
+function crearContenidoArrepentimientoAdmin(params: ArrepentimientoAdminParams) {
+  const p = obtenerPartesArgentina()
+  const horaTexto = `${String(p.day).padStart(2, "0")}/${String(p.month).padStart(2, "0")}/${p.year} ${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")} hs`
+
+  const filas: Array<[string, string]> = [
+    ["Tipo", ARREPENTIMIENTO_TITULO[params.tipo]],
+    ["Código", params.codigo],
+    ["Recibido", horaTexto],
+    ["Nombre", params.nombre],
+    ["Email", params.email],
+    ["Actividad", params.actividad || "(sin especificar)"],
+    ["Motivo", params.motivo || "(sin motivo)"],
+  ]
+
+  const text = filas.map(([k, v]) => `${k}: ${v}`).join("\n")
+
+  const html = `
+    <div style="margin: 0; padding: 32px 16px; background: #f6efe2; font-family: Arial, sans-serif; color: #1f2933;">
+      <div style="max-width: 640px; margin: 0 auto; background: #fffdf8; border: 1px solid #eadfc9; border-radius: 24px; overflow: hidden;">
+        <div style="padding: 24px 32px; background: linear-gradient(135deg, rgba(250,244,229,1) 0%, rgba(255,250,240,1) 100%);">
+          <p style="margin: 0 0 6px; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: #8a6a2f; font-weight: 700;">ENTHEOS</p>
+          <h1 style="margin: 0; font-size: 24px; color: #18202a;">${escapeHtml(ARREPENTIMIENTO_TITULO[params.tipo])}</h1>
+        </div>
+        <div style="padding: 24px 32px 28px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            ${filas
+              .map(
+                ([k, v]) => `
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #f0e6d2; color: #6b7280; width: 160px;">${escapeHtml(k)}</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #f0e6d2; color: #18202a;">${escapeHtml(v)}</td>
+              </tr>
+            `
+              )
+              .join("")}
+          </table>
+        </div>
+      </div>
+    </div>
+  `
+
+  return {
+    subject: `${params.tipo === "arrepentimiento" ? "ARREPENTIMIENTO" : "BAJA"} — ${params.nombre}`,
+    text,
+    html,
+  }
+}
+
 function crearContenidoInvitacionCharlaIntro(params: CharlaIntroParams) {
   const url = appUrl()
   const nombre = params.nombre.trim() || "bienvenida/o"
@@ -722,6 +840,32 @@ export async function enviarPreinscripcionAdmin(
   params: PreinscripcionAdminParams
 ): Promise<MailingResult> {
   const contenido = crearContenidoPreinscripcionAdmin(params)
+
+  return enviarEmail({
+    to: "nicolasbusico@entheosescuela.com",
+    subject: contenido.subject,
+    text: contenido.text,
+    html: contenido.html,
+  })
+}
+
+export async function enviarArrepentimientoParticipante(
+  params: ArrepentimientoParticipanteParams
+): Promise<MailingResult> {
+  const contenido = crearContenidoArrepentimientoParticipante(params)
+
+  return enviarEmail({
+    to: params.email,
+    subject: contenido.subject,
+    text: contenido.text,
+    html: contenido.html,
+  })
+}
+
+export async function enviarArrepentimientoAdmin(
+  params: ArrepentimientoAdminParams
+): Promise<MailingResult> {
+  const contenido = crearContenidoArrepentimientoAdmin(params)
 
   return enviarEmail({
     to: "nicolasbusico@entheosescuela.com",

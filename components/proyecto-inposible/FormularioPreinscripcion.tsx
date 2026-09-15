@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import {
   calcularMontos,
   esArgentina,
@@ -284,7 +285,13 @@ export default function FormularioPreinscripcion() {
         {estado === "enviando" ? "Enviando..." : "¡Quiero mi lugar!"}
       </button>
       <p className="text-center text-xs text-[var(--tinta)]/70">
-        Usamos tus datos solo para contactarte por Proyecto In+Posible. No los compartimos con nadie.
+        Al enviar este formulario, tus datos —nombre, correo y WhatsApp— quedan registrados para contactarte por tu
+        inscripción y enviarte la información del programa. El responsable es el Lic. Nicolás Busico. Podés pedir
+        verlos, corregirlos o borrarlos escribiendo a nicolasbusico@entheosescuela.com. Al enviarlo aceptás los{" "}
+        <Link href="/terminos-y-condiciones" target="_blank" className="underline">
+          Términos y Condiciones
+        </Link>
+        .
       </p>
     </form>
   )

@@ -21,13 +21,21 @@ export default function AppFooter() {
   return (
     <footer className="app-main-footer border-t border-[var(--line)] bg-[rgba(253,247,236,0.78)] px-6 py-5 text-sm text-[var(--muted)] backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p>ENTHEOS · Escuela Norte para el Talento, el Entusiasmo y el Orden de los Sentidos.</p>
-        <Link
-          href="/terminos-y-condiciones"
-          className="font-medium underline underline-offset-4"
-        >
-          Términos y Condiciones
-        </Link>
+        <p>
+          ENTHEOS · Escuela Norte para el Talento, el Entusiasmo y el Orden de los Sentidos. Lic. Nicolás Busico ·
+          Mat. 10618 · CUIT 20-35967909-3 · Córdoba, Argentina.
+        </p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <Link href="/terminos-y-condiciones" className="font-medium underline underline-offset-4">
+            Términos y Condiciones
+          </Link>
+          <Link href="/arrepentimiento" className="font-medium underline underline-offset-4">
+            Botón de Arrepentimiento
+          </Link>
+          <Link href="/baja" className="font-medium underline underline-offset-4">
+            Baja de servicio
+          </Link>
+        </div>
       </div>
     </footer>
   )
