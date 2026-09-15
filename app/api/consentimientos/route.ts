@@ -173,6 +173,12 @@ export async function POST(req: Request) {
       consentimiento: data,
     })
   } catch (error) {
+    // Plan B (Prompt 44): que esto falle nunca deja a nadie afuera de su
+    // encuentro — ConsentimientoMeetButton deja pasar igual aunque este
+    // POST devuelva error. Lo único que se pierde acá es el registro, así
+    // que queda anotado en el log del servidor para poder repararlo después.
+    console.error("[consentimientos][POST] No se pudo guardar el consentimiento:", error)
+
     return NextResponse.json(
       {
         error: "No se pudo guardar el consentimiento.",

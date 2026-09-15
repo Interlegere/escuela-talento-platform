@@ -191,6 +191,25 @@ export default function AgendaPage() {
     ParticipanteActividad[]
   >([])
 
+  // Encuentro destacado al llegar desde /agenda?encuentro=<disponibilidadId>
+  // (mails, .ics, Prompt 44) — se lee directo de window.location en vez de
+  // useSearchParams para no envolver toda esta página en Suspense por esto
+  // solo, mismo criterio ya usado en /perfil para el callback de Google.
+  const [encuentroDestacado, setEncuentroDestacado] = useState<string | null>(
+    null
+  )
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const params = new URLSearchParams(window.location.search)
+    const encuentro = params.get("encuentro")
+
+    if (encuentro) {
+      setEncuentroDestacado(encuentro)
+    }
+  }, [])
+
   const [comprobandoGoogle, setComprobandoGoogle] = useState(false)
   const [errorComprobacionGoogle, setErrorComprobacionGoogle] = useState("")
   const [resultadoComprobacionGoogle, setResultadoComprobacionGoogle] =
@@ -265,7 +284,15 @@ export default function AgendaPage() {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.replace("/login")
+      // Se preserva la URL completa (con ?encuentro=... si vino de un mail)
+      // como callbackUrl, para que /login devuelva a la persona exactamente
+      // a su encuentro destacado después de iniciar sesión, en vez de a
+      // /campus por defecto (ver app/login/page.tsx, ya lee ?callbackUrl=).
+      const destino =
+        typeof window !== "undefined"
+          ? `${window.location.pathname}${window.location.search}`
+          : "/agenda"
+      router.replace(`/login?callbackUrl=${encodeURIComponent(destino)}`)
     }
   }, [router, status])
 
@@ -274,6 +301,13 @@ export default function AgendaPage() {
       void cargarAgenda()
     }
   }, [cargarAgenda, status])
+
+  useEffect(() => {
+    if (!encuentroDestacado || cargando || items.length === 0) return
+
+    const el = document.getElementById(`encuentro-${encuentroDestacado}`)
+    el?.scrollIntoView({ behavior: "smooth", block: "center" })
+  }, [encuentroDestacado, cargando, items])
 
   useEffect(() => {
     const defaults = configurarDefaultsActividad(actividadSlug)
@@ -896,10 +930,20 @@ export default function AgendaPage() {
                 </div>
 
                 <div className="grid gap-4">
-                  {grupo.items.map((item) => (
+                  {grupo.items.map((item) => {
+                    const esDestacado =
+                      encuentroDestacado !== null &&
+                      String(item.disponibilidadId) === encuentroDestacado
+
+                    return (
                     <article
                       key={item.id}
-                      className="workspace-card-link !rounded-[1.45rem] !p-4 space-y-3"
+                      id={`encuentro-${item.disponibilidadId}`}
+                      className={`workspace-card-link !rounded-[1.45rem] !p-4 space-y-3 ${
+                        esDestacado
+                          ? "ring-2 ring-[var(--accent-strong)] ring-offset-2"
+                          : ""
+                      }`}
                     >
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="workspace-chip">{item.actividadNombre}</span>
@@ -945,7 +989,8 @@ export default function AgendaPage() {
                         )}
                       </div>
                     </article>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             ))}

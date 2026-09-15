@@ -369,24 +369,6 @@ function meetLinkReal(meetLink?: string | null) {
   return normalizarMeetLink(meetLink)
 }
 
-function construirAttendees(
-  email?: string | null,
-  nombre?: string | null
-): calendar_v3.Schema$EventAttendee[] | undefined {
-  const emailNormalizado = String(email || "").trim().toLowerCase()
-
-  if (!emailNormalizado) {
-    return undefined
-  }
-
-  return [
-    {
-      email: emailNormalizado,
-      displayName: nombre?.trim() || undefined,
-    },
-  ]
-}
-
 export async function sincronizarDisponibilidadConGoogle(params: {
   disponibilidadId: number
   actorEmail?: string
@@ -427,16 +409,16 @@ export async function sincronizarDisponibilidadConGoogle(params: {
     `Estado plataforma: ${disponibilidad.estado}`,
   ].join("\n")
 
+  // Sin attendees a propósito: el participante nunca recibe el Meet real
+  // de esta forma (Prompt 44) — solo el portal, por mail/.ics. El evento
+  // queda únicamente en el calendario de quien organiza (Nicolás), que es
+  // quien lo abre.
   const requestBody = {
     summary: disponibilidad.titulo,
     description: descripcion,
     location: "Google Meet",
     start: intervaloGoogle.start,
     end: intervaloGoogle.end,
-    attendees: construirAttendees(
-      disponibilidad.participante_email,
-      disponibilidad.participante_nombre
-    ),
   }
 
   let googleEventId = disponibilidad.google_event_id || null
@@ -640,16 +622,13 @@ export async function crearEventoGoogleDesdeReserva(params: {
     .filter(Boolean)
     .join("\n")
 
+  // Sin attendees a propósito, mismo criterio que sincronizarDisponibilidadConGoogle.
   const requestBody = {
     summary: `${disponibilidad.titulo} - ${reserva.participante_nombre}`,
     description: descripcion,
     location: "Google Meet",
     start: intervaloGoogle.start,
     end: intervaloGoogle.end,
-    attendees: construirAttendees(
-      reserva.participante_email,
-      reserva.participante_nombre
-    ),
   }
 
   let googleEventId =

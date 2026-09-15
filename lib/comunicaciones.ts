@@ -498,6 +498,45 @@ function extraerNombreRemitente(value?: string | null) {
   return (match?.[1] || "ENTHEOS").replace(/^"|"$/g, "").trim()
 }
 
+// El portal (con su botón de siempre, ya gateado por el consentimiento) es
+// el único destino que un participante recibe para entrar a su encuentro —
+// nunca el link de Meet en sí, sea por mail, por el .ics adjunto o por un
+// evento de Google Calendar. Si hay disponibilidadId, esa fila queda
+// destacada al abrir /agenda (ver app/agenda/page.tsx); sin id, cae en la
+// sección general de la actividad.
+function linkEncuentroPortal(
+  disponibilidadId: number | null | undefined,
+  actividadSlug: "mentorias" | "terapia"
+) {
+  return disponibilidadId
+    ? `${appUrl()}/agenda?encuentro=${disponibilidadId}`
+    : `${appUrl()}${rutaActividadSesion(actividadSlug)}`
+}
+
+function linkRecuperarClave() {
+  return `${appUrl()}/recuperar-clave`
+}
+
+function bloqueIngresoTexto(linkEncuentro: string) {
+  return [
+    `Para entrar: ${linkEncuentro}`,
+    "",
+    `Entrás con tu cuenta de ENTHEOS. Si no te acordás la clave, la recuperás en un minuto desde acá: ${linkRecuperarClave()}`,
+  ].join("\n")
+}
+
+function bloqueIngresoHtml(linkEncuentro: string) {
+  return `
+    <p style="margin: 0 0 14px;">Para entrar:</p>
+    <p style="margin: 0 0 14px;">
+      <a href="${linkEncuentro}" style="display: inline-block; padding: 13px 20px; border-radius: 999px; background: #c98b1b; color: #ffffff; font-weight: 700; text-decoration: none;">
+        Ir a mi encuentro
+      </a>
+    </p>
+    <p style="margin: 0;">Entrás con tu cuenta de ENTHEOS. Si no te acordás la clave, la recuperás en un minuto desde <a href="${linkRecuperarClave()}" style="color:#8a5b0f;">acá</a>.</p>
+  `
+}
+
 function organizerIcs() {
   const remitente =
     process.env.MAIL_REPLY_TO ||
@@ -523,10 +562,12 @@ export function generarIcsSesionIndividual(
   const actividad = nombreActividadSesion(params.actividadSlug)
   const titulo = `${actividad} en ENTHEOS`
   const duracion = Number(params.duracion || 60)
-  const meetLink = normalizarMeetLink(params.meetLink)
-  const linkPlataforma = `${appUrl()}${rutaActividadSesion(params.actividadSlug)}`
-  const urlEvento = meetLink || linkPlataforma
-  const ubicacion = meetLink || "ENTHEOS"
+  const linkEncuentro = linkEncuentroPortal(
+    params.disponibilidadId,
+    params.actividadSlug
+  )
+  const urlEvento = linkEncuentro
+  const ubicacion = linkEncuentro
   const uidBase = params.disponibilidadId
     ? String(params.disponibilidadId)
     : `${params.actividadSlug}-${params.fecha}-${params.hora}-${normalizarEmail(
@@ -537,10 +578,7 @@ export function generarIcsSesionIndividual(
     `Fecha: ${formatearFechaSesion(params.fecha)}`,
     `Hora: ${formatearHoraSesion(params.hora)} Argentina`,
     `Duración: ${duracion} minutos`,
-    `Plataforma: ${linkPlataforma}`,
-    meetLink
-      ? `Meet: ${meetLink}`
-      : "El enlace de acceso será enviado antes del encuentro.",
+    `Para entrar: ${linkEncuentro}`,
   ].join("\n")
   const organizer = organizerIcs()
   const lineas = [
@@ -1703,11 +1741,10 @@ export async function enviarConfirmacionSesionIndividual(
   )
   const duracionTexto = String(params.duracion || "60")
   const meetLink = normalizarMeetLink(params.meetLink)
-  const linkPlataforma = `${appUrl()}${rutaActividadSesion(params.actividadSlug)}`
-
-  const meetTexto = meetLink
-    ? `Link de acceso: ${meetLink}`
-    : "Te enviaremos el enlace de acceso antes del encuentro."
+  const linkEncuentro = linkEncuentroPortal(
+    params.disponibilidadId,
+    params.actividadSlug
+  )
 
   const texto = [
     `Hola ${nombre},`,
@@ -1718,17 +1755,10 @@ export async function enviarConfirmacionSesionIndividual(
     `Hora: ${horaTexto} Argentina${horaLocalTexto ? ` (${horaLocalTexto} tu hora)` : ""}`,
     `Duración: ${duracionTexto} minutos`,
     "",
-    meetTexto,
-    "",
-    "Podés ingresar también desde tu espacio en la plataforma:",
-    linkPlataforma,
+    bloqueIngresoTexto(linkEncuentro),
     "",
     "Si necesitás hacer alguna consulta, podés responder este correo.",
   ].join("\n")
-
-  const meetHtml = meetLink
-    ? `<p style="margin: 0;"><strong>Link de acceso:</strong> <a href="${meetLink}" style="color:#8a5b0f;">${meetLink}</a></p>`
-    : `<p style="margin: 0;">Te enviaremos el enlace de acceso antes del encuentro.</p>`
 
   const html = `
     <div style="margin: 0; padding: 32px 16px; background: #f6efe2; font-family: Arial, sans-serif; color: #1f2933;">
@@ -1764,15 +1794,8 @@ export async function enviarConfirmacionSesionIndividual(
           </div>
 
           <div style="border: 1px solid #ead9b4; border-radius: 18px; padding: 18px 20px; margin: 0 0 22px; background: #fff7ea;">
-            ${meetHtml}
+            ${bloqueIngresoHtml(linkEncuentro)}
           </div>
-
-          <p style="margin: 0 0 14px;">Podés ingresar también desde tu espacio en la plataforma:</p>
-          <p style="margin: 0 0 22px;">
-            <a href="${linkPlataforma}" style="display: inline-block; padding: 13px 20px; border-radius: 999px; background: #c98b1b; color: #ffffff; font-weight: 700; text-decoration: none;">
-              Ir a la plataforma
-            </a>
-          </p>
 
           <p style="margin: 0;">Si necesitás hacer alguna consulta, podés responder este correo.</p>
         </div>
@@ -1827,11 +1850,10 @@ export async function enviarActualizacionSesionIndividual(
   )
   const duracionTexto = String(params.duracion || "60")
   const meetLink = normalizarMeetLink(params.meetLink)
-  const linkPlataforma = `${appUrl()}${rutaActividadSesion(params.actividadSlug)}`
-
-  const meetTexto = meetLink
-    ? `Link de acceso actualizado: ${meetLink}`
-    : "Podés revisar el acceso actualizado entrando a tu espacio en la plataforma."
+  const linkEncuentro = linkEncuentroPortal(
+    params.disponibilidadId,
+    params.actividadSlug
+  )
 
   const texto = [
     `Hola ${nombre},`,
@@ -1842,15 +1864,8 @@ export async function enviarActualizacionSesionIndividual(
     `Hora: ${horaTexto} Argentina${horaLocalTexto ? ` (${horaLocalTexto} tu hora)` : ""}`,
     `Duración: ${duracionTexto} minutos`,
     "",
-    meetTexto,
-    "",
-    "Podés revisar la información completa desde tu espacio en la plataforma:",
-    linkPlataforma,
+    bloqueIngresoTexto(linkEncuentro),
   ].join("\n")
-
-  const meetHtml = meetLink
-    ? `<p style="margin: 0;"><strong>Link de acceso actualizado:</strong> <a href="${meetLink}" style="color:#8a5b0f;">${meetLink}</a></p>`
-    : `<p style="margin: 0;">Podés revisar el acceso actualizado entrando a tu espacio en la plataforma.</p>`
 
   const html = `
     <div style="margin: 0; padding: 32px 16px; background: #f6efe2; font-family: Arial, sans-serif; color: #1f2933;">
@@ -1884,15 +1899,8 @@ export async function enviarActualizacionSesionIndividual(
           </div>
 
           <div style="border: 1px solid #ead9b4; border-radius: 18px; padding: 18px 20px; margin: 0 0 22px; background: #fff7ea;">
-            ${meetHtml}
+            ${bloqueIngresoHtml(linkEncuentro)}
           </div>
-
-          <p style="margin: 0 0 14px;">Podés revisar la información completa desde tu espacio en la plataforma:</p>
-          <p style="margin: 0 0 22px;">
-            <a href="${linkPlataforma}" style="display: inline-block; padding: 13px 20px; border-radius: 999px; background: #c98b1b; color: #ffffff; font-weight: 700; text-decoration: none;">
-              Ir a la plataforma
-            </a>
-          </p>
         </div>
       </div>
     </div>

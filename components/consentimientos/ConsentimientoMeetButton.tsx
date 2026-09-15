@@ -160,11 +160,18 @@ export default function ConsentimientoMeetButton({
       return
     }
 
+    // Plan B: si guardar el consentimiento falla (la base no responde, el
+    // insert falla, lo que sea), no se le niega el paso a nadie por eso —
+    // el acto que importa (vio el texto, aceptó) ya ocurrió acá mismo; lo
+    // único que se pierde es el registro, y eso queda anotado del lado del
+    // servidor (ver app/api/consentimientos/route.ts) para arreglarlo
+    // después. Mostrar el modal es lo único que nunca se saltea, y eso no
+    // depende de esto.
     try {
       setGuardando(true)
       setMensajeError("")
 
-      const res = await fetch("/api/consentimientos", {
+      await fetch("/api/consentimientos", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -176,19 +183,11 @@ export default function ConsentimientoMeetButton({
           horaEncuentro,
         }),
       })
-
-      const data = await leerJson<{ error?: string }>(res)
-
-      if (!res.ok) {
-        setMensajeError(data.error || "No se pudo guardar el consentimiento.")
-        return
-      }
-
+    } catch {
+      // Falla de red antes de llegar al servidor — mismo criterio, se deja pasar.
+    } finally {
       abrirDestinoUnaVez(href)
       setModalAbierto(false)
-    } catch {
-      setMensajeError("Error guardando el consentimiento.")
-    } finally {
       setGuardando(false)
     }
   }

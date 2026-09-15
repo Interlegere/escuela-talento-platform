@@ -54,24 +54,6 @@ function buildMeetConferenceData(
   }
 }
 
-function construirAttendees(
-  email?: string | null,
-  nombre?: string | null
-): calendar_v3.Schema$EventAttendee[] | undefined {
-  const emailNormalizado = String(email || "").trim().toLowerCase()
-
-  if (!emailNormalizado) {
-    return undefined
-  }
-
-  return [
-    {
-      email: emailNormalizado,
-      displayName: nombre?.trim() || undefined,
-    },
-  ]
-}
-
 function extractMeetLink(
   event?: calendar_v3.Schema$Event | null,
   fallback?: string | null
@@ -153,16 +135,14 @@ async function sincronizarDisponibilidad(params: {
     `Estado plataforma: ${disponibilidad.estado || ""}`,
   ].join("\n")
 
+  // Sin attendees a propósito: el participante nunca recibe el Meet real
+  // de esta forma (Prompt 44) — solo el portal, por mail/.ics.
   const requestBody = {
     summary: disponibilidad.titulo || "Encuentro",
     description: descripcion,
     location: "Google Meet",
     start: intervaloGoogle.start,
     end: intervaloGoogle.end,
-    attendees: construirAttendees(
-      disponibilidad.participante_email,
-      disponibilidad.participante_nombre
-    ),
   }
 
   let googleEventId = disponibilidad.google_event_id || null
