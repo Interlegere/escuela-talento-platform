@@ -12,7 +12,7 @@ export const CONSENTIMIENTO_VERSION = "v2.0"
 // terminos_version). Única fuente de verdad: la página de Términos importa
 // esta misma constante para que el texto y el registro nunca puedan quedar
 // diciendo cosas distintas.
-export const TERMINOS_VERSION = "3.0"
+export const TERMINOS_VERSION = "3.1"
 
 export type ConsentimientoActividadSlug =
   | "casatalentos"

@@ -210,6 +210,28 @@ export default function TerminosYCondicionesPage() {
               El acceso a estas grabaciones es personal, no transferible y está
               condicionado a la permanencia en la actividad correspondiente.
             </p>
+            <p>
+              Las sesiones individuales —mentorías uno a uno y sesiones
+              terapéuticas— no son grabadas.
+            </p>
+            <p>
+              Las grabaciones de los encuentros grupales se conservan sin
+              plazo determinado y podrán ser puestas a disposición de los
+              participantes habilitados de la Escuela, incluidos quienes se
+              incorporen con posterioridad al encuentro registrado y quienes
+              participen de otras actividades. Dicho acceso permanece en
+              todos los casos dentro del ámbito de la Escuela y se encuentra
+              alcanzado por el deber de confidencialidad establecido en la
+              cláusula de Conducta y Uso de la Plataforma.
+            </p>
+            <p>
+              El participante podrá manifestar en cualquier momento, desde su
+              perfil, su voluntad de que el material en el que interviene no
+              sea puesto a disposición de quienes no hubieran estado
+              presentes en el encuentro. Dicha manifestación no afecta en
+              modo alguno su participación ni el desarrollo de las
+              actividades.
+            </p>
           </div>
         </section>
 
@@ -242,9 +264,8 @@ export default function TerminosYCondicionesPage() {
               cualquier momento.
             </p>
             <p>
-              <strong>Uso con personas ajenas al encuentro.</strong> El uso del
-              material registrado con personas ajenas al encuentro en el que fue
-              producido, aun con fines formativos, requiere una autorización
+              <strong>Uso fuera de la Escuela.</strong> El uso del
+              material registrado con personas ajenas a la Escuela, aun con fines formativos, requiere una autorización
               específica y adicional del participante, otorgada por separado,
               sin plazo de vencimiento y revocable en cualquier momento, y cuya
               negativa no afecta en modo alguno su participación ni el

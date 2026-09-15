@@ -31,6 +31,7 @@ export type PerfilResumen = {
   charlaIntroHabilitada: boolean
   notasDocumentos: string | null
   creadoEn: string | null
+  materialRestringido: boolean
 }
 
 export type ActividadResumen = {
@@ -591,7 +592,13 @@ export async function buildAdminPersonSummaries(): Promise<PersonaResumen[]> {
 
   const inscripcionIds = inscripciones.map((item) => item.id).filter(Boolean)
 
-  const [pagosData, disponibilidadesIndividualesData, disponibilidadesGrupalesData, reservasData] =
+  const [
+    pagosData,
+    disponibilidadesIndividualesData,
+    disponibilidadesGrupalesData,
+    reservasData,
+    materialRestriccionesData,
+  ] =
     await Promise.all([
       inscripcionIds.length > 0
         ? supabase
@@ -635,6 +642,13 @@ export async function buildAdminPersonSummaries(): Promise<PersonaResumen[]> {
             .in("participante_email", emails)
             .order("created_at", { ascending: false })
         : Promise.resolve({ data: [], error: null }),
+      emails.length > 0
+        ? supabase
+            .from("material_restricciones")
+            .select("user_email, accion, created_at")
+            .in("user_email", emails)
+            .order("created_at", { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
     ])
 
   if (pagosData.error) throw pagosData.error
@@ -642,6 +656,7 @@ export async function buildAdminPersonSummaries(): Promise<PersonaResumen[]> {
     throw disponibilidadesIndividualesData.error
   if (disponibilidadesGrupalesData.error) throw disponibilidadesGrupalesData.error
   if (reservasData.error) throw reservasData.error
+  if (materialRestriccionesData.error) throw materialRestriccionesData.error
 
   const pagos = (pagosData.data as PagoRow[] | null) || []
   const disponibilidadesIndividuales =
@@ -649,6 +664,19 @@ export async function buildAdminPersonSummaries(): Promise<PersonaResumen[]> {
   const disponibilidadesGrupales =
     (disponibilidadesGrupalesData.data as DisponibilidadRow[] | null) || []
   const reservas = (reservasData.data as ReservaRow[] | null) || []
+
+  // Solo se agregan filas a material_restricciones, nunca se actualizan —
+  // el estado de cada persona es su fila más reciente. Como la consulta ya
+  // viene ordenada created_at desc, la PRIMERA fila que se ve por email es
+  // la vigente; las siguientes del mismo email se ignoran.
+  const materialRestringidoPorEmail = new Map<string, boolean>()
+  for (const row of (materialRestriccionesData.data as
+    | { user_email: string; accion: string; created_at: string }[]
+    | null) || []) {
+    const email = normalizarEmail(row.user_email)
+    if (!email || materialRestringidoPorEmail.has(email)) continue
+    materialRestringidoPorEmail.set(email, row.accion === "restringe")
+  }
 
   const usuarioActividadesMap = new Map<string, Map<string, UsuarioActividadRow>>()
   for (const row of usuarioActividades) {
@@ -867,6 +895,7 @@ export async function buildAdminPersonSummaries(): Promise<PersonaResumen[]> {
           ? notas.map((item) => `${item.titulo} | ${item.url}`).join("\n")
           : null,
       creadoEn: usuario.created_at || null,
+      materialRestringido: materialRestringidoPorEmail.get(email) === true,
     }
 
     const actividades: ActividadResumen[] = []

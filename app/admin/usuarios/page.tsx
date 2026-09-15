@@ -1854,6 +1854,12 @@ export default function AdminUsuariosPage() {
                   label="Charla introductoria"
                   value={persona.perfil.charlaIntroHabilitada ? "Sí" : "No"}
                 />
+                <InfoItem
+                  label="Material"
+                  value={
+                    persona.perfil.materialRestringido ? "Restringido" : "—"
+                  }
+                />
               </div>
             </BloqueFicha>
 

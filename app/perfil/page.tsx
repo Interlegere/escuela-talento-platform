@@ -40,6 +40,12 @@ export default function PerfilPage() {
   const [googleConectado, setGoogleConectado] = useState<boolean | null>(null)
   const [googleMensaje, setGoogleMensaje] = useState("")
   const [desconectandoGoogle, setDesconectandoGoogle] = useState(false)
+  const [materialRestringido, setMaterialRestringido] = useState<
+    boolean | null
+  >(null)
+  const [materialDesde, setMaterialDesde] = useState<string | null>(null)
+  const [materialMensaje, setMaterialMensaje] = useState("")
+  const [guardandoMaterial, setGuardandoMaterial] = useState(false)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -98,6 +104,27 @@ export default function PerfilPage() {
     }
   }, [cargarEstadoGoogle, status])
 
+  const cargarEstadoMaterial = useCallback(async () => {
+    try {
+      const res = await fetch("/api/material/restriccion", { cache: "no-store" })
+      const data = await res.json()
+      if (res.ok) {
+        setMaterialRestringido(Boolean(data.restringido))
+        setMaterialDesde(data.desde || null)
+      } else {
+        setMaterialRestringido(false)
+      }
+    } catch {
+      setMaterialRestringido(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      void cargarEstadoMaterial()
+    }
+  }, [cargarEstadoMaterial, status])
+
   // El callback de Google vuelve acá con ?google_success=...&google_error=...
   // en la URL — se lee directo de window.location en vez de useSearchParams
   // para no tener que envolver toda la página en Suspense por esto solo.
@@ -134,6 +161,32 @@ export default function PerfilPage() {
       setGoogleMensaje("Error desconectando Google Calendar.")
     } finally {
       setDesconectandoGoogle(false)
+    }
+  }
+
+  const cambiarMaterial = async (accion: "restringe" | "levanta") => {
+    try {
+      setGuardandoMaterial(true)
+      setMaterialMensaje("")
+
+      const res = await fetch("/api/material/restriccion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accion }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setMaterialMensaje(data.error || "No se pudo guardar tu preferencia.")
+        return
+      }
+
+      setMaterialRestringido(Boolean(data.restringido))
+      setMaterialDesde(data.desde || null)
+    } catch {
+      setMaterialMensaje("Error guardando tu preferencia.")
+    } finally {
+      setGuardandoMaterial(false)
     }
   }
 
@@ -300,6 +353,69 @@ export default function PerfilPage() {
           <a href="/api/google/participante/auth" className="workspace-button-primary inline-block">
             Conectar con Google
           </a>
+        )}
+      </section>
+
+      <section className="workspace-panel space-y-3">
+        <div className="space-y-1">
+          <p className="workspace-eyebrow">Material</p>
+          <h2 className="workspace-title-sm">Tus grabaciones dentro de ENTHEOS</h2>
+          <p className="text-sm text-gray-600">
+            ENTHEOS es una escuela, y las grabaciones de los encuentros
+            grupales quedan disponibles para el resto de la gente de la
+            Escuela — también para quienes lleguen después o vengan de otra
+            actividad. Es parte de cómo se aprende acá: lo que pasó en un
+            encuentro le sirve a alguien que todavía no llegó.
+          </p>
+          <p className="text-sm text-gray-600">
+            Todos los que ven esas grabaciones están dentro de ENTHEOS y
+            comprometidos con la misma confidencialidad que vos.
+          </p>
+          <p className="text-sm text-gray-600">
+            Tus sesiones uno a uno no se graban. Nunca.
+          </p>
+          <p className="text-sm text-gray-600">
+            Si preferís que tu material no salga del grupo que estuvo ahí,
+            podés pedirlo acá. No cambia nada de tu participación.
+          </p>
+        </div>
+
+        {materialMensaje && (
+          <p className="text-sm text-gray-700">{materialMensaje}</p>
+        )}
+
+        {materialRestringido === null ? (
+          <p className="text-sm text-gray-500">Revisando tu preferencia...</p>
+        ) : materialRestringido ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm text-gray-700">
+              Tu material no se comparte fuera de quienes estuvieron en cada
+              encuentro
+              {materialDesde
+                ? ` (desde el ${new Date(materialDesde).toLocaleDateString("es-AR")})`
+                : ""}
+              .
+            </span>
+            <button
+              type="button"
+              onClick={() => void cambiarMaterial("levanta")}
+              disabled={guardandoMaterial}
+              className="workspace-button-secondary disabled:opacity-60"
+            >
+              {guardandoMaterial ? "Guardando..." : "Volver a compartir"}
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void cambiarMaterial("restringe")}
+            disabled={guardandoMaterial}
+            className="text-sm text-gray-500 underline disabled:opacity-60"
+          >
+            {guardandoMaterial
+              ? "Guardando..."
+              : "Pedir que mi material no se comparta"}
+          </button>
         )}
       </section>
     </main>
