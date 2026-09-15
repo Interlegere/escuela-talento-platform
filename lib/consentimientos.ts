@@ -1,4 +1,18 @@
-export const CONSENTIMIENTO_VERSION = "v1.0"
+// Versión del texto del cartel de consentimiento que se muestra antes de
+// cada encuentro — no confundir con TERMINOS_VERSION (la de los Términos y
+// Condiciones en sí). Desde la sección 17 de los Términos, esta versión ya
+// no es lo que hace que la gente vuelva a aceptar (eso lo garantiza el
+// propio encuentro, ver app/api/consentimientos/route.ts): queda solo como
+// etiqueta del texto de acá abajo, y conviene subirla cuando ese texto
+// cambie — como ahora, al unificar el trato a voseo.
+export const CONSENTIMIENTO_VERSION = "v2.0"
+
+// Versión de los Términos y Condiciones (app/terminos-y-condiciones/page.tsx)
+// que se registra en cada fila de "consentimientos" (columna
+// terminos_version). Única fuente de verdad: la página de Términos importa
+// esta misma constante para que el texto y el registro nunca puedan quedar
+// diciendo cosas distintas.
+export const TERMINOS_VERSION = "3.0"
 
 export type ConsentimientoActividadSlug =
   | "casatalentos"
@@ -68,12 +82,12 @@ export function getConsentimientoTexto(
       ? [
           `Al ingresar a esta grabación de la Escuela (${actividadNombre}), confirmás que leíste y aceptás los Términos y Condiciones vigentes de la plataforma, disponibles para su consulta.`,
           "El acceso a este contenido es personal y estará disponible únicamente durante el período informado dentro de Campus.",
-          "Al continuar, Ud. confirma su aceptación plena.",
+          "Al continuar, confirmás tu aceptación.",
         ].filter((item): item is string => Boolean(item))
       : [
           `Al ingresar a esta videollamada de la Escuela (${actividadNombre}), confirmás que leíste y aceptás los Términos y Condiciones vigentes de la plataforma, disponibles para su consulta.`,
           "Tu participación es voluntaria y se rige por dichas condiciones, incluyendo el posible registro de imagen, voz y contenidos generados durante la actividad.",
-          "Al continuar, Ud. confirma su aceptación plena.",
+          "Al continuar, confirmás tu aceptación.",
         ].filter((item): item is string => Boolean(item))
 
   const textosAdicionales: string[] = []

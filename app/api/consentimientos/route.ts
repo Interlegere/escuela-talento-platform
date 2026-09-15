@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { requireAuthenticatedActor } from "@/lib/authz"
 import {
   CONSENTIMIENTO_VERSION,
+  TERMINOS_VERSION,
   esActividadConsentimiento,
 } from "@/lib/consentimientos"
 import { createAdminSupabaseClient } from "@/lib/supabase-admin"
@@ -44,6 +45,22 @@ export async function GET(req: Request) {
       )
     }
 
+    // Sin disponibilidadId no hay encuentro identificado (la charla
+    // introductoria, o cualquier caso donde el id no llegue) — no se busca
+    // nada y se muestra el cartel siempre. Buscar acá una aceptación
+    // anterior de la actividad rompía la regla de la sección 17 de los
+    // Términos ("cada encuentro pregunta"), porque una aceptación vieja de
+    // OTRO encuentro sin id dejaba pasar sin preguntar.
+    if (disponibilidadId === null) {
+      return NextResponse.json({
+        ok: true,
+        actividad,
+        version: CONSENTIMIENTO_VERSION,
+        aceptado: false,
+        consentimiento: null,
+      })
+    }
+
     const supabase = createAdminSupabaseClient()
 
     let query = supabase
@@ -55,12 +72,7 @@ export async function GET(req: Request) {
       .eq("actividad", actividad)
       .eq("version", CONSENTIMIENTO_VERSION)
       .eq("aceptado", true)
-
-    if (disponibilidadId !== null) {
-      query = query.eq("disponibilidad_id", disponibilidadId)
-    } else {
-      query = query.is("disponibilidad_id", null)
-    }
+      .eq("disponibilidad_id", disponibilidadId)
 
     if (fechaEncuentro) {
       query = query.eq("fecha_encuentro", fechaEncuentro)
@@ -133,23 +145,22 @@ export async function POST(req: Request) {
 
     const supabase = createAdminSupabaseClient()
 
+    // Siempre una fila nueva, nunca upsert: cada aceptación es su propia
+    // constancia (sección 17 de los Términos). Con el upsert de antes, una
+    // aceptación con disponibilidad_id null pisaba a la anterior en vez de
+    // dejar historial.
     const { data, error } = await supabase
       .from("consentimientos")
-      .upsert(
-        {
-          user_email: auth.actor.email,
-          actividad,
-          disponibilidad_id: disponibilidadId,
-          fecha_encuentro: body.fechaEncuentro || null,
-          hora_encuentro: body.horaEncuentro || null,
-          aceptado: true,
-          version: CONSENTIMIENTO_VERSION,
-        },
-        {
-          onConflict: "user_email,actividad,version,disponibilidad_id",
-          ignoreDuplicates: false,
-        }
-      )
+      .insert({
+        user_email: auth.actor.email,
+        actividad,
+        disponibilidad_id: disponibilidadId,
+        fecha_encuentro: body.fechaEncuentro || null,
+        hora_encuentro: body.horaEncuentro || null,
+        aceptado: true,
+        version: CONSENTIMIENTO_VERSION,
+        terminos_version: TERMINOS_VERSION,
+      })
       .select("*")
       .single()
 
